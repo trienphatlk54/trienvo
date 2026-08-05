@@ -1269,7 +1269,11 @@
       <div class="main-card">
         <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
           <h2>📱 Quản lý danh sách Phone</h2>
-          <button class="btn btn-primary" onclick="openPhoneModal()">+ Thêm Phone</button>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button class="btn btn-secondary btn-sm" onclick="zoomPhoneTable(0.1)" title="Phóng to">🔍 +</button>
+            <button class="btn btn-secondary btn-sm" onclick="zoomPhoneTable(-0.1)" title="Thu nhỏ">🔍 -</button>
+            <button class="btn btn-primary" onclick="openPhoneModal()">+ Thêm Phone</button>
+          </div>
         </div>
         <div class="table-container" style="max-height: 600px; overflow:auto;">
           <table class="data-table table-grouped" style="min-width: 1200px;">
@@ -1277,7 +1281,7 @@
               <tr>
                 <th rowspan="2" style="width:100px;">Số định danh</th>
                 <th rowspan="2" style="width:100px;">Loại</th>
-                <th colspan="8" class="group-shopee">Tài khoản Shopee</th>
+                <th colspan="9" class="group-shopee">Tài khoản Shopee</th>
                 <th colspan="1" class="group-tiktok">Tài khoản Tiktok</th>
                 <th rowspan="2" style="width:80px;">Thao tác</th>
               </tr>
@@ -1290,13 +1294,14 @@
                 <th>Username</th>
                 <th>Email</th>
                 <th>Ngày tạo</th>
+                <th>Phone</th>
                 <th>Thời gian lấy SS</th>
                 <!-- Tiktok columns -->
                 <th style="color:var(--text-muted); font-style:italic;">(Chưa khả dụng)</th>
               </tr>
             </thead>
             <tbody id="phoneTableBody">
-              <tr><td colspan="12" style="text-align:center; padding:20px; color:var(--text-muted);">Đang tải dữ liệu...</td></tr>
+              <tr><td colspan="13" style="text-align:center; padding:20px; color:var(--text-muted);">Đang tải dữ liệu...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1349,6 +1354,17 @@
 
 <script>
 // ── State ──────────────────────────────────────────────────────────────────────
+let phoneTableZoom = 1;
+function zoomPhoneTable(delta) {
+  phoneTableZoom += delta;
+  if (phoneTableZoom < 0.3) phoneTableZoom = 0.3;
+  if (phoneTableZoom > 2.0) phoneTableZoom = 2.0;
+  const table = document.querySelector('#tab-phone .table-container table');
+  if (table) {
+    table.style.zoom = phoneTableZoom;
+  }
+}
+
 let activeTab = 'shopee';
 
 const state = {
@@ -2158,7 +2174,7 @@ function renderPhoneTable() {
   const tbody = $('phoneTableBody');
   const ids = Object.keys(phonesData);
   if (ids.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:20px; color:var(--text-muted);">Chưa có dữ liệu.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding:20px; color:var(--text-muted);">Chưa có dữ liệu.</td></tr>';
     return;
   }
   
@@ -2166,7 +2182,7 @@ function renderPhoneTable() {
   for (const id of ids.reverse()) {
     const p = phonesData[id];
     html += `
-      <tr>
+      <tr onclick="openPhoneModal('${id}')" style="cursor: pointer;" title="Bấm để chỉnh sửa dòng này">
         <td style="font-weight:bold;">${escapeHtml(p.identifier || '')}</td>
         <td>${escapeHtml(p.type || '')}</td>
         <!-- Shopee -->
@@ -2177,11 +2193,12 @@ function renderPhoneTable() {
         <td>${escapeHtml(p.shopeeUsername || '')}</td>
         <td>${escapeHtml(p.shopeeEmail || '')}</td>
         <td>${escapeHtml(p.shopeeCreatedAt || '')}</td>
+        <td>${escapeHtml(p.shopeePhoneAlt || '')}</td>
         <td>${escapeHtml(p.shopeeSessionTime || '')}</td>
         <!-- Tiktok -->
         <td style="color:var(--text-muted);"></td>
         <!-- Thao tác -->
-        <td>
+        <td onclick="event.stopPropagation()">
           <button class="action-btn action-edit" onclick="openPhoneModal('${id}')" title="Sửa">✏️</button>
           <button class="action-btn action-delete" onclick="deletePhone('${id}')" title="Xóa">🗑️</button>
         </td>
@@ -2210,6 +2227,7 @@ function openPhoneModal(id = null) {
     $('pm_s_user').value = p.shopeeUsername || '';
     $('pm_s_email').value = p.shopeeEmail || '';
     $('pm_s_created').value = p.shopeeCreatedAt || '';
+    $('pm_s_phone_alt').value = p.shopeePhoneAlt || '';
     $('pm_s_ss').value = p.shopeeSessionTime || '';
   } else {
     title.innerText = 'Thêm Phone Mới';
@@ -2240,7 +2258,7 @@ async function savePhoneModal() {
     shopeeSpcSt: $('pm_s_spcst')?.value || '',
     shopeeUsername: $('pm_s_user')?.value || '',
     shopeeEmail: $('pm_s_email')?.value || '',
-    shopeePhoneAlt: '',
+    shopeePhoneAlt: $('pm_s_phone_alt')?.value || '',
     shopeeCreatedAt: $('pm_s_created')?.value || '',
     shopeeSessionTime: $('pm_s_ss')?.value || ''
   };
@@ -2323,10 +2341,11 @@ async function deletePhone(id) {
         </div>
         <div class="form-group" style="margin-bottom:10px;"><label>SPC_F</label><input type="text" id="pm_s_spcf"></div>
         <div class="form-group" style="margin-bottom:10px;"><label>SPC_ST</label><input type="text" id="pm_s_spcst"></div>
-        <div style="display:flex; gap:12px;">
+        <div style="display:flex; gap:12px; margin-bottom:10px;">
           <div class="form-group" style="flex:1;"><label>Ngày tạo</label><input type="text" id="pm_s_created"></div>
-          <div class="form-group" style="flex:1;"><label>Thời gian lấy SS</label><input type="text" id="pm_s_ss"></div>
+          <div class="form-group" style="flex:1;"><label>Phone</label><input type="text" id="pm_s_phone_alt"></div>
         </div>
+        <div class="form-group" style="margin-bottom:10px;"><label>Thời gian lấy SS</label><input type="text" id="pm_s_ss"></div>
       </div>
 
     </div>
