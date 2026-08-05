@@ -309,9 +309,9 @@ function startPoll(page) {
           SPC_F:  F ? F.value : '',
           all: cookies.filter(c => keep.includes(c.name)).map(c => ({ name:c.name, value:c.value })),
         };
-        S.status = 'success';
         console.log('\n🎉 ĐĂNG NHẬP OK! SPC_ST:', ST.value.substring(0,50) + '…');
         try { S.userInfo = await fetchUserInfo(page); } catch(e) { console.warn('  ⚠️', e.message); }
+        S.status = 'success';
       }
     } catch(e) {
       if (!['success','idle'].includes(S.status)) console.warn('  ⚠️ poll:', e.message.substring(0,50));
