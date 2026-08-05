@@ -115,6 +115,18 @@ async function launchBrowser(proxy) {
 async function newPage(browser, proxy) {
   const ctx  = await browser.createBrowserContext();
   const page = await ctx.newPage();
+  
+  // Tối ưu hóa: Block các tài nguyên không cần thiết để load trang cực nhanh và tránh timeout Proxy
+  await page.setRequestInterception(true);
+  page.on('request', (req) => {
+    const t = req.resourceType();
+    if (['font', 'media', 'stylesheet', 'other'].includes(t)) {
+      req.abort();
+    } else {
+      req.continue();
+    }
+  });
+
   await page.evaluateOnNewDocument(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
     window.chrome = { runtime: {} };
@@ -133,6 +145,16 @@ async function newPage(browser, proxy) {
 async function captureQR(page) {
   console.log('  📸 Tìm QR...');
   const qrDataUrl = await page.evaluate(() => {
+    const canvas = document.querySelector('canvas');
+    if (canvas) return canvas.toDataURL('image/png');
+    const svg = document.querySelector('svg');
+    if (svg) {
+      const xml = new XMLSerializer().serializeToString(svg);
+      return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
+    }
+    for (const img of document.querySelectorAll('img')) {
+      if (img.src && img.src.startsWith('data:image')) return img.src;
+    }
     for (const el of document.querySelectorAll('div')) {
       const r  = el.getBoundingClientRect();
       const bg = getComputedStyle(el).backgroundImage;
@@ -144,7 +166,7 @@ async function captureQR(page) {
     }
     return null;
   });
-  if (qrDataUrl) { console.log('  ✅ QR từ background-image'); return qrDataUrl; }
+  if (qrDataUrl) { console.log('  ✅ QR tìm thấy (Canvas/SVG/Img/Bg)'); return qrDataUrl; }
 
   const el = await page.evaluateHandle(() => {
     let best = null, bestA = 0;
@@ -346,6 +368,10 @@ app.post('/api/start', async (_req, res) => {
     // Chờ thêm cho background-image QR load
     try {
       await S.page.waitForFunction(() => {
+        if (document.querySelector('canvas') || document.querySelector('svg')) return true;
+        for (const img of document.querySelectorAll('img')) {
+          if (img.src && img.src.startsWith('data:image')) return true;
+        }
         for (const el of document.querySelectorAll('div')) {
           const bg = getComputedStyle(el).backgroundImage;
           if (bg.includes('data:image')) return true;
@@ -384,6 +410,10 @@ app.post('/api/refresh', async (_req, res) => {
     await delay(8000);
     try {
       await S.page.waitForFunction(() => {
+        if (document.querySelector('canvas') || document.querySelector('svg')) return true;
+        for (const img of document.querySelectorAll('img')) {
+          if (img.src && img.src.startsWith('data:image')) return true;
+        }
         for (const el of document.querySelectorAll('div')) {
           if (getComputedStyle(el).backgroundImage.includes('data:image')) return true;
         }
