@@ -921,7 +921,7 @@
       <div class="nav-item" onclick="switchTab('tab-analytics')">
         <span class="icon">📋</span> Quản lý dữ liệu
       </div>
-      <div class="nav-item" onclick="switchTab('tab-phone')">
+      <div class="nav-item" onclick="switchTab('phone')">
         <span class="icon">📱</span> Quản lý phone
       </div>
       <div class="nav-item" onclick="switchTab('tab-settings')">
@@ -1734,7 +1734,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── Tab Navigation ─────────────────────────────────────────────────────────────
 function switchTab(tabId) {
   activeTab = tabId;
-  if (tabId === 'tab-phone') loadPhones();
+  if (tabId === 'phone') loadPhones();
   // Update nav items
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.remove('active');
