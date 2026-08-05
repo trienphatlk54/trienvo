@@ -98,6 +98,8 @@ async function launchBrowser(proxy) {
   const args = [
     '--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage',
     '--disable-blink-features=AutomationControlled','--lang=vi-VN,vi',
+    '--disable-gpu','--disable-extensions','--disable-background-networking',
+    '--disable-default-apps','--disable-sync','--no-first-run',
   ];
   if (proxy) {
     args.push(`--proxy-server=${proxyUrl(proxy)}`);
@@ -109,19 +111,23 @@ async function launchBrowser(proxy) {
     headless: 'new',
     args,
     defaultViewport: { width: 1280, height: 900 },
+    protocolTimeout: 180000, // 3 phút, tránh lỗi WS endpoint timeout
   });
 }
 
 async function newPage(browser, proxy) {
   const ctx  = await browser.createBrowserContext();
   const page = await ctx.newPage();
-  
-  // Tối ưu hóa: Block các tài nguyên không cần thiết để load trang cực nhanh và tránh timeout Proxy
+
+  // Chặn font/media/ảnh không cần thiết để giảm tải cho server yếu
   await page.setRequestInterception(true);
   page.on('request', (req) => {
     const t = req.resourceType();
-    // Chỉ block font và media. Block stylesheet/other có thể làm hỏng React/API
+    const url = req.url();
+    // Chặn font, media, và các tracker/analytics không cần thiết
     if (['font', 'media'].includes(t)) {
+      req.abort();
+    } else if (url.includes('google-analytics') || url.includes('facebook.net') || url.includes('doubleclick')) {
       req.abort();
     } else {
       req.continue();
@@ -142,16 +148,64 @@ async function newPage(browser, proxy) {
   return { ctx, page };
 }
 
+// ─── Debug: log trạng thái trang hiện tại ──────────────────────────
+async function logPageState(page, label) {
+  try {
+    const url = page.url();
+    const title = await page.title();
+    const bodySnippet = await page.evaluate(() => {
+      const b = document.body;
+      if (!b) return '(no body)';
+      const text = b.innerText || '';
+      return text.substring(0, 200).replace(/\n/g, ' ');
+    });
+    const elCount = await page.evaluate(() => document.querySelectorAll('*').length);
+    console.log(`  📍 [${label}] URL: ${url}`);
+    console.log(`  📄 [${label}] Title: ${title}`);
+    console.log(`  📝 [${label}] Elements: ${elCount} | Body: ${bodySnippet}`);
+  } catch(e) {
+    console.log(`  ⚠️ [${label}] logPageState error: ${e.message}`);
+  }
+}
+
+// ─── Hàm chờ QR xuất hiện trên trang ──────────────────────────────
+const QR_DETECT_FN = () => {
+  // Ưu tiên 1: Canvas (format phổ biến nhất của QR trên Shopee mới)
+  const canvases = document.querySelectorAll('canvas');
+  for (const c of canvases) {
+    if (c.width >= 100 && c.height >= 100) return 'canvas';
+  }
+  // Ưu tiên 2: Img có data URI
+  for (const img of document.querySelectorAll('img')) {
+    const r = img.getBoundingClientRect();
+    if (r.width >= 100 && r.height >= 100 && img.src && img.src.startsWith('data:image')) return 'img';
+  }
+  // Ưu tiên 3: Div background-image chứa data URI (Shopee cũ)
+  for (const el of document.querySelectorAll('div')) {
+    const r = el.getBoundingClientRect();
+    const bg = getComputedStyle(el).backgroundImage;
+    if (r.width >= 120 && r.width <= 300 && Math.abs(r.width - r.height) < 10 && bg.includes('data:image')) return 'bg';
+  }
+  return false;
+};
+
 // ─── Capture QR ────────────────────────────────────────────────────
 async function captureQR(page) {
   console.log('  📸 Tìm QR...');
   const qrDataUrl = await page.evaluate(() => {
-    const canvas = document.querySelector('canvas');
-    if (canvas) return canvas.toDataURL('image/png');
-    // Shopee uses SVG for logos too, so we skip generic SVG grabbing.
-    for (const img of document.querySelectorAll('img')) {
-      if (img.src && img.src.startsWith('data:image')) return img.src;
+    // 1. Canvas (có size hợp lý, tránh canvas nhỏ của Shopee icon)
+    const canvases = document.querySelectorAll('canvas');
+    for (const c of canvases) {
+      if (c.width >= 100 && c.height >= 100) {
+        try { return c.toDataURL('image/png'); } catch(_) {}
+      }
     }
+    // 2. Img data URI (có size hợp lý)
+    for (const img of document.querySelectorAll('img')) {
+      const r = img.getBoundingClientRect();
+      if (r.width >= 100 && r.height >= 100 && img.src && img.src.startsWith('data:image')) return img.src;
+    }
+    // 3. Div background-image (Shopee phiên bản cũ)
     for (const el of document.querySelectorAll('div')) {
       const r  = el.getBoundingClientRect();
       const bg = getComputedStyle(el).backgroundImage;
@@ -163,15 +217,26 @@ async function captureQR(page) {
     }
     return null;
   });
-  if (qrDataUrl) { console.log('  ✅ QR tìm thấy (Canvas/SVG/Img/Bg)'); return qrDataUrl; }
+  if (qrDataUrl) {
+    // Kiểm tra data URL có thực sự chứa dữ liệu không (tránh ảnh trắng)
+    const dataLen = qrDataUrl.length;
+    if (dataLen > 500) {
+      console.log(`  ✅ QR tìm thấy! (${dataLen} bytes)`);
+      return qrDataUrl;
+    }
+    console.log(`  ⚠️ QR data quá nhỏ (${dataLen} bytes), có thể là ảnh trắng`);
+  }
 
+  // Fallback: Tìm element hình vuông lớn nhất rồi chụp screenshot
+  console.log('  🔄 Fallback: chụp element hình vuông...');
   const el = await page.evaluateHandle(() => {
     let best = null, bestA = 0;
-    for (const e of document.querySelectorAll('div')) {
+    for (const e of document.querySelectorAll('div, canvas, img')) {
       const r = e.getBoundingClientRect();
-      if (r.y >= 150 && r.y <= 500 && r.width >= 120 && r.width <= 300
-          && Math.abs(r.width - r.height) < 20 && r.width * r.height > bestA
-          && e.children.length <= 1) { best = e; bestA = r.width * r.height; }
+      if (r.y >= 100 && r.width >= 120 && r.width <= 350
+          && Math.abs(r.width - r.height) < 30 && r.width * r.height > bestA) {
+        best = e; bestA = r.width * r.height;
+      }
     }
     return best;
   });
@@ -181,8 +246,9 @@ async function captureQR(page) {
     return `data:image/png;base64,${b64}`;
   }
 
-  console.log('  🔄 Fallback: clip');
-  const b64 = await page.screenshot({ type:'png', encoding:'base64', clip:{ x:840,y:210,width:240,height:240 } });
+  // Last resort: chụp full page
+  console.log('  🔄 Last resort: full page screenshot');
+  const b64 = await page.screenshot({ type:'png', encoding:'base64' });
   return `data:image/png;base64,${b64}`;
 }
 
@@ -342,6 +408,67 @@ app.delete('/api/proxy', (_req, res) => {
   res.json({ success:true });
 });
 
+// ─── Hàm load trang Shopee và chờ QR (dùng chung cho start & refresh) ──
+async function navigateAndWaitForQR(page, proxy) {
+  console.log('  📄 Tải /buyer/login/qr ...');
+
+  // Bước 1: Điều hướng - dùng 'load' để chờ toàn bộ resource tải xong
+  //         Nếu proxy quá chậm, fallback sang domcontentloaded
+  try {
+    await page.goto('https://shopee.vn/buyer/login/qr', {
+      waitUntil: 'networkidle2',
+      timeout: 120000, // 2 phút cho proxy chậm
+    });
+    console.log('  ✅ Trang load xong (networkidle2)');
+  } catch(navErr) {
+    console.log(`  ⚠️ networkidle2 timeout, thử domcontentloaded: ${navErr.message.substring(0,60)}`);
+    // Trang vẫn đang load, không navigate lại, chỉ tiếp tục chờ
+  }
+
+  // Bước 2: Chờ thêm cho React render xong
+  const extraWait = proxy ? 8000 : 3000;
+  console.log(`  ⏳ Chờ thêm ${extraWait/1000}s cho React render...`);
+  await delay(extraWait);
+
+  // Debug: Log trạng thái trang
+  await logPageState(page, 'sau-load');
+
+  // Bước 3: Chờ QR element xuất hiện (tối đa 60 giây)
+  console.log('  ⏳ Đang chờ QR element xuất hiện (tối đa 60s)...');
+  let qrFound = false;
+  try {
+    await page.waitForFunction(QR_DETECT_FN, { timeout: 60000, polling: 1000 });
+    qrFound = true;
+    console.log('  ✅ QR element đã xuất hiện!');
+  } catch(_) {
+    console.log('  ⚠️ QR chưa xuất hiện sau 60s');
+    await logPageState(page, 'sau-wait-qr');
+  }
+
+  // Bước 4: Nếu chưa tìm thấy, thử reload trang 1 lần
+  if (!qrFound) {
+    console.log('  🔄 Retry: reload trang...');
+    try {
+      await page.reload({ waitUntil: 'networkidle2', timeout: 120000 });
+    } catch(_) {}
+    await delay(proxy ? 8000 : 3000);
+    try {
+      await page.waitForFunction(QR_DETECT_FN, { timeout: 45000, polling: 1000 });
+      qrFound = true;
+      console.log('  ✅ QR element xuất hiện sau retry!');
+    } catch(_) {
+      console.log('  ❌ QR vẫn không xuất hiện sau retry');
+      await logPageState(page, 'sau-retry');
+    }
+  }
+
+  // Chờ thêm 1 giây cho QR render hoàn chỉnh
+  await delay(1000);
+
+  // Bước 5: Capture QR
+  return await captureQR(page);
+}
+
 // ─── POST /api/start ───────────────────────────────────────────────
 app.post('/api/start', async (_req, res) => {
   try {
@@ -356,28 +483,7 @@ app.post('/api/start', async (_req, res) => {
     S.ctx = ctx;
     S.page = page;
 
-    console.log('  📄 Tải /buyer/login/qr ...');
-    // domcontentloaded thay vì networkidle2 vì proxy chậm sẽ timeout
-    await S.page.goto('https://shopee.vn/buyer/login/qr', { waitUntil:'domcontentloaded', timeout:90000 });
-    // Chờ thêm để QR render (proxy chậm cần nhiều thời gian hơn)
-    await delay(proxy ? 10000 : 6000);
-    console.log('  ⏳ Đang chờ QR render...');
-    // Chờ thêm cho background-image QR load
-    try {
-      await S.page.waitForFunction(() => {
-        if (document.querySelector('canvas')) return true;
-        for (const img of document.querySelectorAll('img')) {
-          if (img.src && img.src.startsWith('data:image')) return true;
-        }
-        for (const el of document.querySelectorAll('div')) {
-          const bg = getComputedStyle(el).backgroundImage;
-          if (bg.includes('data:image')) return true;
-        }
-        return false;
-      }, { timeout: 20000 });
-    } catch(_) { console.log('  ⚠️ QR waitForFunction timeout, thử chụp anyway'); }
-
-    const qr = await captureQR(S.page);
+    const qr = await navigateAndWaitForQR(S.page, proxy);
     S.qrImage   = qr;
     S.status    = 'ready';
     S.expiresAt = Date.now() + QR_TTL;
@@ -403,21 +509,8 @@ app.post('/api/refresh', async (_req, res) => {
     clearTimeout(S.expire); clearInterval(S.poll);
     S.status = 'loading';
     console.log('\n🔄 Refresh QR...');
-    await S.page.goto('https://shopee.vn/buyer/login/qr', { waitUntil:'domcontentloaded', timeout:90000 });
-    await delay(8000);
-    try {
-      await S.page.waitForFunction(() => {
-        if (document.querySelector('canvas')) return true;
-        for (const img of document.querySelectorAll('img')) {
-          if (img.src && img.src.startsWith('data:image')) return true;
-        }
-        for (const el of document.querySelectorAll('div')) {
-          if (getComputedStyle(el).backgroundImage.includes('data:image')) return true;
-        }
-        return false;
-      }, { timeout: 20000 });
-    } catch(_) {}
-    const qr = await captureQR(S.page);
+    const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
+    const qr = await navigateAndWaitForQR(S.page, proxy);
     S.qrImage   = qr;
     S.status    = 'ready';
     S.expiresAt = Date.now() + QR_TTL;
