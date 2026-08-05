@@ -533,6 +533,50 @@ app.post('/api/data/delete', async (req, res) => {
   }
 });
 
+// ── Phones Endpoints (Firebase) ──────────────────────────────────────────────
+app.get('/api/phones/all', async (req, res) => {
+  try {
+    const ref = db.ref('phones');
+    const snapshot = await ref.once('value');
+    const data = snapshot.val();
+    res.json({ status: 1, data: data || {} });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/phones/save', async (req, res) => {
+  const { id, identifier, type, shopeePhone, shopeePassword, shopeeSpcF, shopeeSpcSt, shopeeUsername, shopeeEmail, shopeePhoneAlt, shopeeCreatedAt, shopeeSessionTime } = req.body;
+  try {
+    const ref = db.ref('phones');
+    if (id) {
+      // Update existing
+      await ref.child(id).update({
+        identifier, type, shopeePhone, shopeePassword, shopeeSpcF, shopeeSpcSt, shopeeUsername, shopeeEmail, shopeePhoneAlt, shopeeCreatedAt, shopeeSessionTime
+      });
+    } else {
+      // Create new
+      await ref.push().set({
+        identifier, type, shopeePhone: '', shopeePassword: '', shopeeSpcF: '', shopeeSpcSt: '', shopeeUsername: '', shopeeEmail: '', shopeePhoneAlt: '', shopeeCreatedAt: '', shopeeSessionTime: ''
+      });
+    }
+    res.json({ status: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/phones/delete', async (req, res) => {
+  const { id } = req.body;
+  try {
+    const ref = db.ref(`phones/${id}`);
+    await ref.remove();
+    res.json({ status: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── Start ─────────────────────────────────────────────────────────
 app.listen(PORT, () => console.log(`\n✅ http://localhost:${PORT}\n`));
 process.on('SIGINT', async () => {
