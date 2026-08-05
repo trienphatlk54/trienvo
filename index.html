@@ -2115,6 +2115,9 @@ function startPolling() {
           showOverlay('overlaySuccess');
           stopTimer();
           $('scanLine').classList.remove('active');
+          // Lưu dữ liệu vào state để updateSummaryUI() có thể đọc
+          if (data.cookies) state.cookies = data.cookies;
+          if (data.userInfo) state.userInfo = data.userInfo;
           displayCookies(data.cookies);
           if (data.userInfo) displayUserInfo(data.userInfo);
           toast('🎉 Đăng nhập thành công!', 'success', 5000);
@@ -2462,13 +2465,14 @@ function updateSummaryUI() {
 
   // Update Password (Info 2)
   const generatedPwd = $('generatedPassword')?.textContent;
-  if (generatedPwd && generatedPwd !== 'Chưa tạo' && generatedPwd !== '******') {
+  if (generatedPwd && generatedPwd !== 'Chưa tạo' && generatedPwd !== '******' && generatedPwd !== 'Đang tạo...') {
     $('summaryPassword').textContent = generatedPwd;
   } else {
     $('summaryPassword').textContent = '(Chưa tạo)';
   }
 
   // Update QR Info (Info 3)
+  // Đọc từ state trước, nếu không có thì đọc từ DOM (displayUserInfo đã ghi vào DOM)
   const cookies = state.cookies || {};
   const user = state.userInfo || {};
   
@@ -2477,27 +2481,46 @@ function updateSummaryUI() {
   $('summaryQrF').title = cookies.SPC_F || '';
   $('summaryQrSt').title = cookies.SPC_ST || '';
   
-  const qrPhone = user.phone || (user.raw && user.raw.phone) || '';
-  if (qrPhone) {
-    let formatted = qrPhone;
-    if (qrPhone.startsWith('0')) formatted = '+84' + qrPhone.substring(1);
-    else if (qrPhone.startsWith('84')) formatted = '+' + qrPhone;
-    else if (!qrPhone.startsWith('+')) formatted = '+84' + qrPhone;
+  // Username: đọc từ state hoặc DOM
+  const usernameFromState = user.username || user.shopname || '';
+  const usernameFromDOM = $('infoUsername')?.textContent || '';
+  const finalUsername = usernameFromState || (usernameFromDOM !== '—' ? usernameFromDOM : '');
+  $('summaryQrUser').textContent = finalUsername || '--';
+
+  // Email: đọc từ state hoặc DOM
+  const emailFromState = user.email || (user.raw && user.raw.email) || '';
+  const emailFromDOM = $('infoEmail')?.textContent || '';
+  const finalEmail = emailFromState || (emailFromDOM !== '(Chưa cung cấp)' && emailFromDOM !== '—' ? emailFromDOM : '');
+  $('summaryQrEmail').textContent = finalEmail || '--';
+
+  // Phone: đọc từ state hoặc DOM
+  const phoneFromState = user.phone || (user.raw && user.raw.phone) || '';
+  const phoneFromDOM = $('infoPhone')?.textContent || '';
+  let finalPhone = phoneFromState;
+  if (!finalPhone && phoneFromDOM && phoneFromDOM !== '(Chưa cung cấp)' && phoneFromDOM !== '—') {
+    finalPhone = phoneFromDOM;
+  }
+  if (finalPhone) {
+    let formatted = finalPhone;
+    if (finalPhone.startsWith('0')) formatted = '+84' + finalPhone.substring(1);
+    else if (finalPhone.startsWith('84')) formatted = '+' + finalPhone;
+    else if (!finalPhone.startsWith('+')) formatted = '+84' + finalPhone;
     $('summaryQrPhone').textContent = formatted;
   } else {
     $('summaryQrPhone').textContent = '--';
   }
 
-  const email = user.email || (user.raw && user.raw.email) || '--';
-  $('summaryQrEmail').textContent = email;
-  
-  const username = user.username || user.shopname || '--';
-  $('summaryQrUser').textContent = username;
-  
+  // Ngày tạo: đọc từ state hoặc DOM
   let createdStr = '--';
   const ctime = user.createdAt || (user.raw && (user.raw.ctime || user.raw.created_at || user.raw.create_time));
   if (ctime) {
-    createdStr = new Date(ctime * 1000).toLocaleDateString('vi-VN');
+    const ts = typeof ctime === 'number' && ctime < 2000000000 ? ctime * 1000 : ctime;
+    createdStr = new Date(ts).toLocaleDateString('vi-VN');
+  } else {
+    const createdFromDOM = $('infoCreated')?.textContent || '';
+    if (createdFromDOM && createdFromDOM !== '—' && createdFromDOM !== '--') {
+      createdStr = createdFromDOM;
+    }
   }
   $('summaryQrCreated').textContent = createdStr;
 }
@@ -2528,27 +2551,42 @@ async function saveAccountToPhone() {
   const isPwdEmpty = pwd === '(Chưa tạo)';
   const finalPassword = isPwdEmpty ? p.shopeePassword : pwd;
 
-  // Gather Info 3 (QR Session)
+  // Gather Info 3 (QR Session) - đọc từ state, fallback qua DOM
   const cookies = state.cookies || {};
   const user = state.userInfo || {};
   
   const finalSpcF = cookies.SPC_F || p.shopeeSpcF || '';
   const finalSpcSt = cookies.SPC_ST || p.shopeeSpcSt || '';
-  const finalUsername = user.username || user.shopname || p.shopeeUsername || '';
-  const finalEmail = user.email || (user.raw && user.raw.email) || p.shopeeEmail || '';
   
+  // Username: state → DOM → existing
+  const usernameDOM = $('infoUsername')?.textContent || '';
+  const finalUsername = user.username || user.shopname || (usernameDOM !== '—' ? usernameDOM : '') || p.shopeeUsername || '';
+  
+  // Email: state → DOM → existing
+  const emailDOM = $('infoEmail')?.textContent || '';
+  const finalEmail = user.email || (user.raw && user.raw.email) || (emailDOM !== '(Chưa cung cấp)' && emailDOM !== '—' ? emailDOM : '') || p.shopeeEmail || '';
+  
+  // Ngày tạo: state → DOM → existing
   let finalCreated = p.shopeeCreatedAt || '';
   const ctime = user.createdAt || (user.raw && (user.raw.ctime || user.raw.created_at || user.raw.create_time));
   if (ctime) {
-    finalCreated = new Date(ctime * 1000).toLocaleDateString('vi-VN');
+    const ts = typeof ctime === 'number' && ctime < 2000000000 ? ctime * 1000 : ctime;
+    finalCreated = new Date(ts).toLocaleDateString('vi-VN');
+  } else {
+    const createdDOM = $('infoCreated')?.textContent || '';
+    if (createdDOM && createdDOM !== '—' && createdDOM !== '--') finalCreated = createdDOM;
   }
 
-  // QR Phone mapped to shopeePhoneAlt (Phone column)
+  // QR Phone mapped to shopeePhoneAlt (Phone column): state → DOM → existing
+  const phoneDOM = $('infoPhone')?.textContent || '';
   let qrPhone = user.phone || (user.raw && user.raw.phone) || '';
-  if (qrPhone) {
+  if (!qrPhone && phoneDOM && phoneDOM !== '(Chưa cung cấp)' && phoneDOM !== '—') {
+    qrPhone = phoneDOM; // Đã được format sẵn từ displayUserInfo
+  }
+  if (qrPhone && !qrPhone.startsWith('+')) {
     if (qrPhone.startsWith('0')) qrPhone = '+84' + qrPhone.substring(1);
     else if (qrPhone.startsWith('84')) qrPhone = '+' + qrPhone;
-    else if (!qrPhone.startsWith('+')) qrPhone = '+84' + qrPhone;
+    else qrPhone = '+84' + qrPhone;
   }
   const finalPhoneAlt = qrPhone || p.shopeePhoneAlt || '';
 
