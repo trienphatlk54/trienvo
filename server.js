@@ -1,5 +1,19 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
+
+// Simple log capturer
+const sysLogs = [];
+function addSysLog(type, ...args) {
+  const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+  sysLogs.push(`[${new Date().toISOString()}] [${type}] ${msg}`);
+  if (sysLogs.length > 200) sysLogs.shift();
+}
+const origLog = console.log;
+const origErr = console.error;
+const origWarn = console.warn;
+console.log = function(...args) { origLog.apply(console, args); addSysLog('INFO', ...args); };
+console.error = function(...args) { origErr.apply(console, args); addSysLog('ERROR', ...args); };
+console.warn = function(...args) { origWarn.apply(console, args); addSysLog('WARN', ...args); };
 const path = require('path');
 const bodyParser = require('body-parser');
 const { initializeApp, cert } = require('firebase-admin/app');
@@ -27,6 +41,7 @@ const PORT   = process.env.PORT || 3000;
 const QR_TTL = 3 * 60 * 1000;
 
 const app = express();
+app.get('/api/logs', (req, res) => res.type('text/plain').send(sysLogs.join('\n')));
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(__dirname)); // Fallback cho trường hợp up code không có folder public
@@ -238,7 +253,7 @@ app.post('/api/proxy/save', async (req, res) => {
     for (const svc of ipServices) {
       try {
         console.log(`  🔍 Thử ${svc.url}...`);
-        await page.goto(svc.url, { waitUntil: 'networkidle2', timeout: 12000 });
+        await page.goto(svc.url, { waitUntil: 'domcontentloaded', timeout: 20000 });
         const body = await page.evaluate(() => document.body.innerText);
         const parsed = svc.parse(body);
         // Kiểm tra IP hợp lệ (IPv4 hoặc IPv6)
