@@ -1157,6 +1157,26 @@
 
   <!-- Tab 2: Create Account -->
   <div id="tab-create" class="tab-pane">
+
+    <!-- Chọn máy lưu tài khoản -->
+    <div class="main-card" style="margin-bottom: 24px; border: 2px solid var(--shopee);">
+      <div class="card-header">
+        <div>
+          <h2>📱 Chọn máy lưu tài khoản</h2>
+          <p>Danh sách điện thoại (Số định danh và Loại) được lấy từ bảng Quản lý phone.</p>
+        </div>
+      </div>
+      <div class="card-body" style="padding: 24px; display: flex; flex-direction: column; gap: 10px;">
+        <input type="text" id="phoneSelectSearch" class="proxy-input" placeholder="🔍 Lọc theo Số định danh hoặc Loại..." onkeyup="renderPhoneSelect()" style="max-width: 100%; border: 1px solid var(--border);" />
+        <div id="phoneSelectList" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; padding-right: 5px; margin-top: 10px;">
+          <div style="color:var(--text-muted); text-align: center; padding: 10px;">Đang tải danh sách...</div>
+        </div>
+        <div id="selectedPhoneDisplay" style="margin-top: 10px; padding: 12px; background: rgba(238,77,45,0.1); border-radius: 8px; border: 1px solid var(--shopee-light); display: none; align-items: center; justify-content: space-between;">
+          <div><strong style="color:var(--shopee-light);">Đã chọn máy:</strong> <span id="selectedPhoneText" style="font-weight:bold; font-size: 16px;"></span></div>
+          <button class="btn btn-ghost btn-sm" onclick="clearSelectedPhone()">❌ Bỏ chọn</button>
+        </div>
+      </div>
+    </div>
     
     <!-- Phone Selection Section -->
     <div class="main-card" style="margin-bottom: 24px;">
@@ -1262,6 +1282,44 @@
     
     <!-- Nơi chứa bản sao của proxy-section và QR-card được clone từ JS -->
     <div id="createQRContainer" style="width:100%; display:flex; flex-direction:column; align-items:center;"></div>
+
+    <!-- Summary & Save Card -->
+    <div class="main-card" style="margin-top: 24px; border: 2px solid var(--success);">
+      <div class="card-header">
+        <div>
+          <h2>💾 Lưu Thông Tin Tài Khoản</h2>
+          <p>Lưu số điện thoại xác nhận, mật khẩu và dữ liệu QR Session vào Máy đã chọn.</p>
+        </div>
+      </div>
+      <div class="card-body" style="padding: 24px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <div>
+            <div style="color:var(--text-muted); font-size: 13px; margin-bottom: 5px;">Số điện thoại đã xác nhận (Phone):</div>
+            <div id="summaryPhoneConf" style="font-family: monospace; font-size: 16px; color: var(--shopee-light); font-weight: bold;">(Chưa xác nhận)</div>
+          </div>
+          <div>
+            <div style="color:var(--text-muted); font-size: 13px; margin-bottom: 5px;">Mật khẩu:</div>
+            <div id="summaryPassword" style="font-family: monospace; font-size: 16px; color: var(--warning); font-weight: bold;">(Chưa tạo)</div>
+          </div>
+        </div>
+        <div style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
+          <div style="color:var(--text-muted); font-size: 13px; margin-bottom: 10px;">Dữ liệu từ QR Session (Tab 1 hoặc tại đây):</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
+            <div><strong style="color:var(--text-muted);">SĐT Shopee:</strong> <span id="summaryQrPhone" style="color:var(--success);">--</span></div>
+            <div><strong style="color:var(--text-muted);">Email:</strong> <span id="summaryQrEmail">--</span></div>
+            <div><strong style="color:var(--text-muted);">Username:</strong> <span id="summaryQrUser">--</span></div>
+            <div><strong style="color:var(--text-muted);">Ngày tạo:</strong> <span id="summaryQrCreated">--</span></div>
+            <div><strong style="color:var(--text-muted);">SPC_F:</strong> <span id="summaryQrF" style="font-family:monospace; color:var(--text-muted); max-width: 150px; display: inline-block; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom;">--</span></div>
+            <div><strong style="color:var(--text-muted);">SPC_ST:</strong> <span id="summaryQrSt" style="font-family:monospace; color:var(--text-muted); max-width: 150px; display: inline-block; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom;">--</span></div>
+          </div>
+        </div>
+        <div style="margin-top: 24px; text-align: center;">
+          <button class="btn btn-primary" onclick="saveAccountToPhone()" id="btnSaveAccount" style="width: 100%; font-size: 16px; padding: 14px;">
+            🚀 LƯU VÀO MÁY ĐÃ CHỌN
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
     <!-- Tab 4: Phone Management -->
@@ -1270,6 +1328,7 @@
         <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
           <h2>📱 Quản lý danh sách Phone</h2>
           <div style="display:flex; gap:10px; align-items:center;">
+            <input type="text" id="phoneTableSearch" class="proxy-input" placeholder="🔍 Tìm kiếm..." onkeyup="renderPhoneTable()" style="max-width: 200px; padding: 6px 12px; font-size: 12px;" />
             <button class="btn btn-secondary btn-sm" onclick="zoomPhoneTable(0.1)" title="Phóng to">🔍 +</button>
             <button class="btn btn-secondary btn-sm" onclick="zoomPhoneTable(-0.1)" title="Thu nhỏ">🔍 -</button>
             <button class="btn btn-primary" onclick="openPhoneModal()">+ Thêm Phone</button>
@@ -2164,6 +2223,7 @@ async function loadPhones() {
     if (json.status === 1) {
       phonesData = json.data || {};
       renderPhoneTable();
+      if (typeof renderPhoneSelect === 'function') renderPhoneSelect();
     }
   } catch (e) {
     console.error("Lỗi tải danh sách phone:", e);
@@ -2172,15 +2232,31 @@ async function loadPhones() {
 
 function renderPhoneTable() {
   const tbody = $('phoneTableBody');
-  const ids = Object.keys(phonesData);
+  const searchInput = $('phoneTableSearch')?.value.toLowerCase() || '';
+  let ids = Object.keys(phonesData);
+  
   if (ids.length === 0) {
     tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding:20px; color:var(--text-muted);">Chưa có dữ liệu.</td></tr>';
     return;
   }
+
+  // Sort by identifier ascending
+  ids.sort((a, b) => {
+    const valA = (phonesData[a].identifier || '').toString();
+    const valB = (phonesData[b].identifier || '').toString();
+    return valA.localeCompare(valB, undefined, {numeric: true});
+  });
   
   let html = '';
-  for (const id of ids.reverse()) {
+  let count = 0;
+  for (const id of ids) {
     const p = phonesData[id];
+    // Filter
+    if (searchInput) {
+      const matchStr = `${p.identifier} ${p.type} ${p.shopeePhone} ${p.shopeeUsername} ${p.shopeeEmail}`.toLowerCase();
+      if (!matchStr.includes(searchInput)) continue;
+    }
+    
     html += `
       <tr onclick="openPhoneModal('${id}')" style="cursor: pointer;" title="Bấm để chỉnh sửa dòng này">
         <td style="font-weight:bold;">${escapeHtml(p.identifier || '')}</td>
@@ -2204,8 +2280,13 @@ function renderPhoneTable() {
         </td>
       </tr>
     `;
+    count++;
   }
-  tbody.innerHTML = html;
+  if (count === 0) {
+    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding:20px; color:var(--text-muted);">Không tìm thấy dữ liệu.</td></tr>';
+  } else {
+    tbody.innerHTML = html;
+  }
 }
 
 function openPhoneModal(id = null) {
@@ -2304,6 +2385,213 @@ async function deletePhone(id) {
   } catch (e) {
     toast('Lỗi kết nối', 'error');
   }
+}
+// ==================== PHONE SELECTION & SAVE FLOW ====================
+
+let selectedPhoneIdForSave = null;
+
+function renderPhoneSelect() {
+  const list = $('phoneSelectList');
+  if (!list) return;
+  const searchInput = $('phoneSelectSearch')?.value.toLowerCase() || '';
+  
+  let ids = Object.keys(phonesData);
+  if (ids.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px;">Chưa có dữ liệu điện thoại. Hãy thêm bên Tab Quản lý Phone.</div>';
+    return;
+  }
+
+  // Sort by identifier
+  ids.sort((a, b) => {
+    const valA = (phonesData[a].identifier || '').toString();
+    const valB = (phonesData[b].identifier || '').toString();
+    return valA.localeCompare(valB, undefined, {numeric: true});
+  });
+
+  let html = '';
+  let count = 0;
+  for (const id of ids) {
+    const p = phonesData[id];
+    if (searchInput) {
+      const matchStr = `${p.identifier} ${p.type}`.toLowerCase();
+      if (!matchStr.includes(searchInput)) continue;
+    }
+    const isSelected = id === selectedPhoneIdForSave;
+    html += `
+      <div onclick="selectPhoneForSave('${id}')" style="padding: 10px; border-radius: 6px; cursor: pointer; border: 1px solid ${isSelected ? 'var(--shopee)' : 'var(--border)'}; background: ${isSelected ? 'rgba(238,77,45,0.1)' : 'transparent'}; display: flex; justify-content: space-between;">
+        <div><strong>${escapeHtml(p.identifier || '')}</strong> - ${escapeHtml(p.type || '')}</div>
+        ${isSelected ? '<span style="color:var(--shopee);">✅</span>' : ''}
+      </div>
+    `;
+    count++;
+  }
+  if (count === 0) {
+    list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px;">Không tìm thấy.</div>';
+  } else {
+    list.innerHTML = html;
+  }
+}
+
+function selectPhoneForSave(id) {
+  selectedPhoneIdForSave = id;
+  const p = phonesData[id];
+  if (p) {
+    $('selectedPhoneText').textContent = `${p.identifier} - ${p.type}`;
+    $('selectedPhoneDisplay').style.display = 'flex';
+  }
+  renderPhoneSelect();
+}
+
+function clearSelectedPhone() {
+  selectedPhoneIdForSave = null;
+  $('selectedPhoneText').textContent = '';
+  $('selectedPhoneDisplay').style.display = 'none';
+  renderPhoneSelect();
+}
+
+function updateSummaryUI() {
+  if (!$('summaryPhoneConf')) return;
+
+  // Update Phone (Info 1)
+  const manualPhoneText = $('currentConfirmedPhoneText')?.textContent;
+  if (manualPhoneText && manualPhoneText !== '—') {
+    $('summaryPhoneConf').textContent = manualPhoneText;
+  } else {
+    $('summaryPhoneConf').textContent = '(Chưa xác nhận)';
+  }
+
+  // Update Password (Info 2)
+  const generatedPwd = $('generatedPassword')?.textContent;
+  if (generatedPwd && generatedPwd !== 'Chưa tạo' && generatedPwd !== '******') {
+    $('summaryPassword').textContent = generatedPwd;
+  } else {
+    $('summaryPassword').textContent = '(Chưa tạo)';
+  }
+
+  // Update QR Info (Info 3)
+  const cookies = state.cookies || {};
+  const user = state.userInfo || {};
+  
+  $('summaryQrF').textContent = cookies.SPC_F || '--';
+  $('summaryQrSt').textContent = cookies.SPC_ST || '--';
+  $('summaryQrF').title = cookies.SPC_F || '';
+  $('summaryQrSt').title = cookies.SPC_ST || '';
+  
+  const qrPhone = user.phone || (user.raw && user.raw.phone) || '';
+  if (qrPhone) {
+    let formatted = qrPhone;
+    if (qrPhone.startsWith('0')) formatted = '+84' + qrPhone.substring(1);
+    else if (qrPhone.startsWith('84')) formatted = '+' + qrPhone;
+    else if (!qrPhone.startsWith('+')) formatted = '+84' + qrPhone;
+    $('summaryQrPhone').textContent = formatted;
+  } else {
+    $('summaryQrPhone').textContent = '--';
+  }
+
+  const email = user.email || (user.raw && user.raw.email) || '--';
+  $('summaryQrEmail').textContent = email;
+  
+  const username = user.username || user.shopname || '--';
+  $('summaryQrUser').textContent = username;
+  
+  let createdStr = '--';
+  const ctime = user.createdAt || (user.raw && (user.raw.ctime || user.raw.created_at || user.raw.create_time));
+  if (ctime) {
+    createdStr = new Date(ctime * 1000).toLocaleDateString('vi-VN');
+  }
+  $('summaryQrCreated').textContent = createdStr;
+}
+
+// Start updating summary periodically
+setInterval(updateSummaryUI, 1000);
+
+async function saveAccountToPhone() {
+  if (!selectedPhoneIdForSave) {
+    toast('Vui lòng chọn máy (điện thoại) để lưu tài khoản!', 'warning', 3000);
+    return;
+  }
+  
+  const p = phonesData[selectedPhoneIdForSave];
+  if (!p) return;
+
+  const btn = $('btnSaveAccount');
+  btn.disabled = true;
+  btn.innerText = '⏳ Đang lưu...';
+
+  // Gather Info 1 (Phone confirmed)
+  const phoneConf = $('summaryPhoneConf').textContent;
+  const isPhoneConfEmpty = phoneConf === '(Chưa xác nhận)' || phoneConf === '—';
+  const finalShopeePhone = isPhoneConfEmpty ? p.shopeePhone : phoneConf;
+
+  // Gather Info 2 (Password)
+  const pwd = $('summaryPassword').textContent;
+  const isPwdEmpty = pwd === '(Chưa tạo)';
+  const finalPassword = isPwdEmpty ? p.shopeePassword : pwd;
+
+  // Gather Info 3 (QR Session)
+  const cookies = state.cookies || {};
+  const user = state.userInfo || {};
+  
+  const finalSpcF = cookies.SPC_F || p.shopeeSpcF || '';
+  const finalSpcSt = cookies.SPC_ST || p.shopeeSpcSt || '';
+  const finalUsername = user.username || user.shopname || p.shopeeUsername || '';
+  const finalEmail = user.email || (user.raw && user.raw.email) || p.shopeeEmail || '';
+  
+  let finalCreated = p.shopeeCreatedAt || '';
+  const ctime = user.createdAt || (user.raw && (user.raw.ctime || user.raw.created_at || user.raw.create_time));
+  if (ctime) {
+    finalCreated = new Date(ctime * 1000).toLocaleDateString('vi-VN');
+  }
+
+  // QR Phone mapped to shopeePhoneAlt (Phone column)
+  let qrPhone = user.phone || (user.raw && user.raw.phone) || '';
+  if (qrPhone) {
+    if (qrPhone.startsWith('0')) qrPhone = '+84' + qrPhone.substring(1);
+    else if (qrPhone.startsWith('84')) qrPhone = '+' + qrPhone;
+    else if (!qrPhone.startsWith('+')) qrPhone = '+84' + qrPhone;
+  }
+  const finalPhoneAlt = qrPhone || p.shopeePhoneAlt || '';
+
+  // Session Time
+  let finalSessionTime = p.shopeeSessionTime || '';
+  if (cookies.SPC_F || cookies.SPC_ST) {
+    finalSessionTime = new Date().toLocaleString('vi-VN');
+  }
+
+  const payload = {
+    id: selectedPhoneIdForSave,
+    identifier: p.identifier,
+    type: p.type,
+    shopeePhone: finalShopeePhone,
+    shopeePassword: finalPassword,
+    shopeeSpcF: finalSpcF,
+    shopeeSpcSt: finalSpcSt,
+    shopeeUsername: finalUsername,
+    shopeeEmail: finalEmail,
+    shopeePhoneAlt: finalPhoneAlt,
+    shopeeCreatedAt: finalCreated,
+    shopeeSessionTime: finalSessionTime
+  };
+
+  try {
+    const res = await fetch('/api/phones/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+    if (json.status === 1) {
+      toast('✅ Lưu thông tin tài khoản thành công!', 'success', 3000);
+      loadPhones(); // Reload data
+    } else {
+      toast('❌ Lỗi: ' + json.error, 'error');
+    }
+  } catch (e) {
+    toast('❌ Lỗi kết nối đến máy chủ', 'error');
+  }
+  
+  btn.disabled = false;
+  btn.innerText = '🚀 LƯU VÀO MÁY ĐÃ CHỌN';
 }
 </script>
 
