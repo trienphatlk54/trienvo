@@ -120,7 +120,8 @@ async function newPage(browser, proxy) {
   await page.setRequestInterception(true);
   page.on('request', (req) => {
     const t = req.resourceType();
-    if (['font', 'media', 'stylesheet', 'other'].includes(t)) {
+    // Chỉ block font và media. Block stylesheet/other có thể làm hỏng React/API
+    if (['font', 'media'].includes(t)) {
       req.abort();
     } else {
       req.continue();
@@ -147,11 +148,7 @@ async function captureQR(page) {
   const qrDataUrl = await page.evaluate(() => {
     const canvas = document.querySelector('canvas');
     if (canvas) return canvas.toDataURL('image/png');
-    const svg = document.querySelector('svg');
-    if (svg) {
-      const xml = new XMLSerializer().serializeToString(svg);
-      return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
-    }
+    // Shopee uses SVG for logos too, so we skip generic SVG grabbing.
     for (const img of document.querySelectorAll('img')) {
       if (img.src && img.src.startsWith('data:image')) return img.src;
     }
@@ -368,7 +365,7 @@ app.post('/api/start', async (_req, res) => {
     // Chờ thêm cho background-image QR load
     try {
       await S.page.waitForFunction(() => {
-        if (document.querySelector('canvas') || document.querySelector('svg')) return true;
+        if (document.querySelector('canvas')) return true;
         for (const img of document.querySelectorAll('img')) {
           if (img.src && img.src.startsWith('data:image')) return true;
         }
@@ -410,7 +407,7 @@ app.post('/api/refresh', async (_req, res) => {
     await delay(8000);
     try {
       await S.page.waitForFunction(() => {
-        if (document.querySelector('canvas') || document.querySelector('svg')) return true;
+        if (document.querySelector('canvas')) return true;
         for (const img of document.querySelectorAll('img')) {
           if (img.src && img.src.startsWith('data:image')) return true;
         }
