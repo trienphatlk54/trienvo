@@ -325,7 +325,7 @@ app.post('/api/proxy/save', async (req, res) => {
   } catch(e) {}
   
   const uri = p.user 
-    ? `${p.type}://${Buffer.from(`${p.user}:${p.pass}`).toString('base64')}@${p.host}:${p.port}`
+    ? `${p.type}://${encodeURIComponent(p.user)}:${encodeURIComponent(p.pass)}@${p.host}:${p.port}`
     : `${p.type}://${p.host}:${p.port}`;
     
   res.json({ success:true, ip: p.ip, proxy: proxyUrl(p), uri: uri });
@@ -336,7 +336,7 @@ app.get('/api/proxy/status', (_req, res) => {
   if (!proxyConfig) return res.json({ active:false });
   
   const uri = proxyConfig.user 
-    ? `${proxyConfig.type}://${Buffer.from(`${proxyConfig.user}:${proxyConfig.pass}`).toString('base64')}@${proxyConfig.host}:${proxyConfig.port}`
+    ? `${proxyConfig.type}://${encodeURIComponent(proxyConfig.user)}:${encodeURIComponent(proxyConfig.pass)}@${proxyConfig.host}:${proxyConfig.port}`
     : `${proxyConfig.type}://${proxyConfig.host}:${proxyConfig.port}`;
     
   res.json({
