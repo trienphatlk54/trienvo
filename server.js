@@ -371,14 +371,15 @@ app.get('/api/proxy/status', (_req, res) => {
 
 // ─── POST /api/pandaproxy/rotate ───────────────────────────────────
 app.post('/api/pandaproxy/rotate', async (req, res) => {
-  const { proxyId, proxyType } = req.body;
+  const { apiKey, proxyId, proxyType } = req.body;
+  if (!apiKey) return res.status(400).json({ success: false, error: 'Thiếu API Token' });
   if (!proxyId) return res.status(400).json({ success: false, error: 'Thiếu ID Proxy' });
 
   try {
     const pRes = await fetch(`https://pandaproxys.com/api/v2/proxies/${proxyId}/rotate`, {
       method: 'GET',
       headers: {
-        'Authorization': 'Bearer panda645884_eebe80da9de831be996be70d86669cc864ada9f19f035ac1812286690e2bb210',
+        'Authorization': `Bearer ${apiKey}`,
         'x-merchant-id': '357e7dcd-d4a0-4ada-96da-c3725d3defa6'
       }
     });

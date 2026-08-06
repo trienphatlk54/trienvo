@@ -982,11 +982,12 @@
       🐼 PandaProxy (Proxy Xoay)
     </div>
     <div class="proxy-row">
-      <select class="proxy-select" id="pandaType">
+      <select class="proxy-select" id="pandaType" style="flex: 1; max-width: 90px;">
         <option value="http">HTTP</option>
         <option value="socks5">SOCKS5</option>
       </select>
-      <input class="proxy-input" id="pandaApiKey" placeholder="Nhập ID Proxy (VD: 54737)" spellcheck="false" />
+      <input class="proxy-input" id="pandaApiKey" placeholder="Nhập API Token" spellcheck="false" style="flex: 2;" />
+      <input class="proxy-input" id="pandaProxyId" placeholder="ID Proxy (VD: 54737)" spellcheck="false" style="flex: 1;" />
       <div class="proxy-btns">
         <button class="btn btn-primary btn-sm" id="btnRotatePanda" onclick="rotatePanda()">🔄 Xoay IP Ngay</button>
       </div>
@@ -2203,9 +2204,11 @@ let pandaTimer = null;
 async function rotatePanda() {
   const activeTabId = document.querySelector('.tab-pane.active').id;
   const suffix = activeTabId === 'tab-create' ? '_create' : '';
-  const proxyId = $('pandaApiKey' + suffix).value.trim();
+  const apiKey = $('pandaApiKey' + suffix).value.trim();
+  const proxyId = $('pandaProxyId' + suffix).value.trim();
   const proxyType = $('pandaType' + suffix).value;
   
+  if (!apiKey) return toast('Vui lòng nhập API Token', 'error');
   if (!proxyId) return toast('Vui lòng nhập ID Proxy', 'error');
   
   // Disable buttons
@@ -2220,7 +2223,7 @@ async function rotatePanda() {
     const res = await fetch('/api/pandaproxy/rotate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ proxyId, proxyType }),
+      body: JSON.stringify({ apiKey, proxyId, proxyType }),
     });
     const data = await res.json();
     
@@ -2230,7 +2233,8 @@ async function rotatePanda() {
       // Update UI for both tabs
       ['', '_create'].forEach(s => {
         if (!$('pandaInfo' + s)) return;
-        $('pandaApiKey' + s).value = proxyId;
+        $('pandaApiKey' + s).value = apiKey;
+        $('pandaProxyId' + s).value = proxyId;
         $('pandaType' + s).value = proxyType;
         $('pandaInfo' + s).style.display = 'flex';
         $('pandaIp' + s).textContent = data.pandaData.ip;
