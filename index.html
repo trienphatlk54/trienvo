@@ -992,15 +992,21 @@
       </div>
     </div>
     <div class="proxy-info" id="pandaInfo" style="display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-top: 10px;">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span>🌍 IP mới:</span>
-        <span class="proxy-ip" id="pandaIp"></span>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span>🌍 IP mới:</span>
+          <span class="proxy-ip" id="pandaIp"></span>
+        </div>
+        <div style="font-size: 13px; color: var(--text-muted);">
+          ISP: <strong id="pandaIsp"></strong> | Vị trí: <strong id="pandaRegion"></strong>
+        </div>
+        <div style="font-size: 13px; color: var(--text-muted); width: 100%;">
+          Thời gian chờ xoay tiếp: <strong id="pandaCooldown" style="color: var(--accent-primary);">0s</strong>
+        </div>
       </div>
-      <div style="font-size: 13px; color: var(--text-muted);">
-        ISP: <strong id="pandaIsp"></strong> | Vị trí: <strong id="pandaRegion"></strong>
-      </div>
-      <div style="font-size: 13px; color: var(--text-muted); margin-top: 5px; width: 100%;">
-        Thời gian chờ xoay tiếp: <strong id="pandaCooldown" style="color: var(--accent-primary);">0s</strong>
+      <div>
+        <img id="pandaQrImage" src="" alt="Panda QR" style="width:100px; height:100px; border-radius:10px; display:none; background:#fff; padding:4px;" />
+        <div id="pandaQrLabel" style="font-size:11px; color:var(--text-muted); text-align:center; margin-top:4px; display:none;">Quét bằng app Proxy</div>
       </div>
     </div>
   </div>
@@ -2195,8 +2201,8 @@ function clearProxy() {
 
 let pandaTimer = null;
 async function rotatePanda() {
-  const activeTab = document.querySelector('.tab-pane.active').id;
-  const suffix = activeTab === 'tab-shopee' ? '_create' : '';
+  const activeTabId = document.querySelector('.tab-pane.active').id;
+  const suffix = activeTabId === 'tab-create' ? '_create' : '';
   const apiKey = $('pandaApiKey' + suffix).value.trim();
   const proxyType = $('pandaType' + suffix).value;
   
@@ -2219,7 +2225,7 @@ async function rotatePanda() {
     const data = await res.json();
     
     if (data.success) {
-      toast('✅ Đã xoay IP mới và lưu proxy!', 'success');
+      toast('✅ Đã lấy IP mới từ PandaProxy!', 'success');
       
       // Update UI for both tabs
       ['', '_create'].forEach(s => {
@@ -2231,10 +2237,15 @@ async function rotatePanda() {
         $('pandaIsp' + s).textContent = data.pandaData.isp || 'N/A';
         $('pandaRegion' + s).textContent = data.pandaData.region || 'N/A';
         $('pandaCooldown' + s).textContent = data.pandaData.time_next_rotate + 's';
+        
+        if (data.uri) {
+          $('pandaQrImage' + s).src = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(data.uri)}&bgcolor=12121A&color=ffffff&margin=2`;
+          $('pandaQrImage' + s).style.display = 'block';
+          $('pandaQrLabel' + s).style.display = 'block';
+        }
       });
       
       startPandaCooldown(data.pandaData.time_next_rotate);
-      await loadProxyStatus();
     } else {
       toast('❌ Lỗi xoay IP: ' + (data.error || ''), 'error', 5000);
     }

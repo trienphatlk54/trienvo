@@ -390,10 +390,11 @@ app.post('/api/pandaproxy/rotate', async (req, res) => {
         verified: true
       };
 
-      proxyConfig = p;
-      try {
-        db.ref('proxy').set(p).catch(e => console.error('Lỗi lưu proxy vào DB:', e));
-      } catch(e) {}
+      // Không ghi đè proxy hệ thống
+      // proxyConfig = p;
+      // try {
+      //   db.ref('proxy').set(p).catch(e => console.error('Lỗi lưu proxy vào DB:', e));
+      // } catch(e) {}
       
       let uri = '';
       if (p.type === 'socks5') {
