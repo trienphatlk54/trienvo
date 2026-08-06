@@ -636,6 +636,53 @@ app.post('/api/phones/delete', async (req, res) => {
   }
 });
 
+app.post('/api/phones/complete', async (req, res) => {
+  const { id } = req.body;
+  try {
+    const ref = db.ref(`phones/${id}`);
+    const snapshot = await ref.once('value');
+    const phoneData = snapshot.val();
+    
+    if (!phoneData) {
+      return res.status(404).json({ error: 'Không tìm thấy điện thoại' });
+    }
+
+    // Save current shopee session to history
+    const historyData = {
+      shopeePhone: phoneData.shopeePhone || '',
+      shopeePassword: phoneData.shopeePassword || '',
+      shopeeSpcF: phoneData.shopeeSpcF || '',
+      shopeeSpcSt: phoneData.shopeeSpcSt || '',
+      shopeeUsername: phoneData.shopeeUsername || '',
+      shopeeEmail: phoneData.shopeeEmail || '',
+      shopeePhoneAlt: phoneData.shopeePhoneAlt || '',
+      shopeeCreatedAt: phoneData.shopeeCreatedAt || '',
+      shopeeSessionTime: phoneData.shopeeSessionTime || '',
+      completedAt: new Date().toISOString()
+    };
+
+    // Push to history
+    await ref.child('history').push().set(historyData);
+
+    // Clear active session fields
+    await ref.update({
+      shopeePhone: '',
+      shopeePassword: '',
+      shopeeSpcF: '',
+      shopeeSpcSt: '',
+      shopeeUsername: '',
+      shopeeEmail: '',
+      shopeePhoneAlt: '',
+      shopeeCreatedAt: '',
+      shopeeSessionTime: ''
+    });
+
+    res.json({ status: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── Start ─────────────────────────────────────────────────────────
 app.listen(PORT, () => console.log(`\n✅ http://localhost:${PORT}\n`));
 process.on('SIGINT', async () => {

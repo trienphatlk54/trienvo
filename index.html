@@ -1357,6 +1357,7 @@
                 <th>Thời gian lấy SS</th>
                 <!-- Tiktok columns -->
                 <th style="color:var(--text-muted); font-style:italic;">(Chưa khả dụng)</th>
+                <th style="text-align:center;">Hành động</th>
               </tr>
             </thead>
             <tbody id="phoneTableBody">
@@ -2277,7 +2278,8 @@ function renderPhoneTable() {
         <!-- Tiktok -->
         <td style="color:var(--text-muted);"></td>
         <!-- Thao tác -->
-        <td onclick="event.stopPropagation()">
+        <td onclick="event.stopPropagation()" style="text-align:center; min-width:120px;">
+          ${(p.shopeePhone || p.shopeeUsername || p.shopeeSpcSt) ? `<button class="action-btn" style="color:var(--success); border-color:var(--success);" onclick="completePhoneSession('${id}')" title="Hoàn thành phiên hiện tại và làm trống máy">✓ Xong</button>` : `<span style="color:var(--text-muted); font-size:12px; margin-right:5px;">(Trống)</span>`}
           <button class="action-btn action-edit" onclick="openPhoneModal('${id}')" title="Sửa">✏️</button>
           <button class="action-btn action-delete" onclick="deletePhone('${id}')" title="Xóa">🗑️</button>
         </td>
@@ -2286,7 +2288,7 @@ function renderPhoneTable() {
     count++;
   }
   if (count === 0) {
-    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding:20px; color:var(--text-muted);">Không tìm thấy dữ liệu.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" style="text-align:center; padding:20px; color:var(--text-muted);">Không tìm thấy dữ liệu.</td></tr>';
   } else {
     tbody.innerHTML = html;
   }
@@ -2296,6 +2298,8 @@ function openPhoneModal(id = null) {
   const modal = $('phoneModal');
   const title = $('phoneModalTitle');
   const shopeeFields = $('pm_shopee_fields');
+  const historySection = $('pm_history_section');
+  const historyTable = $('pm_history_table');
   
   $('pm_id').value = id || '';
   if (id && phonesData[id]) {
@@ -2313,9 +2317,38 @@ function openPhoneModal(id = null) {
     $('pm_s_created').value = p.shopeeCreatedAt || '';
     $('pm_s_phone_alt').value = p.shopeePhoneAlt || '';
     $('pm_s_ss').value = p.shopeeSessionTime || '';
+
+    // History
+    if (p.history && Object.keys(p.history).length > 0) {
+      historySection.style.display = 'block';
+      let html = '';
+      const histKeys = Object.keys(p.history).sort((a, b) => {
+        const timeA = p.history[a].completedAt || '';
+        const timeB = p.history[b].completedAt || '';
+        return timeB.localeCompare(timeA); // newest first
+      });
+      for (const k of histKeys) {
+        const h = p.history[k];
+        const dateStr = h.completedAt ? new Date(h.completedAt).toLocaleString('vi-VN') : '';
+        html += `
+          <tr>
+            <td>${escapeHtml(dateStr)}</td>
+            <td>${escapeHtml(h.shopeePhone || h.shopeePhoneAlt || '')}</td>
+            <td>${escapeHtml(h.shopeeUsername || '')}</td>
+            <td>${escapeHtml(h.shopeeEmail || '')}</td>
+          </tr>
+        `;
+      }
+      historyTable.innerHTML = html;
+    } else {
+      historySection.style.display = 'block';
+      historyTable.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 10px; color: var(--text-muted);">Chưa có lịch sử.</td></tr>';
+    }
+
   } else {
     title.innerText = 'Thêm Phone Mới';
     shopeeFields.style.display = 'none'; // Chỉ nhập Định danh và Loại khi thêm mới
+    historySection.style.display = 'none';
     $('pm_identifier').value = '';
     $('pm_type').value = '';
   }
@@ -2387,6 +2420,26 @@ async function deletePhone(id) {
     }
   } catch (e) {
     toast('Lỗi kết nối', 'error');
+  }
+}
+
+async function completePhoneSession(id) {
+  if (!confirm('Đánh dấu hoàn thành phiên tài khoản hiện tại?\n\nTài khoản sẽ được lưu vào lịch sử phiên cũ và máy sẽ trở lại trạng thái Trống.')) return;
+  try {
+    const res = await fetch('/api/phones/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    const json = await res.json();
+    if (json.status === 1) {
+      toast('Đã lưu vào lịch sử và làm trống máy thành công!', 'success');
+      loadPhones();
+    } else {
+      toast('Lỗi: ' + json.error, 'error');
+    }
+  } catch (e) {
+    toast('Lỗi kết nối khi hoàn thành phiên', 'error');
   }
 }
 // ==================== PHONE SELECTION & SAVE FLOW ====================
@@ -2672,6 +2725,26 @@ async function saveAccountToPhone() {
           <div class="form-group" style="flex:1;"><label>Phone</label><input type="text" id="pm_s_phone_alt"></div>
         </div>
         <div class="form-group" style="margin-bottom:10px;"><label>Thời gian lấy SS</label><input type="text" id="pm_s_ss"></div>
+      </div>
+      
+      <!-- History Fields -->
+      <div id="pm_history_section" style="display:none; border-top:1px solid var(--border); padding-top:15px; margin-top:10px;">
+        <h4 style="color:var(--shopee-light); margin-bottom:10px; font-size:14px;">Lịch sử phiên cũ</h4>
+        <div style="max-height: 200px; overflow-y: auto;">
+          <table style="width:100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                <th style="padding: 6px;">Thời gian</th>
+                <th style="padding: 6px;">Số điện thoại</th>
+                <th style="padding: 6px;">Username</th>
+                <th style="padding: 6px;">Email</th>
+              </tr>
+            </thead>
+            <tbody id="pm_history_table">
+              <tr><td colspan="4" style="text-align:center; padding: 10px; color: var(--text-muted);">Chưa có lịch sử.</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
     </div>
