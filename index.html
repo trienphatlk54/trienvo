@@ -1314,9 +1314,12 @@
           </div>
         </div>
         <div style="margin-top: 24px; text-align: center;">
-          <button class="btn btn-primary" onclick="saveAccountToPhone()" id="btnSaveAccount" style="width: 100%; font-size: 16px; padding: 14px;">
+          <button class="btn btn-primary" onclick="saveAccountToPhone()" id="btnSaveAccount" style="width: 100%; font-size: 16px; padding: 14px; margin-bottom: 10px;">
             🚀 LƯU VÀO MÁY ĐÃ CHỌN
           </button>
+          <a href="#" onclick="switchTab('tab-analytics'); return false;" style="color: var(--shopee-light); font-size: 13px; text-decoration: underline;">
+            Xem bảng xếp chồng ở Quản lý Dữ liệu ☁️
+          </a>
         </div>
       </div>
     </div>
@@ -2334,15 +2337,18 @@ function openPhoneModal(id = null) {
           <tr>
             <td>${escapeHtml(dateStr)}</td>
             <td>${escapeHtml(h.shopeePhone || h.shopeePhoneAlt || '')}</td>
+            <td>${escapeHtml(h.shopeePassword || '')}</td>
             <td>${escapeHtml(h.shopeeUsername || '')}</td>
             <td>${escapeHtml(h.shopeeEmail || '')}</td>
+            <td title="${escapeHtml(h.shopeeSpcF || '')}">${escapeHtml((h.shopeeSpcF || '').substring(0,10))}...</td>
+            <td title="${escapeHtml(h.shopeeSpcSt || '')}">${escapeHtml((h.shopeeSpcSt || '').substring(0,10))}...</td>
           </tr>
         `;
       }
       historyTable.innerHTML = html;
     } else {
       historySection.style.display = 'block';
-      historyTable.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 10px; color: var(--text-muted);">Chưa có lịch sử.</td></tr>';
+      historyTable.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 10px; color: var(--text-muted);">Chưa có lịch sử.</td></tr>';
     }
 
   } else {
@@ -2674,6 +2680,24 @@ async function saveAccountToPhone() {
     if (json.status === 1) {
       toast('✅ Lưu thông tin tài khoản thành công!', 'success', 3000);
       loadPhones(); // Reload data
+      
+      // Đồng thời lưu vào tab Quản lý Tài khoản (Cloud Firebase)
+      if (finalShopeePhone || finalUsername) {
+        try {
+          await fetch('/api/data/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phone: finalShopeePhone || finalUsername || '',
+              password: finalPassword || '',
+              provider: 'Shopee QR',
+              time: finalSessionTime || new Date().toLocaleString('vi-VN')
+            })
+          });
+          loadFirebaseData(); // Refresh tab 3
+        } catch(e) {}
+      }
+
     } else {
       toast('❌ Lỗi: ' + json.error, 'error');
     }
@@ -2736,12 +2760,15 @@ async function saveAccountToPhone() {
               <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
                 <th style="padding: 6px;">Thời gian</th>
                 <th style="padding: 6px;">Số điện thoại</th>
+                <th style="padding: 6px;">Mật khẩu</th>
                 <th style="padding: 6px;">Username</th>
                 <th style="padding: 6px;">Email</th>
+                <th style="padding: 6px;">SPC_F</th>
+                <th style="padding: 6px;">SPC_ST</th>
               </tr>
             </thead>
             <tbody id="pm_history_table">
-              <tr><td colspan="4" style="text-align:center; padding: 10px; color: var(--text-muted);">Chưa có lịch sử.</td></tr>
+              <tr><td colspan="7" style="text-align:center; padding: 10px; color: var(--text-muted);">Chưa có lịch sử.</td></tr>
             </tbody>
           </table>
         </div>
