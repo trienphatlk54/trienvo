@@ -333,8 +333,13 @@ app.post('/api/proxy/save', async (req, res) => {
       ? `${p.type}://${encodeURIComponent(p.user)}:${encodeURIComponent(p.pass)}@${p.host}:${p.port}`
       : `${p.type}://${p.host}:${p.port}`;
   }
-    
-  res.json({ success:true, ip: p.ip, proxy: proxyUrl(p), uri: uri });
+  res.json({ 
+    success:true, 
+    ip: p.ip, 
+    proxy: proxyUrl(p), 
+    uri: uri,
+    raw: p.user ? `${p.host}:${p.port}:${p.user}:${p.pass}` : `${p.host}:${p.port}`
+  });
 });
 
 // ─── GET /api/proxy/status ─────────────────────────────────────────
@@ -360,6 +365,7 @@ app.get('/api/proxy/status', (_req, res) => {
     hasAuth: !!proxyConfig.user,
     ip: proxyConfig.ip || '',
     uri: uri,
+    raw: proxyConfig.user ? `${proxyConfig.host}:${proxyConfig.port}:${proxyConfig.user}:${proxyConfig.pass}` : `${proxyConfig.host}:${proxyConfig.port}`
   });
 });
 

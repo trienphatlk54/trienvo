@@ -2115,7 +2115,7 @@ function setProxyUIState(data) {
     if (!$('proxyType' + suffix)) return;
     if (data && data.active && data.verified) {
       $('proxyType' + suffix).value = data.type;
-      $('proxyInput' + suffix).value = `${data.host}:${data.port}${data.hasAuth ? ':user:pass' : ''}`;
+      $('proxyInput' + suffix).value = data.raw ? data.raw : `${data.host}:${data.port}`;
       
       $('proxyStatusMsg' + suffix).style.display = 'inline-flex';
       $('proxyStatusMsg' + suffix).className = 'proxy-status-msg ok';
@@ -2127,8 +2127,6 @@ function setProxyUIState(data) {
       $('proxyInfo' + suffix).style.display = 'flex';
       $('proxyIp' + suffix).textContent = data.ip;
       $('btnClearProxy' + suffix).style.display = 'inline-flex';
-      $('proxyInput' + suffix).disabled = true;
-      $('proxyType' + suffix).disabled = true;
       
       if (data.uri) {
         $('proxyQrImage' + suffix).src = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(data.uri)}&bgcolor=12121A&color=ffffff&margin=2`;
