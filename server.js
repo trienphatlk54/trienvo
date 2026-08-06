@@ -52,6 +52,17 @@ const delay = ms => new Promise(r => setTimeout(r, ms));
 // ─── Proxy Config ──────────────────────────────────────────────────
 let proxyConfig = null;
 
+// Tải proxy từ DB khi khởi động
+try {
+  db.ref('proxy').once('value').then(snapshot => {
+    const data = snapshot.val();
+    if (data && data.host) {
+      proxyConfig = data;
+      console.log(`\n🔒 Đã nạp cấu hình Proxy từ DB: ${data.type}://${data.host}:${data.port}`);
+    }
+  }).catch(e => console.error('Lỗi khi tải proxy từ DB:', e));
+} catch(e) {}
+
 function parseProxy(type, raw) {
   const parts = raw.trim().split(':');
   if (parts.length < 2) return null;
@@ -308,12 +319,26 @@ app.post('/api/proxy/save', async (req, res) => {
   p.ip = p.host; // Không check live nên gán luôn host làm ip hiển thị
   proxyConfig = p;
   
-  res.json({ success:true, ip: p.ip, proxy: proxyUrl(p) });
+  // Lưu proxy vào Firebase DB
+  try {
+    db.ref('proxy').set(p).catch(e => console.error('Lỗi lưu proxy vào DB:', e));
+  } catch(e) {}
+  
+  const uri = p.user 
+    ? `${p.type}://${p.user}:${p.pass}@${p.host}:${p.port}`
+    : `${p.type}://${p.host}:${p.port}`;
+    
+  res.json({ success:true, ip: p.ip, proxy: proxyUrl(p), uri: uri });
 });
 
 // ─── GET /api/proxy/status ─────────────────────────────────────────
 app.get('/api/proxy/status', (_req, res) => {
   if (!proxyConfig) return res.json({ active:false });
+  
+  const uri = proxyConfig.user 
+    ? `${proxyConfig.type}://${proxyConfig.user}:${proxyConfig.pass}@${proxyConfig.host}:${proxyConfig.port}`
+    : `${proxyConfig.type}://${proxyConfig.host}:${proxyConfig.port}`;
+    
   res.json({
     active: true,
     verified: proxyConfig.verified,
@@ -322,12 +347,16 @@ app.get('/api/proxy/status', (_req, res) => {
     port: proxyConfig.port,
     hasAuth: !!proxyConfig.user,
     ip: proxyConfig.ip || '',
+    uri: uri,
   });
 });
 
 // ─── DELETE /api/proxy ─────────────────────────────────────────────
 app.delete('/api/proxy', (_req, res) => {
   proxyConfig = null;
+  try {
+    db.ref('proxy').remove();
+  } catch(e) {}
   console.log('  🗑️ Proxy đã xóa');
   res.json({ success:true });
 });

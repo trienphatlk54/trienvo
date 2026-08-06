@@ -964,9 +964,15 @@
       </div>
       <span class="proxy-status-msg" id="proxyStatusMsg" style="display:none;"></span>
     </div>
-    <div class="proxy-info" id="proxyInfo" style="display:none;">
-      <span>🌍 IP qua proxy:</span>
-      <span class="proxy-ip" id="proxyIp"></span>
+    <div class="proxy-info" id="proxyInfo" style="display:none; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span>🌍 IP qua proxy:</span>
+        <span class="proxy-ip" id="proxyIp"></span>
+      </div>
+      <div style="margin-top:10px;">
+        <img id="proxyQrImage" src="" alt="Proxy QR" style="width:100px; height:100px; border-radius:10px; display:none; background:#fff; padding:4px;" />
+        <div id="proxyQrLabel" style="font-size:11px; color:var(--text-muted); text-align:center; margin-top:4px; display:none;">Quét bằng app Proxy</div>
+      </div>
     </div>
   </div>
 
@@ -1871,6 +1877,12 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Tự động lấy số dư 365otp khi vừa mở tab
   fetchBalance();
+  
+  // Tải proxy status
+  loadProxyStatus();
+  
+  // Tải danh sách điện thoại
+  loadPhones();
 });
 
 // ── Tab Navigation ─────────────────────────────────────────────────────────────
@@ -2098,17 +2110,76 @@ function displayUserInfo(info) {
 }
 
 // ── Proxy Management ────────────────────────────────────────────────────────────
+function setProxyUIState(data) {
+  ['', '_create'].forEach(suffix => {
+    if (!$('proxyType' + suffix)) return;
+    if (data && data.active && data.verified) {
+      $('proxyType' + suffix).value = data.type;
+      $('proxyInput' + suffix).value = `${data.host}:${data.port}${data.hasAuth ? ':user:pass' : ''}`;
+      
+      $('proxyStatusMsg' + suffix).style.display = 'inline-flex';
+      $('proxyStatusMsg' + suffix).className = 'proxy-status-msg ok';
+      $('proxyStatusMsg' + suffix).innerHTML = `✅ Đã kết nối — IP: <strong>${data.ip}</strong>`;
+      
+      $('proxyBadge' + suffix).className = 'badge badge-ok';
+      $('proxyBadge' + suffix).textContent = 'Đang dùng';
+      
+      $('proxyInfo' + suffix).style.display = 'flex';
+      $('proxyIp' + suffix).textContent = data.ip;
+      $('btnClearProxy' + suffix).style.display = 'inline-flex';
+      $('proxyInput' + suffix).disabled = true;
+      $('proxyType' + suffix).disabled = true;
+      
+      if (data.uri) {
+        $('proxyQrImage' + suffix).src = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(data.uri)}&bgcolor=12121A&color=ffffff&margin=2`;
+        $('proxyQrImage' + suffix).style.display = 'block';
+        $('proxyQrLabel' + suffix).style.display = 'block';
+      }
+    } else {
+      $('proxyStatusMsg' + suffix).style.display = 'none';
+      $('proxyBadge' + suffix).className = 'badge badge-off';
+      $('proxyBadge' + suffix).textContent = 'Chưa cấu hình';
+      $('proxyInfo' + suffix).style.display = 'none';
+      $('btnClearProxy' + suffix).style.display = 'none';
+      $('proxyInput' + suffix).disabled = false;
+      $('proxyInput' + suffix).value = '';
+      $('proxyType' + suffix).disabled = false;
+      if ($('proxyQrImage' + suffix)) $('proxyQrImage' + suffix).style.display = 'none';
+      if ($('proxyQrLabel' + suffix)) $('proxyQrLabel' + suffix).style.display = 'none';
+    }
+  });
+}
+
+async function loadProxyStatus() {
+  try {
+    const res = await fetch('/api/proxy/status');
+    const data = await res.json();
+    setProxyUIState(data);
+  } catch(e) {}
+}
+
+function clearProxy() {
+  fetch('/api/proxy', { method: 'DELETE' });
+  setProxyUIState(null);
+  toast('🗑️ Đã xóa proxy', 'info');
+}
+
 async function saveProxy() {
-  const type = $('proxyType').value;
-  const raw  = $('proxyInput').value.trim();
+  let type = $('proxyType').value;
+  let raw = $('proxyInput').value.trim();
+  if (!raw && $('proxyInput_create') && $('proxyInput_create').value.trim()) {
+    type = $('proxyType_create').value;
+    raw = $('proxyInput_create').value.trim();
+  }
   if (!raw) return toast('Nhập chuỗi proxy: ip:port:user:pass', 'warning');
 
-  const msg = $('proxyStatusMsg');
-  const badge = $('proxyBadge');
-  msg.style.display = 'inline-flex';
-  msg.className = 'proxy-status-msg loading';
-  msg.textContent = '⏳ Đang kiểm tra proxy...';
-  $('btnSaveProxy').disabled = true;
+  ['', '_create'].forEach(suffix => {
+    if (!$('proxyStatusMsg' + suffix)) return;
+    $('proxyStatusMsg' + suffix).style.display = 'inline-flex';
+    $('proxyStatusMsg' + suffix).className = 'proxy-status-msg loading';
+    $('proxyStatusMsg' + suffix).textContent = '⏳ Đang lưu...';
+    if ($('btnSaveProxy' + suffix)) $('btnSaveProxy' + suffix).disabled = true;
+  });
 
   try {
     const res  = await fetch('/api/proxy/save', {
@@ -2119,43 +2190,20 @@ async function saveProxy() {
     const data = await res.json();
 
     if (data.success) {
-      msg.className = 'proxy-status-msg ok';
-      msg.innerHTML = `✅ Kết nối OK — IP: <strong>${data.ip}</strong>`;
-      badge.className = 'badge badge-ok';
-      badge.textContent = 'Đang dùng';
-      $('proxyInfo').style.display = 'flex';
-      $('proxyIp').textContent = data.ip;
-      $('btnClearProxy').style.display = 'inline-flex';
-      $('proxyInput').disabled = true;
-      $('proxyType').disabled = true;
-      toast('✅ Proxy hoạt động! IP: ' + data.ip, 'success');
+      await loadProxyStatus();
+      toast('✅ Đã lưu proxy!', 'success');
     } else {
-      msg.className = 'proxy-status-msg err';
-      msg.textContent = '❌ ' + (data.error || 'Proxy không hoạt động');
-      badge.className = 'badge badge-err';
-      badge.textContent = 'Lỗi';
-      $('proxyInfo').style.display = 'none';
       toast('❌ Proxy lỗi: ' + (data.error || ''), 'error', 5000);
+      setProxyUIState(null);
     }
   } catch(e) {
-    msg.className = 'proxy-status-msg err';
-    msg.textContent = '❌ Lỗi kết nối server';
     toast('❌ Lỗi: ' + e.message, 'error');
+    setProxyUIState(null);
   }
-  $('btnSaveProxy').disabled = false;
-}
-
-function clearProxy() {
-  fetch('/api/proxy', { method: 'DELETE' });
-  $('proxyStatusMsg').style.display = 'none';
-  $('proxyBadge').className = 'badge badge-off';
-  $('proxyBadge').textContent = 'Chưa cấu hình';
-  $('proxyInfo').style.display = 'none';
-  $('btnClearProxy').style.display = 'none';
-  $('proxyInput').disabled = false;
-  $('proxyInput').value = '';
-  $('proxyType').disabled = false;
-  toast('🗑️ Đã xóa proxy', 'info');
+  
+  ['', '_create'].forEach(suffix => {
+    if ($('btnSaveProxy' + suffix)) $('btnSaveProxy' + suffix).disabled = false;
+  });
 }
 
 // ── Start Polling ──────────────────────────────────────────────────────────────
