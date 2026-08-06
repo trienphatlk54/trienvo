@@ -1317,6 +1317,9 @@
           <button class="btn btn-primary" onclick="saveAccountToPhone()" id="btnSaveAccount" style="width: 100%; font-size: 16px; padding: 14px; margin-bottom: 10px;">
             🚀 LƯU VÀO MÁY ĐÃ CHỌN
           </button>
+          <button class="btn btn-ghost" onclick="resetQrInfo()" style="width: 100%; font-size: 14px; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); color: var(--error);">
+            🔄 LÀM MỚI TẤT CẢ THÔNG TIN
+          </button>
           <a href="#" onclick="switchTab('tab-analytics'); return false;" style="color: var(--shopee-light); font-size: 13px; text-decoration: underline;">
             Xem bảng xếp chồng ở Quản lý Dữ liệu ☁️
           </a>
@@ -1379,7 +1382,10 @@
           <h2>☁️ Dữ liệu Cloud (Firebase)</h2>
           <p>Danh sách các số điện thoại bạn đã chốt được lưu trữ vĩnh viễn trên máy chủ.</p>
         </div>
-        <button class="btn btn-ghost" onclick="loadFirebaseData()">🔄 Làm mới</button>
+        <div>
+          <button class="btn btn-ghost" onclick="syncFirebaseData()" style="color:var(--shopee-light); border:1px solid var(--shopee-light); margin-right:8px;">🔄 Đồng bộ Phone -> Cloud</button>
+          <button class="btn btn-ghost" onclick="loadFirebaseData()">🔄 Làm mới</button>
+        </div>
       </div>
       <div class="card-body" style="grid-template-columns: 1fr; padding: 24px;">
         <table style="width:100%; border-collapse: collapse; text-align: left; font-size: 14px;">
@@ -1494,6 +1500,57 @@ function confirmApiPhone(phone, orderId, provider) {
   document.getElementById('currentConfirmedPhoneText').textContent = phone;
   saveToFirebase(phone, provider || 'API');
   toast('✅ Đã chốt số ' + phone + ' (Đã lưu Cloud)', 'success');
+}
+
+async function syncFirebaseData() {
+  if (!confirm('Đồng bộ tất cả các tài khoản Shopee hiện có (đang hoạt động và lịch sử) sang bảng Cloud?')) return;
+  
+  const btn = event.target;
+  const originalText = btn.innerText;
+  btn.innerText = '⏳ Đang đồng bộ...';
+  btn.disabled = true;
+
+  let count = 0;
+  for (const id in phonesData) {
+    const p = phonesData[id];
+    // Active session
+    if (p.shopeePhone || p.shopeeUsername) {
+      await fetch('/api/data/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: p.shopeePhone || p.shopeeUsername || '',
+          password: p.shopeePassword || '',
+          provider: 'Shopee QR (Đồng bộ)',
+          time: p.shopeeSessionTime || p.shopeeCreatedAt || new Date().toLocaleString('vi-VN')
+        })
+      }).catch(()=>{});
+      count++;
+    }
+    // History sessions
+    if (p.history) {
+      for (const k in p.history) {
+        const h = p.history[k];
+        if (h.shopeePhone || h.shopeeUsername) {
+          await fetch('/api/data/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phone: h.shopeePhone || h.shopeeUsername || '',
+              password: h.shopeePassword || '',
+              provider: 'Lịch sử Phone',
+              time: h.shopeeSessionTime || new Date(h.completedAt).toLocaleString('vi-VN') || new Date().toLocaleString('vi-VN')
+            })
+          }).catch(()=>{});
+          count++;
+        }
+      }
+    }
+  }
+  btn.innerText = originalText;
+  btn.disabled = false;
+  toast(`✅ Đã đồng bộ ${count} tài khoản lên Cloud!`, 'success');
+  loadFirebaseData();
 }
 
 async function loadFirebaseData() {
@@ -2586,6 +2643,37 @@ function updateSummaryUI() {
 
 // Start updating summary periodically
 setInterval(updateSummaryUI, 1000);
+
+function resetQrInfo() {
+  if (!confirm('Bạn có chắc chắn muốn làm mới (reset) toàn bộ thông tin quét QR hiện tại?')) return;
+  
+  // Clear internal state
+  state = {};
+  
+  // Clear DOM User Info
+  const safeSet = (id, text) => { if ($(id)) $(id).textContent = text; };
+  safeSet('infoUsername', '—');
+  safeSet('userDisplayName', 'Khách');
+  safeSet('userIdDisplay', '');
+  safeSet('infoEmail', '(Chưa cung cấp)');
+  safeSet('infoPhone', '(Chưa cung cấp)');
+  safeSet('infoCreated', '—');
+  if ($('userAvatar')) $('userAvatar').innerHTML = '<div style="width:100%;height:100%;background:#e0e0e0;"></div>';
+  
+  // Clear Phone Confirmation
+  safeSet('currentConfirmedPhoneText', '—');
+  
+  // Clear Generated Password
+  safeSet('generatedPassword', 'Chưa tạo');
+  
+  // Reset QR scan status
+  setStatus('idle', 'Đang chờ QR...');
+  
+  // Request a fresh session on backend
+  fetch('/api/start', { method: 'POST' }).catch(() => {});
+  
+  toast('Đã làm mới toàn bộ thông tin!', 'success');
+}
 
 async function saveAccountToPhone() {
   if (!selectedPhoneIdForSave) {
