@@ -2219,16 +2219,37 @@ async function rotatePanda() {
     }
   });
   
+  const cleanKey = apiKey.replace(/^Bearer\s+/i, '');
+  
   try {
-    const res = await fetch('/api/pandaproxy/rotate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey, proxyId, proxyType }),
+    const res = await fetch(`https://pandaproxys.com/api/v2/proxies/${proxyId}/rotate`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${cleanKey}`,
+        'Accept': 'application/json'
+      }
     });
-    const data = await res.json();
+    const pData = await res.json();
     
-    if (data.success) {
+    if (pData && pData.status === 'success' && pData.proxy) {
       toast('✅ Đã lấy IP mới từ PandaProxy!', 'success');
+      
+      const parts = pData.proxy.trim().split(':');
+      const host = parts[0];
+      const port = parts[1];
+      const user = parts[2] || '';
+      const pass = parts.slice(3).join(':') || '';
+      const ip = pData.ip || host;
+      
+      let uri = '';
+      if (proxyType === 'socks5') {
+        const rawAuth = user ? `${user}:${pass}@${host}:${port}` : `${host}:${port}`;
+        uri = `socks://${btoa(rawAuth)}`;
+      } else {
+        uri = user 
+          ? `${proxyType}://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${host}:${port}`
+          : `${proxyType}://${host}:${port}`;
+      }
       
       // Update UI for both tabs
       ['', '_create'].forEach(s => {
@@ -2237,21 +2258,21 @@ async function rotatePanda() {
         $('pandaProxyId' + s).value = proxyId;
         $('pandaType' + s).value = proxyType;
         $('pandaInfo' + s).style.display = 'flex';
-        $('pandaIp' + s).textContent = data.pandaData.ip;
-        $('pandaIsp' + s).textContent = data.pandaData.isp || 'N/A';
-        $('pandaRegion' + s).textContent = data.pandaData.region || 'N/A';
-        $('pandaCooldown' + s).textContent = data.pandaData.time_next_rotate + 's';
+        $('pandaIp' + s).textContent = ip;
+        $('pandaIsp' + s).textContent = 'PandaProxy';
+        $('pandaRegion' + s).textContent = 'N/A';
+        $('pandaCooldown' + s).textContent = 'Hoàn tất';
         
-        if (data.uri) {
-          $('pandaQrImage' + s).src = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(data.uri)}&bgcolor=12121A&color=ffffff&margin=2`;
+        if (uri) {
+          $('pandaQrImage' + s).src = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(uri)}&bgcolor=12121A&color=ffffff&margin=2`;
           $('pandaQrImage' + s).style.display = 'block';
           $('pandaQrLabel' + s).style.display = 'block';
         }
       });
       
-      startPandaCooldown(data.pandaData.time_next_rotate);
+      startPandaCooldown(0);
     } else {
-      toast('❌ Lỗi xoay IP: ' + (data.error || ''), 'error', 5000);
+      toast('❌ Lỗi xoay IP: ' + (pData.message || pData.error || 'Lỗi không xác định'), 'error', 5000);
     }
   } catch(e) {
     toast('❌ Lỗi: ' + e.message, 'error');
