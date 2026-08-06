@@ -249,7 +249,7 @@
 
     /* ── Card Header ──────────────────────────────── */
     .card-header {
-      padding: 20px 24px;
+      padding: 28px 32px;
       border-bottom: 1px solid var(--border);
       background: linear-gradient(135deg, rgba(238,77,45,0.06), rgba(100,40,200,0.04));
       display: flex;
@@ -304,7 +304,7 @@
     /* ── QR Panel ─────────────────────────────────── */
     .qr-panel {
       border-right: 1px solid var(--border);
-      padding: 20px 24px;
+      padding: 36px 32px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -472,10 +472,10 @@
 
     /* ── Info Panel ───────────────────────────────── */
     .info-panel {
-      padding: 20px 24px;
+      padding: 36px 32px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 24px;
     }
 
     /* ── Cookie Section ───────────────────────────── */
@@ -964,15 +964,9 @@
       </div>
       <span class="proxy-status-msg" id="proxyStatusMsg" style="display:none;"></span>
     </div>
-    <div class="proxy-info" id="proxyInfo" style="display:none; align-items:center; justify-content:space-between; flex-wrap:wrap;">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span>🌍 IP qua proxy:</span>
-        <span class="proxy-ip" id="proxyIp"></span>
-      </div>
-      <div style="margin-top:10px;">
-        <img id="proxyQrImage" src="" alt="Proxy QR" style="width:100px; height:100px; border-radius:10px; display:none; background:#fff; padding:4px;" />
-        <div id="proxyQrLabel" style="font-size:11px; color:var(--text-muted); text-align:center; margin-top:4px; display:none;">Quét bằng app Proxy</div>
-      </div>
+    <div class="proxy-info" id="proxyInfo" style="display:none;">
+      <span>🌍 IP qua proxy:</span>
+      <span class="proxy-ip" id="proxyIp"></span>
     </div>
   </div>
 
@@ -1057,12 +1051,9 @@
             🚀 Lấy mã QR
           </button>
           <button class="btn btn-ghost" id="btnRefresh" onclick="refreshQR()" style="display:none;" disabled>
-            🔄 Làm mới QR
+            🔄 Làm mới
           </button>
         </div>
-        <button class="btn btn-ghost" onclick="resetQrInfo()" style="margin-top: 10px; width: 100%; font-size: 14px; padding: 10px; border: 1px solid var(--border); color: var(--error);">
-          🔄 LÀM MỚI TẤT CẢ THÔNG TIN
-        </button>
       </div>
 
       <!-- Info Panel -->
@@ -1175,7 +1166,7 @@
           <p>Danh sách điện thoại (Số định danh và Loại) được lấy từ bảng Quản lý phone.</p>
         </div>
       </div>
-      <div class="card-body" style="padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+      <div class="card-body" style="padding: 24px; display: flex; flex-direction: column; gap: 10px;">
         <input type="text" id="phoneSelectSearch" class="proxy-input" placeholder="🔍 Lọc theo Số định danh hoặc Loại..." onkeyup="renderPhoneSelect()" style="max-width: 100%; border: 1px solid var(--border);" />
         <div id="phoneSelectList" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; padding-right: 5px; margin-top: 10px;">
           <div style="color:var(--text-muted); text-align: center; padding: 10px;">Đang tải danh sách...</div>
@@ -1213,7 +1204,7 @@
       </div>
 
       <!-- METHOD A: API -->
-      <div id="methodApiBlock" class="card-body" style="grid-template-columns: 1fr; padding: 16px; display:block;">
+      <div id="methodApiBlock" class="card-body" style="grid-template-columns: 1fr; padding: 24px; display:block;">
         <div style="display:flex; justify-content:space-between; margin-bottom: 16px;">
           <h3 style="font-size:14px; margin:0; color:var(--text-muted);">Tự động chờ lấy mã xác nhận từ API</h3>
           <div style="text-align:right;">
@@ -1247,7 +1238,7 @@
       </div>
       
       <!-- METHOD B: Manual Input -->
-      <div id="methodManualBlock" class="card-body" style="grid-template-columns: 1fr; padding: 16px; display:none;">
+      <div id="methodManualBlock" class="card-body" style="grid-template-columns: 1fr; padding: 24px; display:none;">
         <h3 style="font-size:14px; margin:0 0 16px 0; color:var(--text-muted);">Sử dụng số điện thoại có sẵn của bạn</h3>
         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
           <input type="text" id="manualPhoneInput" class="proxy-input" placeholder="Nhập số điện thoại..." style="max-width: 250px;" />
@@ -1270,7 +1261,7 @@
           <p>Dùng để tạo tài khoản mới. Quét mã QR bên cạnh để nhập nhanh trên điện thoại.</p>
         </div>
       </div>
-      <div class="card-body" style="grid-template-columns: 1fr; padding: 16px;">
+      <div class="card-body" style="grid-template-columns: 1fr; padding: 24px;">
         <div class="pwd-generator">
           <div class="pwd-input-group">
             <div class="pwd-display" id="generatedPassword">Đang tạo...</div>
@@ -1300,19 +1291,11 @@
           <p>Lưu số điện thoại xác nhận, mật khẩu và dữ liệu QR Session vào Máy đã chọn.</p>
         </div>
       </div>
-      <div class="card-body" style="padding: 16px;">
+      <div class="card-body" style="padding: 24px;">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
           <div>
-            <div style="color:var(--text-muted); font-size: 13px; margin-bottom: 5px;">Số định danh máy đang chọn:</div>
-            <div id="summaryPhoneId" style="font-family: monospace; font-size: 16px; color: var(--shopee-light); font-weight: bold;">(Chưa chọn)</div>
-          </div>
-          <div>
-            <div style="color:var(--text-muted); font-size: 13px; margin-bottom: 5px;">Loại điện thoại:</div>
-            <div id="summaryPhoneType" style="font-family: monospace; font-size: 16px; color: var(--shopee-light); font-weight: bold;">(Chưa chọn)</div>
-          </div>
-          <div>
             <div style="color:var(--text-muted); font-size: 13px; margin-bottom: 5px;">Số điện thoại đã xác nhận (Phone):</div>
-            <div id="summaryPhoneConf" style="font-family: monospace; font-size: 16px; color: var(--success); font-weight: bold;">(Chưa xác nhận)</div>
+            <div id="summaryPhoneConf" style="font-family: monospace; font-size: 16px; color: var(--shopee-light); font-weight: bold;">(Chưa xác nhận)</div>
           </div>
           <div>
             <div style="color:var(--text-muted); font-size: 13px; margin-bottom: 5px;">Mật khẩu:</div>
@@ -1333,6 +1316,9 @@
         <div style="margin-top: 24px; text-align: center;">
           <button class="btn btn-primary" onclick="saveAccountToPhone()" id="btnSaveAccount" style="width: 100%; font-size: 16px; padding: 14px; margin-bottom: 10px;">
             🚀 LƯU VÀO MÁY ĐÃ CHỌN
+          </button>
+          <button class="btn btn-ghost" onclick="resetQrInfo()" style="width: 100%; font-size: 14px; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); color: var(--error);">
+            🔄 LÀM MỚI TẤT CẢ THÔNG TIN
           </button>
           <a href="#" onclick="switchTab('tab-analytics'); return false;" style="color: var(--shopee-light); font-size: 13px; text-decoration: underline;">
             Xem bảng xếp chồng ở Quản lý Dữ liệu ☁️
@@ -1401,7 +1387,7 @@
           <button class="btn btn-ghost" onclick="loadFirebaseData()">🔄 Làm mới</button>
         </div>
       </div>
-      <div class="card-body" style="grid-template-columns: 1fr; padding: 16px;">
+      <div class="card-body" style="grid-template-columns: 1fr; padding: 24px;">
         <table style="width:100%; border-collapse: collapse; text-align: left; font-size: 14px;">
           <thead>
             <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
@@ -1851,10 +1837,11 @@ function copyText(text) {
 
 // ── Clone UI for Create Tab ────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Sao chép khối proxy-section, panda-section và main-card
+  // Sao chép khối proxy-section và main-card
   const proxyClone = document.querySelector('#tab-shopee .proxy-section').cloneNode(true);
   const cardClone  = document.querySelector('#tab-shopee .main-card').cloneNode(true);
   
+  // Cập nhật các ID để không bị trùng (thêm _create)
   [proxyClone, cardClone].forEach(clone => {
     clone.querySelectorAll('[id]').forEach(el => {
       el.id = el.id + '_create';
@@ -1876,12 +1863,6 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Tự động lấy số dư 365otp khi vừa mở tab
   fetchBalance();
-  
-  // Tải proxy status
-  loadProxyStatus();
-  
-  // Tải danh sách điện thoại
-  loadPhones();
 });
 
 // ── Tab Navigation ─────────────────────────────────────────────────────────────
@@ -2109,76 +2090,17 @@ function displayUserInfo(info) {
 }
 
 // ── Proxy Management ────────────────────────────────────────────────────────────
-function setProxyUIState(data) {
-  ['', '_create'].forEach(suffix => {
-    if (!$('proxyType' + suffix)) return;
-    if (data && data.active && data.verified) {
-      $('proxyType' + suffix).value = data.type;
-      $('proxyInput' + suffix).value = data.raw ? data.raw : `${data.host}:${data.port}`;
-      
-      $('proxyStatusMsg' + suffix).style.display = 'inline-flex';
-      $('proxyStatusMsg' + suffix).className = 'proxy-status-msg ok';
-      $('proxyStatusMsg' + suffix).innerHTML = `✅ Đã kết nối — IP: <strong>${data.ip}</strong>`;
-      
-      $('proxyBadge' + suffix).className = 'badge badge-ok';
-      $('proxyBadge' + suffix).textContent = 'Đang dùng';
-      
-      $('proxyInfo' + suffix).style.display = 'flex';
-      $('proxyIp' + suffix).textContent = data.ip;
-      $('btnClearProxy' + suffix).style.display = 'inline-flex';
-      
-      if (data.uri) {
-        $('proxyQrImage' + suffix).src = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(data.uri)}&bgcolor=12121A&color=ffffff&margin=2`;
-        $('proxyQrImage' + suffix).style.display = 'block';
-        $('proxyQrLabel' + suffix).style.display = 'block';
-      }
-    } else {
-      $('proxyStatusMsg' + suffix).style.display = 'none';
-      $('proxyBadge' + suffix).className = 'badge badge-off';
-      $('proxyBadge' + suffix).textContent = 'Chưa cấu hình';
-      $('proxyInfo' + suffix).style.display = 'none';
-      $('btnClearProxy' + suffix).style.display = 'none';
-      $('proxyInput' + suffix).disabled = false;
-      $('proxyInput' + suffix).value = '';
-      $('proxyType' + suffix).disabled = false;
-      if ($('proxyQrImage' + suffix)) $('proxyQrImage' + suffix).style.display = 'none';
-      if ($('proxyQrLabel' + suffix)) $('proxyQrLabel' + suffix).style.display = 'none';
-    }
-  });
-}
-
-async function loadProxyStatus() {
-  try {
-    const res = await fetch('/api/proxy/status');
-    const data = await res.json();
-    setProxyUIState(data);
-  } catch(e) {}
-}
-
-function clearProxy() {
-  fetch('/api/proxy', { method: 'DELETE' });
-  setProxyUIState(null);
-  toast('🗑️ Đã xóa proxy', 'info');
-}
-
-
-
 async function saveProxy() {
-  let type = $('proxyType').value;
-  let raw = $('proxyInput').value.trim();
-  if (!raw && $('proxyInput_create') && $('proxyInput_create').value.trim()) {
-    type = $('proxyType_create').value;
-    raw = $('proxyInput_create').value.trim();
-  }
+  const type = $('proxyType').value;
+  const raw  = $('proxyInput').value.trim();
   if (!raw) return toast('Nhập chuỗi proxy: ip:port:user:pass', 'warning');
 
-  ['', '_create'].forEach(suffix => {
-    if (!$('proxyStatusMsg' + suffix)) return;
-    $('proxyStatusMsg' + suffix).style.display = 'inline-flex';
-    $('proxyStatusMsg' + suffix).className = 'proxy-status-msg loading';
-    $('proxyStatusMsg' + suffix).textContent = '⏳ Đang lưu...';
-    if ($('btnSaveProxy' + suffix)) $('btnSaveProxy' + suffix).disabled = true;
-  });
+  const msg = $('proxyStatusMsg');
+  const badge = $('proxyBadge');
+  msg.style.display = 'inline-flex';
+  msg.className = 'proxy-status-msg loading';
+  msg.textContent = '⏳ Đang kiểm tra proxy...';
+  $('btnSaveProxy').disabled = true;
 
   try {
     const res  = await fetch('/api/proxy/save', {
@@ -2189,20 +2111,43 @@ async function saveProxy() {
     const data = await res.json();
 
     if (data.success) {
-      await loadProxyStatus();
-      toast('✅ Đã lưu proxy!', 'success');
+      msg.className = 'proxy-status-msg ok';
+      msg.innerHTML = `✅ Kết nối OK — IP: <strong>${data.ip}</strong>`;
+      badge.className = 'badge badge-ok';
+      badge.textContent = 'Đang dùng';
+      $('proxyInfo').style.display = 'flex';
+      $('proxyIp').textContent = data.ip;
+      $('btnClearProxy').style.display = 'inline-flex';
+      $('proxyInput').disabled = true;
+      $('proxyType').disabled = true;
+      toast('✅ Proxy hoạt động! IP: ' + data.ip, 'success');
     } else {
+      msg.className = 'proxy-status-msg err';
+      msg.textContent = '❌ ' + (data.error || 'Proxy không hoạt động');
+      badge.className = 'badge badge-err';
+      badge.textContent = 'Lỗi';
+      $('proxyInfo').style.display = 'none';
       toast('❌ Proxy lỗi: ' + (data.error || ''), 'error', 5000);
-      setProxyUIState(null);
     }
   } catch(e) {
+    msg.className = 'proxy-status-msg err';
+    msg.textContent = '❌ Lỗi kết nối server';
     toast('❌ Lỗi: ' + e.message, 'error');
-    setProxyUIState(null);
   }
-  
-  ['', '_create'].forEach(suffix => {
-    if ($('btnSaveProxy' + suffix)) $('btnSaveProxy' + suffix).disabled = false;
-  });
+  $('btnSaveProxy').disabled = false;
+}
+
+function clearProxy() {
+  fetch('/api/proxy', { method: 'DELETE' });
+  $('proxyStatusMsg').style.display = 'none';
+  $('proxyBadge').className = 'badge badge-off';
+  $('proxyBadge').textContent = 'Chưa cấu hình';
+  $('proxyInfo').style.display = 'none';
+  $('btnClearProxy').style.display = 'none';
+  $('proxyInput').disabled = false;
+  $('proxyInput').value = '';
+  $('proxyType').disabled = false;
+  toast('🗑️ Đã xóa proxy', 'info');
 }
 
 // ── Start Polling ──────────────────────────────────────────────────────────────
@@ -2567,11 +2512,6 @@ function renderPhoneSelect() {
   if (!list) return;
   const searchInput = $('phoneSelectSearch')?.value.toLowerCase() || '';
   
-  if (!searchInput) {
-    list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px; font-size:13px;">Vui lòng nhập tên máy vào ô tìm kiếm...</div>';
-    return;
-  }
-
   let ids = Object.keys(phonesData);
   if (ids.length === 0) {
     list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px;">Chưa có dữ liệu điện thoại. Hãy thêm bên Tab Quản lý Phone.</div>';
@@ -2628,15 +2568,6 @@ function clearSelectedPhone() {
 
 function updateSummaryUI() {
   if (!$('summaryPhoneConf')) return;
-
-  if (selectedPhoneIdForSave && phonesData[selectedPhoneIdForSave]) {
-    const p = phonesData[selectedPhoneIdForSave];
-    $('summaryPhoneId').textContent = p.identifier || '';
-    $('summaryPhoneType').textContent = p.type || '';
-  } else {
-    $('summaryPhoneId').textContent = '(Chưa chọn)';
-    $('summaryPhoneType').textContent = '(Chưa chọn)';
-  }
 
   // Update Phone (Info 1)
   const manualPhoneText = $('currentConfirmedPhoneText')?.textContent;

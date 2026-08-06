@@ -1,8 +1,4 @@
 const express = require('express');
-const { Buffer } = require('buffer');
-const http = require('http');
-const net = require('net');
-const { SocksClient } = require('socks');
 const puppeteer = require('puppeteer');
 
 // Simple log capturer
@@ -56,17 +52,6 @@ const delay = ms => new Promise(r => setTimeout(r, ms));
 // ─── Proxy Config ──────────────────────────────────────────────────
 let proxyConfig = null;
 
-// Tải proxy từ DB khi khởi động
-try {
-  db.ref('proxy').once('value').then(snapshot => {
-    const data = snapshot.val();
-    if (data && data.host) {
-      proxyConfig = data;
-      console.log(`\n🔒 Đã nạp cấu hình Proxy từ DB: ${data.type}://${data.host}:${data.port}`);
-    }
-  }).catch(e => console.error('Lỗi khi tải proxy từ DB:', e));
-} catch(e) {}
-
 function parseProxy(type, raw) {
   const parts = raw.trim().split(':');
   if (parts.length < 2) return null;
@@ -97,70 +82,15 @@ const S = {
   poll:     null,
   expire:   null,
   expiresAt:null,
-  localProxyServer: null,
 };
 
 async function reset() {
   clearInterval(S.poll); clearTimeout(S.expire);
-  if (S.localProxyServer) {
-    S.localProxyServer.close();
-    S.localProxyServer = null;
-  }
   S.poll = S.expire = null;
   if (S.page) { try { await S.page.close(); } catch(_){} S.page = null; }
   if (S.ctx)  { try { await S.ctx.close();  } catch(_){} S.ctx  = null; }
   if (S.browser) { try { await S.browser.close(); } catch(_){} S.browser = null; }
   Object.assign(S, { status:'idle', qrImage:null, cookies:null, userInfo:null, error:null, expiresAt:null });
-}
-
-// ─── Local Proxy Bridge cho SOCKS5 ──────────────────────────────────
-function startSocks5LocalProxy(proxyConfig) {
-  return new Promise((resolve, reject) => {
-    const server = http.createServer((req, res) => {
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end('Socks5 Bridge');
-    });
-
-    server.on('connect', (req, clientSocket, head) => {
-      const [hostname, port] = req.url.split(':');
-      
-      const options = {
-        proxy: {
-          host: proxyConfig.host,
-          port: parseInt(proxyConfig.port),
-          type: 5
-        },
-        command: 'connect',
-        destination: {
-          host: hostname,
-          port: parseInt(port || 443)
-        }
-      };
-
-      if (proxyConfig.user) {
-        options.proxy.userId = proxyConfig.user;
-        options.proxy.password = proxyConfig.pass;
-      }
-
-      SocksClient.createConnection(options)
-        .then(info => {
-          clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-          info.socket.write(head);
-          info.socket.pipe(clientSocket);
-          clientSocket.pipe(info.socket);
-        })
-        .catch(err => {
-          console.error('  ⚠️ Lỗi cầu nối SOCKS5:', err.message);
-          clientSocket.end('HTTP/1.1 500 Internal Server Error\r\n\r\n');
-        });
-    });
-
-    server.listen(0, '127.0.0.1', () => {
-      resolve(server);
-    });
-    
-    server.on('error', reject);
-  });
 }
 
 // ─── Launch Browser (with optional proxy) ──────────────────────────
@@ -172,15 +102,8 @@ async function launchBrowser(proxy) {
     '--disable-default-apps','--disable-sync','--no-first-run',
   ];
   if (proxy) {
-    if (proxy.type === 'socks5' && proxy.user) {
-      console.log(`  🌐 Khởi tạo Cầu nối SOCKS5 cục bộ cho: ${proxyUrl(proxy)}`);
-      S.localProxyServer = await startSocks5LocalProxy(proxy);
-      const localPort = S.localProxyServer.address().port;
-      args.push(`--proxy-server=http://127.0.0.1:${localPort}`);
-    } else {
-      args.push(`--proxy-server=${proxyUrl(proxy)}`);
-      console.log(`  🌐 Chrome + proxy: ${proxyUrl(proxy)}`);
-    }
+    args.push(`--proxy-server=${proxyUrl(proxy)}`);
+    console.log(`  🌐 Chrome + proxy: ${proxyUrl(proxy)}`);
   } else {
     console.log('  🌐 Chrome (không proxy)');
   }
@@ -236,8 +159,7 @@ async function newPage(browser, proxy) {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36'
   );
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'vi-VN,vi;q=0.9' });
-  // Chỉ xác thực proxy HTTP/HTTPS. (SOCKS5 đã được xử lý qua cầu nối cục bộ)
-  if (proxy && proxy.user && proxy.type !== 'socks5') {
+  if (proxy && proxy.user) {
     await page.authenticate({ username: proxy.user, password: proxy.pass });
   }
   return { ctx, page };
@@ -340,21 +262,6 @@ async function fetchUserInfo(page) {
   return null;
 }
 
-// ── Hàm Lấy Thông Tin Có Retry (Chống Lỗi Navigation) ──
-async function fetchUserInfoRobust(page) {
-  for (let i = 0; i < 5; i++) {
-    try {
-      const info = await fetchUserInfo(page);
-      if (info) return info;
-    } catch(e) {
-      // Bỏ qua lỗi context destroyed do trang đang chuyển hướng
-    }
-    console.log(`  ⏳ Đang chờ trang ổn định để lấy User Info (thử lại ${i+1}/5)...`);
-    await new Promise(r => setTimeout(r, 2000));
-  }
-  return null;
-}
-
 // ─── Cookie Polling ────────────────────────────────────────────────
 function startPoll(page) {
   clearInterval(S.poll);
@@ -378,7 +285,7 @@ function startPoll(page) {
           all: cookies.filter(c => keep.includes(c.name)).map(c => ({ name:c.name, value:c.value })),
         };
         console.log('\n🎉 ĐĂNG NHẬP OK! SPC_ST:', ST.value.substring(0,50) + '…');
-        try { S.userInfo = await fetchUserInfoRobust(page); } catch(e) { console.warn('  ⚠️', e.message); }
+        try { S.userInfo = await fetchUserInfo(page); } catch(e) { console.warn('  ⚠️', e.message); }
         S.status = 'success';
       }
     } catch(e) {
@@ -395,49 +302,77 @@ app.post('/api/proxy/save', async (req, res) => {
   const p = parseProxy(type, raw.trim());
   if (!p) return res.json({ success:false, error:'Sai định dạng. Dùng: ip:port hoặc ip:port:user:pass' });
 
-  console.log(`\n🔒 Đã lưu proxy mặc định: ${proxyUrl(p)}${p.user ? ' (auth)' : ''}`);
+  console.log(`\n🔒 Test proxy: ${proxyUrl(p)}${p.user ? ' (auth)' : ''}`);
 
-  p.verified = true;
-  p.ip = p.host; // Không check live nên gán luôn host làm ip hiển thị
-  proxyConfig = p;
-  
-  // Lưu proxy vào Firebase DB
+  let testBrowser = null;
   try {
-    db.ref('proxy').set(p).catch(e => console.error('Lỗi lưu proxy vào DB:', e));
-  } catch(e) {}
-  
-  let uri;
-  if (p.type === 'socks5') {
-    const rawAuth = p.user ? `${p.user}:${p.pass}@${p.host}:${p.port}` : `${p.host}:${p.port}`;
-    uri = `socks://${Buffer.from(rawAuth).toString('base64')}`;
-  } else {
-    uri = p.user 
-      ? `${p.type}://${encodeURIComponent(p.user)}:${encodeURIComponent(p.pass)}@${p.host}:${p.port}`
-      : `${p.type}://${p.host}:${p.port}`;
+    testBrowser = await launchBrowser(p);
+    const { ctx, page } = await newPage(testBrowser, p);
+
+    // Thử nhiều dịch vụ IP (httpbin không ổn định)
+    const ipServices = [
+      { url: 'https://api.ipify.org?format=json', parse: b => { try { return JSON.parse(b).ip; } catch(_) { return null; } } },
+      { url: 'https://icanhazip.com',              parse: b => b.trim() },
+      { url: 'https://checkip.amazonaws.com',       parse: b => b.trim() },
+      { url: 'https://api.myip.com',                parse: b => { try { return JSON.parse(b).ip; } catch(_) { return null; } } },
+    ];
+
+    let ip = '';
+    for (const svc of ipServices) {
+      try {
+        console.log(`  🔍 Thử ${svc.url}...`);
+        await page.goto(svc.url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        const body = await page.evaluate(() => document.body.innerText);
+        const parsed = svc.parse(body);
+        // Kiểm tra IP hợp lệ (IPv4 hoặc IPv6)
+        if (parsed && /^[\d.:a-fA-F]+$/.test(parsed) && parsed.length >= 7 && parsed.length <= 45) {
+          ip = parsed;
+          console.log(`  ✅ IP: ${ip}`);
+          break;
+        }
+        console.log(`  ⚠️ Response không hợp lệ: "${(body || '').substring(0, 60)}"`);
+      } catch(e2) {
+        console.log(`  ⚠️ ${svc.url} lỗi: ${e2.message.substring(0, 50)}`);
+      }
+    }
+
+    await page.close();
+    await ctx.close();
+    await testBrowser.close();
+    testBrowser = null;
+
+    if (!ip) {
+      proxyConfig = null;
+      return res.json({ success:false, error:'Proxy kết nối nhưng không lấy được IP. Kiểm tra lại proxy.' });
+    }
+
+    p.verified = true;
+    p.ip = ip;
+    proxyConfig = p;
+    console.log(`  ✅ Proxy OK! IP: ${ip}`);
+    res.json({ success:true, ip, proxy: proxyUrl(p) });
+
+  } catch(e) {
+    if (testBrowser) try { await testBrowser.close(); } catch(_){}
+    proxyConfig = null;
+    const msg = e.message || '';
+    let hint = '';
+    if (msg.includes('ERR_SOCKS_CONNECTION_FAILED'))
+      hint = ' — Proxy không hỗ trợ SOCKS5, thử chọn HTTP';
+    else if (msg.includes('ERR_PROXY_CONNECTION_FAILED'))
+      hint = ' — Proxy từ chối kết nối, kiểm tra IP/port';
+    else if (msg.includes('ERR_TUNNEL_CONNECTION_FAILED'))
+      hint = ' — Proxy không cho phép CONNECT tunnel';
+    else if (msg.includes('ERR_PROXY_AUTH'))
+      hint = ' — Sai username/password proxy';
+    console.log(`  ❌ Proxy lỗi: ${msg}`);
+    res.json({ success:false, error: `Không kết nối được${hint}: ${msg.substring(0,80)}` });
   }
-  res.json({ 
-    success:true, 
-    ip: p.ip, 
-    proxy: proxyUrl(p), 
-    uri: uri,
-    raw: p.user ? `${p.host}:${p.port}:${p.user}:${p.pass}` : `${p.host}:${p.port}`
-  });
 });
 
 // ─── GET /api/proxy/status ─────────────────────────────────────────
 app.get('/api/proxy/status', (_req, res) => {
   if (!proxyConfig) return res.json({ active:false });
-  
-  let uri = '';
-  if (proxyConfig.type === 'socks5') {
-    const rawAuth = proxyConfig.user ? `${proxyConfig.user}:${proxyConfig.pass}@${proxyConfig.host}:${proxyConfig.port}` : `${proxyConfig.host}:${proxyConfig.port}`;
-    uri = `socks://${Buffer.from(rawAuth).toString('base64')}`;
-  } else {
-    uri = proxyConfig.user 
-      ? `${proxyConfig.type}://${encodeURIComponent(proxyConfig.user)}:${encodeURIComponent(proxyConfig.pass)}@${proxyConfig.host}:${proxyConfig.port}`
-      : `${proxyConfig.type}://${proxyConfig.host}:${proxyConfig.port}`;
-  }
-    
   res.json({
     active: true,
     verified: proxyConfig.verified,
@@ -446,18 +381,12 @@ app.get('/api/proxy/status', (_req, res) => {
     port: proxyConfig.port,
     hasAuth: !!proxyConfig.user,
     ip: proxyConfig.ip || '',
-    uri: uri,
-    raw: proxyConfig.user ? `${proxyConfig.host}:${proxyConfig.port}:${proxyConfig.user}:${proxyConfig.pass}` : `${proxyConfig.host}:${proxyConfig.port}`
   });
 });
-
 
 // ─── DELETE /api/proxy ─────────────────────────────────────────────
 app.delete('/api/proxy', (_req, res) => {
   proxyConfig = null;
-  try {
-    db.ref('proxy').remove();
-  } catch(e) {}
   console.log('  🗑️ Proxy đã xóa');
   res.json({ success:true });
 });
