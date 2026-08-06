@@ -192,32 +192,26 @@ async function navigateAndWaitForQR(page, proxy) {
   // Bước 1: Điều hướng với domcontentloaded (rất nhanh)
   await page.goto('https://shopee.vn/buyer/login/qr', {
     waitUntil: 'domcontentloaded',
-    timeout: 60000,
+    timeout: 120000,
   });
   console.log('  ✔️ HTML loaded, đang chờ API trả về QR...');
 
-  // Bước 2: Chờ S.qrImage được gán từ bộ bắt API (tối đa 15s)
-  for (let i = 0; i < 30; i++) { // 30 * 500ms = 15s
+  // Bước 2: Chờ S.qrImage được gán từ bộ bắt API (tối đa 90s)
+  // KHÔNG reload giữa chừng vì sẽ huỷ mất request API đang chạy ngầm
+  const maxWait = 180; // 180 * 500ms = 90 giây
+  for (let i = 0; i < maxWait; i++) {
     if (S.qrImage) break;
+    if (i > 0 && i % 20 === 0) { // Log mỗi 10 giây
+      console.log(`  ⏳ Đang chờ API QR... (${i * 500 / 1000}s)`);
+    }
     await delay(500);
   }
 
-  // Bước 3: Nếu chưa có, thử tải lại 1 lần
-  if (!S.qrImage) {
-    console.log('  🔄 Retry: tải lại trang...');
-    try {
-      await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
-    } catch(_) {}
-    for (let i = 0; i < 30; i++) {
-      if (S.qrImage) break;
-      await delay(500);
-    }
-  }
-
   if (S.qrImage) {
+    console.log('  ✅ Đã nhận QR từ API!');
     return S.qrImage;
   } else {
-    console.log('  ❌ Không lấy được QR qua API');
+    console.log('  ❌ Không lấy được QR qua API sau 90s');
     await logPageState(page, 'qr-fail');
     return null;
   }
