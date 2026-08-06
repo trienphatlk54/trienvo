@@ -340,6 +340,21 @@ async function fetchUserInfo(page) {
   return null;
 }
 
+// ── Hàm Lấy Thông Tin Có Retry (Chống Lỗi Navigation) ──
+async function fetchUserInfoRobust(page) {
+  for (let i = 0; i < 5; i++) {
+    try {
+      const info = await fetchUserInfo(page);
+      if (info) return info;
+    } catch(e) {
+      // Bỏ qua lỗi context destroyed do trang đang chuyển hướng
+    }
+    console.log(`  ⏳ Đang chờ trang ổn định để lấy User Info (thử lại ${i+1}/5)...`);
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  return null;
+}
+
 // ─── Cookie Polling ────────────────────────────────────────────────
 function startPoll(page) {
   clearInterval(S.poll);
@@ -363,7 +378,7 @@ function startPoll(page) {
           all: cookies.filter(c => keep.includes(c.name)).map(c => ({ name:c.name, value:c.value })),
         };
         console.log('\n🎉 ĐĂNG NHẬP OK! SPC_ST:', ST.value.substring(0,50) + '…');
-        try { S.userInfo = await fetchUserInfo(page); } catch(e) { console.warn('  ⚠️', e.message); }
+        try { S.userInfo = await fetchUserInfoRobust(page); } catch(e) { console.warn('  ⚠️', e.message); }
         S.status = 'success';
       }
     } catch(e) {
