@@ -119,16 +119,13 @@ async function newPage(browser, proxy) {
   const ctx  = await browser.createBrowserContext();
   const page = await ctx.newPage();
 
-  // Chặn font/media/ảnh không cần thiết để giảm tải cho server yếu
-  // Chặn font/media/ảnh không cần thiết để giảm tải cho server yếu
+  // Chặn image, media, font để tải nhanh, NHƯNG KHÔNG chặn stylesheet (vì React sẽ crash nếu thiếu CSS)
   await page.setRequestInterception(true);
   page.on('request', (req) => {
     const t = req.resourceType();
     const url = req.url();
-    // Chặn toàn bộ resource không cần thiết để load cực nhanh (giống Telegram Bot)
-    const allowList = ['document', 'script', 'xhr', 'fetch', 'websocket', 'preflight'];
     
-    if (!allowList.includes(t)) {
+    if (['image', 'media', 'font'].includes(t)) {
       req.abort();
     } else if (url.includes('google-analytics') || url.includes('facebook.net') || url.includes('doubleclick') || url.includes('tracker')) {
       req.abort();
