@@ -369,6 +369,58 @@ app.get('/api/proxy/status', (_req, res) => {
   });
 });
 
+// ─── POST /api/pandaproxy/rotate ───────────────────────────────────
+app.post('/api/pandaproxy/rotate', async (req, res) => {
+  const { apiKey, proxyType } = req.body;
+  if (!apiKey) return res.status(400).json({ success: false, error: 'Thiếu API Key' });
+
+  try {
+    const pRes = await fetch(`https://pandaproxys.com/api/v2/proxies/${apiKey}/rotate`);
+    const pData = await pRes.json();
+    
+    // Nếu API trả về data có chứa ip và port thì lấy cấu hình
+    if (pData && pData.data && pData.data.ip && pData.data.port) {
+      const p = {
+        type: proxyType || 'http',
+        host: pData.data.ip,
+        port: pData.data.port,
+        user: pData.data.username || '',
+        pass: pData.data.password || '',
+        ip: pData.data.public_ip || pData.data.ip, // IP thật
+        verified: true
+      };
+
+      proxyConfig = p;
+      try {
+        db.ref('proxy').set(p).catch(e => console.error('Lỗi lưu proxy vào DB:', e));
+      } catch(e) {}
+      
+      let uri = '';
+      if (p.type === 'socks5') {
+        const rawAuth = p.user ? `${p.user}:${p.pass}@${p.host}:${p.port}` : `${p.host}:${p.port}`;
+        uri = `socks://${Buffer.from(rawAuth).toString('base64')}`;
+      } else {
+        uri = p.user 
+          ? `${p.type}://${encodeURIComponent(p.user)}:${encodeURIComponent(p.pass)}@${p.host}:${p.port}`
+          : `${p.type}://${p.host}:${p.port}`;
+      }
+
+      res.json({ 
+        success: true, 
+        message: pData.message,
+        proxy: proxyUrl(p),
+        uri: uri,
+        raw: p.user ? `${p.host}:${p.port}:${p.user}:${p.pass}` : `${p.host}:${p.port}`,
+        pandaData: pData.data
+      });
+    } else {
+      res.status(400).json({ success: false, error: pData.message || 'Lỗi API PandaProxy' });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ─── DELETE /api/proxy ─────────────────────────────────────────────
 app.delete('/api/proxy', (_req, res) => {
   proxyConfig = null;
