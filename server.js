@@ -1,4 +1,8 @@
 const express = require('express');
+const { Buffer } = require('buffer');
+const http = require('http');
+const net = require('net');
+const { SocksClient } = require('socks');
 const puppeteer = require('puppeteer');
 
 // Simple log capturer
@@ -93,15 +97,70 @@ const S = {
   poll:     null,
   expire:   null,
   expiresAt:null,
+  localProxyServer: null,
 };
 
 async function reset() {
   clearInterval(S.poll); clearTimeout(S.expire);
+  if (S.localProxyServer) {
+    S.localProxyServer.close();
+    S.localProxyServer = null;
+  }
   S.poll = S.expire = null;
   if (S.page) { try { await S.page.close(); } catch(_){} S.page = null; }
   if (S.ctx)  { try { await S.ctx.close();  } catch(_){} S.ctx  = null; }
   if (S.browser) { try { await S.browser.close(); } catch(_){} S.browser = null; }
   Object.assign(S, { status:'idle', qrImage:null, cookies:null, userInfo:null, error:null, expiresAt:null });
+}
+
+// ─── Local Proxy Bridge cho SOCKS5 ──────────────────────────────────
+function startSocks5LocalProxy(proxyConfig) {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('Socks5 Bridge');
+    });
+
+    server.on('connect', (req, clientSocket, head) => {
+      const [hostname, port] = req.url.split(':');
+      
+      const options = {
+        proxy: {
+          host: proxyConfig.host,
+          port: parseInt(proxyConfig.port),
+          type: 5
+        },
+        command: 'connect',
+        destination: {
+          host: hostname,
+          port: parseInt(port || 443)
+        }
+      };
+
+      if (proxyConfig.user) {
+        options.proxy.userId = proxyConfig.user;
+        options.proxy.password = proxyConfig.pass;
+      }
+
+      SocksClient.createConnection(options)
+        .then(info => {
+          clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+          info.socket.write(head);
+          info.socket.pipe(clientSocket);
+          clientSocket.pipe(info.socket);
+        })
+        .catch(err => {
+          console.error('  ⚠️ Lỗi cầu nối SOCKS5:', err.message);
+          clientSocket.end('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+        });
+    });
+
+    server.listen(0, '127.0.0.1', () => {
+      resolve(server);
+    });
+    
+    server.on('error', reject);
+  });
 }
 
 // ─── Launch Browser (with optional proxy) ──────────────────────────
@@ -113,8 +172,15 @@ async function launchBrowser(proxy) {
     '--disable-default-apps','--disable-sync','--no-first-run',
   ];
   if (proxy) {
-    args.push(`--proxy-server=${proxyUrl(proxy)}`);
-    console.log(`  🌐 Chrome + proxy: ${proxyUrl(proxy)}`);
+    if (proxy.type === 'socks5' && proxy.user) {
+      console.log(`  🌐 Khởi tạo Cầu nối SOCKS5 cục bộ cho: ${proxyUrl(proxy)}`);
+      S.localProxyServer = await startSocks5LocalProxy(proxy);
+      const localPort = S.localProxyServer.address().port;
+      args.push(`--proxy-server=http://127.0.0.1:${localPort}`);
+    } else {
+      args.push(`--proxy-server=${proxyUrl(proxy)}`);
+      console.log(`  🌐 Chrome + proxy: ${proxyUrl(proxy)}`);
+    }
   } else {
     console.log('  🌐 Chrome (không proxy)');
   }
@@ -170,7 +236,8 @@ async function newPage(browser, proxy) {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36'
   );
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'vi-VN,vi;q=0.9' });
-  if (proxy && proxy.user) {
+  // Chỉ xác thực proxy HTTP/HTTPS. (SOCKS5 đã được xử lý qua cầu nối cục bộ)
+  if (proxy && proxy.user && proxy.type !== 'socks5') {
     await page.authenticate({ username: proxy.user, password: proxy.pass });
   }
   return { ctx, page };
@@ -369,71 +436,6 @@ app.get('/api/proxy/status', (_req, res) => {
   });
 });
 
-// ─── POST /api/pandaproxy/rotate ───────────────────────────────────
-app.post('/api/pandaproxy/rotate', async (req, res) => {
-  const { apiKey, proxyId, proxyType } = req.body;
-  if (!apiKey) return res.status(400).json({ success: false, error: 'Thiếu API Token' });
-  if (!proxyId) return res.status(400).json({ success: false, error: 'Thiếu ID Proxy' });
-
-  try {
-    const pRes = await fetch(`https://pandaproxys.com/api/v2/proxies/${proxyId}/rotate`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'x-merchant-id': '357e7dcd-d4a0-4ada-96da-c3725d3defa6'
-      }
-    });
-    const pData = await pRes.json();
-    
-    // Nếu API trả về success và có chuỗi proxy
-    if (pData && pData.status === 'success' && pData.proxy) {
-      // Parse chuỗi proxy "ip:port:user:pass"
-      const parts = pData.proxy.trim().split(':');
-      const host = parts[0];
-      const port = parts[1];
-      const user = parts[2] || '';
-      const pass = parts.slice(3).join(':') || '';
-      
-      const p = {
-        type: proxyType || 'http',
-        host: host,
-        port: port,
-        user: user,
-        pass: pass,
-        ip: pData.ip || host,
-        verified: true
-      };
-      
-      let uri = '';
-      if (p.type === 'socks5') {
-        const rawAuth = p.user ? `${p.user}:${p.pass}@${p.host}:${p.port}` : `${p.host}:${p.port}`;
-        uri = `socks://${Buffer.from(rawAuth).toString('base64')}`;
-      } else {
-        uri = p.user 
-          ? `${p.type}://${encodeURIComponent(p.user)}:${encodeURIComponent(p.pass)}@${p.host}:${p.port}`
-          : `${p.type}://${p.host}:${p.port}`;
-      }
-
-      res.json({ 
-        success: true, 
-        message: 'Xoay IP thành công',
-        proxy: pData.proxy,
-        uri: uri,
-        raw: pData.proxy,
-        pandaData: {
-          ip: pData.ip || host,
-          isp: 'PandaProxy', // API mới không có sẵn ISP/Region, ta để mặc định
-          region: 'N/A',
-          time_next_rotate: 0 // Hoặc có thể parse từ pData nếu có
-        }
-      });
-    } else {
-      res.status(400).json({ success: false, error: pData.message || pData.error || 'Lỗi API PandaProxy (Thử lại sau)' });
-    }
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
 // ─── DELETE /api/proxy ─────────────────────────────────────────────
 app.delete('/api/proxy', (_req, res) => {

@@ -10,6 +10,8 @@
   "dependencies": {
     "express": "^4.18.2",
     "firebase-admin": "^14.2.0",
-    "puppeteer": "^25.5.0"
+    "proxy-chain": "^3.0.0",
+    "puppeteer": "^25.5.0",
+    "socks": "^2.8.9"
   }
 }

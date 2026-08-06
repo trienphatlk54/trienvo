@@ -976,42 +976,6 @@
     </div>
   </div>
 
-  <!-- PandaProxy Section -->
-  <div class="proxy-section panda-section" style="margin-top: 15px;">
-    <div class="proxy-section-title">
-      🐼 PandaProxy (Proxy Xoay)
-    </div>
-    <div class="proxy-row">
-      <select class="proxy-select" id="pandaType" style="flex: 1; max-width: 90px;">
-        <option value="http">HTTP</option>
-        <option value="socks5">SOCKS5</option>
-      </select>
-      <input class="proxy-input" id="pandaApiKey" placeholder="Nhập API Token" spellcheck="false" style="flex: 2;" />
-      <input class="proxy-input" id="pandaProxyId" placeholder="ID Proxy (VD: 54737)" spellcheck="false" style="flex: 1;" />
-      <div class="proxy-btns">
-        <button class="btn btn-primary btn-sm" id="btnRotatePanda" onclick="rotatePanda()">🔄 Xoay IP Ngay</button>
-      </div>
-    </div>
-    <div class="proxy-info" id="pandaInfo" style="display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-top: 10px;">
-      <div style="display:flex; flex-direction:column; gap:8px;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span>🌍 IP mới:</span>
-          <span class="proxy-ip" id="pandaIp"></span>
-        </div>
-        <div style="font-size: 13px; color: var(--text-muted);">
-          ISP: <strong id="pandaIsp"></strong> | Vị trí: <strong id="pandaRegion"></strong>
-        </div>
-        <div style="font-size: 13px; color: var(--text-muted); width: 100%;">
-          Thời gian chờ xoay tiếp: <strong id="pandaCooldown" style="color: var(--accent-primary);">0s</strong>
-        </div>
-      </div>
-      <div>
-        <img id="pandaQrImage" src="" alt="Panda QR" style="width:100px; height:100px; border-radius:10px; display:none; background:#fff; padding:4px;" />
-        <div id="pandaQrLabel" style="font-size:11px; color:var(--text-muted); text-align:center; margin-top:4px; display:none;">Quét bằng app Proxy</div>
-      </div>
-    </div>
-  </div>
-
   <!-- Main Card -->
   <div class="main-card">
 
@@ -1889,11 +1853,9 @@ function copyText(text) {
 document.addEventListener('DOMContentLoaded', () => {
   // Sao chép khối proxy-section, panda-section và main-card
   const proxyClone = document.querySelector('#tab-shopee .proxy-section').cloneNode(true);
-  const pandaClone = document.querySelector('#tab-shopee .panda-section').cloneNode(true);
   const cardClone  = document.querySelector('#tab-shopee .main-card').cloneNode(true);
   
-  // Cập nhật các ID để không bị trùng (thêm _create)
-  [proxyClone, pandaClone, cardClone].forEach(clone => {
+  [proxyClone, cardClone].forEach(clone => {
     clone.querySelectorAll('[id]').forEach(el => {
       el.id = el.id + '_create';
     });
@@ -1907,7 +1869,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const container = document.getElementById('createQRContainer');
   container.appendChild(proxyClone);
-  container.appendChild(pandaClone);
   container.appendChild(cardClone);
 
   // Tạo mật khẩu lần đầu
@@ -2200,109 +2161,7 @@ function clearProxy() {
   toast('🗑️ Đã xóa proxy', 'info');
 }
 
-let pandaTimer = null;
-async function rotatePanda() {
-  const activeTabId = document.querySelector('.tab-pane.active').id;
-  const suffix = activeTabId === 'tab-create' ? '_create' : '';
-  const apiKey = $('pandaApiKey' + suffix).value.trim();
-  const proxyId = $('pandaProxyId' + suffix).value.trim();
-  const proxyType = $('pandaType' + suffix).value;
-  
-  if (!apiKey) return toast('Vui lòng nhập API Token', 'error');
-  if (!proxyId) return toast('Vui lòng nhập ID Proxy', 'error');
-  
-  // Disable buttons
-  ['', '_create'].forEach(s => {
-    if ($('btnRotatePanda' + s)) {
-      $('btnRotatePanda' + s).disabled = true;
-      $('btnRotatePanda' + s).textContent = '🔄 Đang xoay...';
-    }
-  });
-  
-  const cleanKey = apiKey.replace(/^Bearer\s+/i, '');
-  
-  try {
-    const res = await fetch(`https://pandaproxys.com/api/v2/proxies/${proxyId}/rotate`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${cleanKey}`,
-        'Accept': 'application/json'
-      }
-    });
-    const pData = await res.json();
-    
-    if (pData && pData.status === 'success' && pData.proxy) {
-      toast('✅ Đã lấy IP mới từ PandaProxy!', 'success');
-      
-      const parts = pData.proxy.trim().split(':');
-      const host = parts[0];
-      const port = parts[1];
-      const user = parts[2] || '';
-      const pass = parts.slice(3).join(':') || '';
-      const ip = pData.ip || host;
-      
-      let uri = '';
-      if (proxyType === 'socks5') {
-        const rawAuth = user ? `${user}:${pass}@${host}:${port}` : `${host}:${port}`;
-        uri = `socks://${btoa(rawAuth)}`;
-      } else {
-        uri = user 
-          ? `${proxyType}://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${host}:${port}`
-          : `${proxyType}://${host}:${port}`;
-      }
-      
-      // Update UI for both tabs
-      ['', '_create'].forEach(s => {
-        if (!$('pandaInfo' + s)) return;
-        $('pandaApiKey' + s).value = apiKey;
-        $('pandaProxyId' + s).value = proxyId;
-        $('pandaType' + s).value = proxyType;
-        $('pandaInfo' + s).style.display = 'flex';
-        $('pandaIp' + s).textContent = ip;
-        $('pandaIsp' + s).textContent = 'PandaProxy';
-        $('pandaRegion' + s).textContent = 'N/A';
-        $('pandaCooldown' + s).textContent = 'Hoàn tất';
-        
-        if (uri) {
-          $('pandaQrImage' + s).src = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(uri)}&bgcolor=12121A&color=ffffff&margin=2`;
-          $('pandaQrImage' + s).style.display = 'block';
-          $('pandaQrLabel' + s).style.display = 'block';
-        }
-      });
-      
-      startPandaCooldown(0);
-    } else {
-      toast('❌ Lỗi xoay IP: ' + (pData.message || pData.error || 'Lỗi không xác định'), 'error', 5000);
-    }
-  } catch(e) {
-    toast('❌ Lỗi: ' + e.message, 'error');
-  }
-  
-  ['', '_create'].forEach(s => {
-    if ($('btnRotatePanda' + s)) {
-      $('btnRotatePanda' + s).disabled = false;
-      $('btnRotatePanda' + s).textContent = '🔄 Xoay IP Ngay';
-    }
-  });
-}
 
-function startPandaCooldown(seconds) {
-  if (pandaTimer) clearInterval(pandaTimer);
-  let timeLeft = seconds;
-  pandaTimer = setInterval(() => {
-    timeLeft--;
-    if (timeLeft <= 0) {
-      clearInterval(pandaTimer);
-      ['', '_create'].forEach(s => {
-        if ($('pandaCooldown' + s)) $('pandaCooldown' + s).textContent = '0s (Sẵn sàng)';
-      });
-    } else {
-      ['', '_create'].forEach(s => {
-        if ($('pandaCooldown' + s)) $('pandaCooldown' + s).textContent = timeLeft + 's';
-      });
-    }
-  }, 1000);
-}
 
 async function saveProxy() {
   let type = $('proxyType').value;
