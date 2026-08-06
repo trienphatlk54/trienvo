@@ -371,30 +371,37 @@ app.get('/api/proxy/status', (_req, res) => {
 
 // ─── POST /api/pandaproxy/rotate ───────────────────────────────────
 app.post('/api/pandaproxy/rotate', async (req, res) => {
-  const { apiKey, proxyType } = req.body;
-  if (!apiKey) return res.status(400).json({ success: false, error: 'Thiếu API Key' });
+  const { proxyId, proxyType } = req.body;
+  if (!proxyId) return res.status(400).json({ success: false, error: 'Thiếu ID Proxy' });
 
   try {
-    const pRes = await fetch(`https://pandaproxys.com/api/v2/proxies/${apiKey}/rotate`);
+    const pRes = await fetch(`https://pandaproxys.com/api/v2/proxies/${proxyId}/rotate`, {
+      method: 'GET',
+      headers: {
+        'Authorization': 'Bearer panda645884_eebe80da9de831be996be70d86669cc864ada9f19f035ac1812286690e2bb210',
+        'x-merchant-id': '357e7dcd-d4a0-4ada-96da-c3725d3defa6'
+      }
+    });
     const pData = await pRes.json();
     
-    // Nếu API trả về data có chứa ip và port thì lấy cấu hình
-    if (pData && pData.data && pData.data.ip && pData.data.port) {
+    // Nếu API trả về success và có chuỗi proxy
+    if (pData && pData.status === 'success' && pData.proxy) {
+      // Parse chuỗi proxy "ip:port:user:pass"
+      const parts = pData.proxy.trim().split(':');
+      const host = parts[0];
+      const port = parts[1];
+      const user = parts[2] || '';
+      const pass = parts.slice(3).join(':') || '';
+      
       const p = {
         type: proxyType || 'http',
-        host: pData.data.ip,
-        port: pData.data.port,
-        user: pData.data.username || '',
-        pass: pData.data.password || '',
-        ip: pData.data.public_ip || pData.data.ip, // IP thật
+        host: host,
+        port: port,
+        user: user,
+        pass: pass,
+        ip: pData.ip || host,
         verified: true
       };
-
-      // Không ghi đè proxy hệ thống
-      // proxyConfig = p;
-      // try {
-      //   db.ref('proxy').set(p).catch(e => console.error('Lỗi lưu proxy vào DB:', e));
-      // } catch(e) {}
       
       let uri = '';
       if (p.type === 'socks5') {
@@ -408,14 +415,19 @@ app.post('/api/pandaproxy/rotate', async (req, res) => {
 
       res.json({ 
         success: true, 
-        message: pData.message,
-        proxy: proxyUrl(p),
+        message: 'Xoay IP thành công',
+        proxy: pData.proxy,
         uri: uri,
-        raw: p.user ? `${p.host}:${p.port}:${p.user}:${p.pass}` : `${p.host}:${p.port}`,
-        pandaData: pData.data
+        raw: pData.proxy,
+        pandaData: {
+          ip: pData.ip || host,
+          isp: 'PandaProxy', // API mới không có sẵn ISP/Region, ta để mặc định
+          region: 'N/A',
+          time_next_rotate: 0 // Hoặc có thể parse từ pData nếu có
+        }
       });
     } else {
-      res.status(400).json({ success: false, error: pData.message || 'Lỗi API PandaProxy' });
+      res.status(400).json({ success: false, error: pData.message || pData.error || 'Lỗi API PandaProxy (Thử lại sau)' });
     }
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

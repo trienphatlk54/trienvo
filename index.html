@@ -986,7 +986,7 @@
         <option value="http">HTTP</option>
         <option value="socks5">SOCKS5</option>
       </select>
-      <input class="proxy-input" id="pandaApiKey" placeholder="Nhập API Key của PandaProxy" spellcheck="false" />
+      <input class="proxy-input" id="pandaApiKey" placeholder="Nhập ID Proxy (VD: 54737)" spellcheck="false" />
       <div class="proxy-btns">
         <button class="btn btn-primary btn-sm" id="btnRotatePanda" onclick="rotatePanda()">🔄 Xoay IP Ngay</button>
       </div>
@@ -2203,10 +2203,10 @@ let pandaTimer = null;
 async function rotatePanda() {
   const activeTabId = document.querySelector('.tab-pane.active').id;
   const suffix = activeTabId === 'tab-create' ? '_create' : '';
-  const apiKey = $('pandaApiKey' + suffix).value.trim();
+  const proxyId = $('pandaApiKey' + suffix).value.trim();
   const proxyType = $('pandaType' + suffix).value;
   
-  if (!apiKey) return toast('Vui lòng nhập API Key của PandaProxy', 'error');
+  if (!proxyId) return toast('Vui lòng nhập ID Proxy', 'error');
   
   // Disable buttons
   ['', '_create'].forEach(s => {
@@ -2220,7 +2220,7 @@ async function rotatePanda() {
     const res = await fetch('/api/pandaproxy/rotate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey, proxyType }),
+      body: JSON.stringify({ proxyId, proxyType }),
     });
     const data = await res.json();
     
@@ -2230,7 +2230,7 @@ async function rotatePanda() {
       // Update UI for both tabs
       ['', '_create'].forEach(s => {
         if (!$('pandaInfo' + s)) return;
-        $('pandaApiKey' + s).value = apiKey;
+        $('pandaApiKey' + s).value = proxyId;
         $('pandaType' + s).value = proxyType;
         $('pandaInfo' + s).style.display = 'flex';
         $('pandaIp' + s).textContent = data.pandaData.ip;
