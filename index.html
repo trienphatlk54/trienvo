@@ -249,7 +249,7 @@
 
     /* ── Card Header ──────────────────────────────── */
     .card-header {
-      padding: 28px 32px;
+      padding: 20px 24px;
       border-bottom: 1px solid var(--border);
       background: linear-gradient(135deg, rgba(238,77,45,0.06), rgba(100,40,200,0.04));
       display: flex;
@@ -304,7 +304,7 @@
     /* ── QR Panel ─────────────────────────────────── */
     .qr-panel {
       border-right: 1px solid var(--border);
-      padding: 36px 32px;
+      padding: 20px 24px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -472,10 +472,10 @@
 
     /* ── Info Panel ───────────────────────────────── */
     .info-panel {
-      padding: 36px 32px;
+      padding: 20px 24px;
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 16px;
     }
 
     /* ── Cookie Section ───────────────────────────── */
@@ -1051,9 +1051,12 @@
             🚀 Lấy mã QR
           </button>
           <button class="btn btn-ghost" id="btnRefresh" onclick="refreshQR()" style="display:none;" disabled>
-            🔄 Làm mới
+            🔄 Làm mới QR
           </button>
         </div>
+        <button class="btn btn-ghost" onclick="resetQrInfo()" style="margin-top: 10px; width: 100%; font-size: 14px; padding: 10px; border: 1px solid var(--border); color: var(--error);">
+          🔄 LÀM MỚI TẤT CẢ THÔNG TIN
+        </button>
       </div>
 
       <!-- Info Panel -->
@@ -1166,7 +1169,7 @@
           <p>Danh sách điện thoại (Số định danh và Loại) được lấy từ bảng Quản lý phone.</p>
         </div>
       </div>
-      <div class="card-body" style="padding: 24px; display: flex; flex-direction: column; gap: 10px;">
+      <div class="card-body" style="padding: 16px; display: flex; flex-direction: column; gap: 10px;">
         <input type="text" id="phoneSelectSearch" class="proxy-input" placeholder="🔍 Lọc theo Số định danh hoặc Loại..." onkeyup="renderPhoneSelect()" style="max-width: 100%; border: 1px solid var(--border);" />
         <div id="phoneSelectList" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; padding-right: 5px; margin-top: 10px;">
           <div style="color:var(--text-muted); text-align: center; padding: 10px;">Đang tải danh sách...</div>
@@ -1204,7 +1207,7 @@
       </div>
 
       <!-- METHOD A: API -->
-      <div id="methodApiBlock" class="card-body" style="grid-template-columns: 1fr; padding: 24px; display:block;">
+      <div id="methodApiBlock" class="card-body" style="grid-template-columns: 1fr; padding: 16px; display:block;">
         <div style="display:flex; justify-content:space-between; margin-bottom: 16px;">
           <h3 style="font-size:14px; margin:0; color:var(--text-muted);">Tự động chờ lấy mã xác nhận từ API</h3>
           <div style="text-align:right;">
@@ -1238,7 +1241,7 @@
       </div>
       
       <!-- METHOD B: Manual Input -->
-      <div id="methodManualBlock" class="card-body" style="grid-template-columns: 1fr; padding: 24px; display:none;">
+      <div id="methodManualBlock" class="card-body" style="grid-template-columns: 1fr; padding: 16px; display:none;">
         <h3 style="font-size:14px; margin:0 0 16px 0; color:var(--text-muted);">Sử dụng số điện thoại có sẵn của bạn</h3>
         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
           <input type="text" id="manualPhoneInput" class="proxy-input" placeholder="Nhập số điện thoại..." style="max-width: 250px;" />
@@ -1261,7 +1264,7 @@
           <p>Dùng để tạo tài khoản mới. Quét mã QR bên cạnh để nhập nhanh trên điện thoại.</p>
         </div>
       </div>
-      <div class="card-body" style="grid-template-columns: 1fr; padding: 24px;">
+      <div class="card-body" style="grid-template-columns: 1fr; padding: 16px;">
         <div class="pwd-generator">
           <div class="pwd-input-group">
             <div class="pwd-display" id="generatedPassword">Đang tạo...</div>
@@ -1291,11 +1294,19 @@
           <p>Lưu số điện thoại xác nhận, mật khẩu và dữ liệu QR Session vào Máy đã chọn.</p>
         </div>
       </div>
-      <div class="card-body" style="padding: 24px;">
+      <div class="card-body" style="padding: 16px;">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
           <div>
+            <div style="color:var(--text-muted); font-size: 13px; margin-bottom: 5px;">Số định danh máy đang chọn:</div>
+            <div id="summaryPhoneId" style="font-family: monospace; font-size: 16px; color: var(--shopee-light); font-weight: bold;">(Chưa chọn)</div>
+          </div>
+          <div>
+            <div style="color:var(--text-muted); font-size: 13px; margin-bottom: 5px;">Loại điện thoại:</div>
+            <div id="summaryPhoneType" style="font-family: monospace; font-size: 16px; color: var(--shopee-light); font-weight: bold;">(Chưa chọn)</div>
+          </div>
+          <div>
             <div style="color:var(--text-muted); font-size: 13px; margin-bottom: 5px;">Số điện thoại đã xác nhận (Phone):</div>
-            <div id="summaryPhoneConf" style="font-family: monospace; font-size: 16px; color: var(--shopee-light); font-weight: bold;">(Chưa xác nhận)</div>
+            <div id="summaryPhoneConf" style="font-family: monospace; font-size: 16px; color: var(--success); font-weight: bold;">(Chưa xác nhận)</div>
           </div>
           <div>
             <div style="color:var(--text-muted); font-size: 13px; margin-bottom: 5px;">Mật khẩu:</div>
@@ -1316,9 +1327,6 @@
         <div style="margin-top: 24px; text-align: center;">
           <button class="btn btn-primary" onclick="saveAccountToPhone()" id="btnSaveAccount" style="width: 100%; font-size: 16px; padding: 14px; margin-bottom: 10px;">
             🚀 LƯU VÀO MÁY ĐÃ CHỌN
-          </button>
-          <button class="btn btn-ghost" onclick="resetQrInfo()" style="width: 100%; font-size: 14px; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); color: var(--error);">
-            🔄 LÀM MỚI TẤT CẢ THÔNG TIN
           </button>
           <a href="#" onclick="switchTab('tab-analytics'); return false;" style="color: var(--shopee-light); font-size: 13px; text-decoration: underline;">
             Xem bảng xếp chồng ở Quản lý Dữ liệu ☁️
@@ -1387,7 +1395,7 @@
           <button class="btn btn-ghost" onclick="loadFirebaseData()">🔄 Làm mới</button>
         </div>
       </div>
-      <div class="card-body" style="grid-template-columns: 1fr; padding: 24px;">
+      <div class="card-body" style="grid-template-columns: 1fr; padding: 16px;">
         <table style="width:100%; border-collapse: collapse; text-align: left; font-size: 14px;">
           <thead>
             <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
@@ -1627,12 +1635,10 @@ function generatePassword() {
   
   // Random year 1970 - 2005
   const year = Math.floor(Math.random() * (2005 - 1970 + 1)) + 1970;
-  const month = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
-  const day = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0'); // Safe max 28 cho mọi tháng
   
   // @ có thể ở giữa hoặc cuối
   const isAtEnd = Math.random() > 0.5;
-  const pwd = isAtEnd ? `${n1}${n2}${day}${month}${year}@` : `${n1}${n2}@${day}${month}${year}`;
+  const pwd = isAtEnd ? `${n1}${n2}${year}@` : `${n1}${n2}@${year}`;
   
   const pwdDisplay = document.getElementById('generatedPassword'); // Không dùng $ vì id này unique
   const pwdQr = document.getElementById('pwdQrImage');
@@ -2514,6 +2520,11 @@ function renderPhoneSelect() {
   if (!list) return;
   const searchInput = $('phoneSelectSearch')?.value.toLowerCase() || '';
   
+  if (!searchInput) {
+    list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px; font-size:13px;">Vui lòng nhập tên máy vào ô tìm kiếm...</div>';
+    return;
+  }
+
   let ids = Object.keys(phonesData);
   if (ids.length === 0) {
     list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px;">Chưa có dữ liệu điện thoại. Hãy thêm bên Tab Quản lý Phone.</div>';
@@ -2570,6 +2581,15 @@ function clearSelectedPhone() {
 
 function updateSummaryUI() {
   if (!$('summaryPhoneConf')) return;
+
+  if (selectedPhoneIdForSave && phonesData[selectedPhoneIdForSave]) {
+    const p = phonesData[selectedPhoneIdForSave];
+    $('summaryPhoneId').textContent = p.identifier || '';
+    $('summaryPhoneType').textContent = p.type || '';
+  } else {
+    $('summaryPhoneId').textContent = '(Chưa chọn)';
+    $('summaryPhoneType').textContent = '(Chưa chọn)';
+  }
 
   // Update Phone (Info 1)
   const manualPhoneText = $('currentConfirmedPhoneText')?.textContent;

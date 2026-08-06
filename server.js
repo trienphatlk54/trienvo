@@ -302,72 +302,13 @@ app.post('/api/proxy/save', async (req, res) => {
   const p = parseProxy(type, raw.trim());
   if (!p) return res.json({ success:false, error:'Sai định dạng. Dùng: ip:port hoặc ip:port:user:pass' });
 
-  console.log(`\n🔒 Test proxy: ${proxyUrl(p)}${p.user ? ' (auth)' : ''}`);
+  console.log(`\n🔒 Đã lưu proxy mặc định: ${proxyUrl(p)}${p.user ? ' (auth)' : ''}`);
 
-  let testBrowser = null;
-  try {
-    testBrowser = await launchBrowser(p);
-    const { ctx, page } = await newPage(testBrowser, p);
-
-    // Thử nhiều dịch vụ IP (httpbin không ổn định)
-    const ipServices = [
-      { url: 'https://api.ipify.org?format=json', parse: b => { try { return JSON.parse(b).ip; } catch(_) { return null; } } },
-      { url: 'https://icanhazip.com',              parse: b => b.trim() },
-      { url: 'https://checkip.amazonaws.com',       parse: b => b.trim() },
-      { url: 'https://api.myip.com',                parse: b => { try { return JSON.parse(b).ip; } catch(_) { return null; } } },
-    ];
-
-    let ip = '';
-    for (const svc of ipServices) {
-      try {
-        console.log(`  🔍 Thử ${svc.url}...`);
-        await page.goto(svc.url, { waitUntil: 'domcontentloaded', timeout: 20000 });
-        const body = await page.evaluate(() => document.body.innerText);
-        const parsed = svc.parse(body);
-        // Kiểm tra IP hợp lệ (IPv4 hoặc IPv6)
-        if (parsed && /^[\d.:a-fA-F]+$/.test(parsed) && parsed.length >= 7 && parsed.length <= 45) {
-          ip = parsed;
-          console.log(`  ✅ IP: ${ip}`);
-          break;
-        }
-        console.log(`  ⚠️ Response không hợp lệ: "${(body || '').substring(0, 60)}"`);
-      } catch(e2) {
-        console.log(`  ⚠️ ${svc.url} lỗi: ${e2.message.substring(0, 50)}`);
-      }
-    }
-
-    await page.close();
-    await ctx.close();
-    await testBrowser.close();
-    testBrowser = null;
-
-    if (!ip) {
-      proxyConfig = null;
-      return res.json({ success:false, error:'Proxy kết nối nhưng không lấy được IP. Kiểm tra lại proxy.' });
-    }
-
-    p.verified = true;
-    p.ip = ip;
-    proxyConfig = p;
-    console.log(`  ✅ Proxy OK! IP: ${ip}`);
-    res.json({ success:true, ip, proxy: proxyUrl(p) });
-
-  } catch(e) {
-    if (testBrowser) try { await testBrowser.close(); } catch(_){}
-    proxyConfig = null;
-    const msg = e.message || '';
-    let hint = '';
-    if (msg.includes('ERR_SOCKS_CONNECTION_FAILED'))
-      hint = ' — Proxy không hỗ trợ SOCKS5, thử chọn HTTP';
-    else if (msg.includes('ERR_PROXY_CONNECTION_FAILED'))
-      hint = ' — Proxy từ chối kết nối, kiểm tra IP/port';
-    else if (msg.includes('ERR_TUNNEL_CONNECTION_FAILED'))
-      hint = ' — Proxy không cho phép CONNECT tunnel';
-    else if (msg.includes('ERR_PROXY_AUTH'))
-      hint = ' — Sai username/password proxy';
-    console.log(`  ❌ Proxy lỗi: ${msg}`);
-    res.json({ success:false, error: `Không kết nối được${hint}: ${msg.substring(0,80)}` });
-  }
+  p.verified = true;
+  p.ip = p.host; // Không check live nên gán luôn host làm ip hiển thị
+  proxyConfig = p;
+  
+  res.json({ success:true, ip: p.ip, proxy: proxyUrl(p) });
 });
 
 // ─── GET /api/proxy/status ─────────────────────────────────────────
