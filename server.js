@@ -324,9 +324,15 @@ app.post('/api/proxy/save', async (req, res) => {
     db.ref('proxy').set(p).catch(e => console.error('Lỗi lưu proxy vào DB:', e));
   } catch(e) {}
   
-  const uri = p.user 
-    ? `${p.type}://${encodeURIComponent(p.user)}:${encodeURIComponent(p.pass)}@${p.host}:${p.port}`
-    : `${p.type}://${p.host}:${p.port}`;
+  let uri;
+  if (p.type === 'socks5') {
+    const rawAuth = p.user ? `${p.user}:${p.pass}@${p.host}:${p.port}` : `${p.host}:${p.port}`;
+    uri = `socks://${Buffer.from(rawAuth).toString('base64')}`;
+  } else {
+    uri = p.user 
+      ? `${p.type}://${encodeURIComponent(p.user)}:${encodeURIComponent(p.pass)}@${p.host}:${p.port}`
+      : `${p.type}://${p.host}:${p.port}`;
+  }
     
   res.json({ success:true, ip: p.ip, proxy: proxyUrl(p), uri: uri });
 });
@@ -335,9 +341,15 @@ app.post('/api/proxy/save', async (req, res) => {
 app.get('/api/proxy/status', (_req, res) => {
   if (!proxyConfig) return res.json({ active:false });
   
-  const uri = proxyConfig.user 
-    ? `${proxyConfig.type}://${encodeURIComponent(proxyConfig.user)}:${encodeURIComponent(proxyConfig.pass)}@${proxyConfig.host}:${proxyConfig.port}`
-    : `${proxyConfig.type}://${proxyConfig.host}:${proxyConfig.port}`;
+  let uri = '';
+  if (proxyConfig.type === 'socks5') {
+    const rawAuth = proxyConfig.user ? `${proxyConfig.user}:${proxyConfig.pass}@${proxyConfig.host}:${proxyConfig.port}` : `${proxyConfig.host}:${proxyConfig.port}`;
+    uri = `socks://${Buffer.from(rawAuth).toString('base64')}`;
+  } else {
+    uri = proxyConfig.user 
+      ? `${proxyConfig.type}://${encodeURIComponent(proxyConfig.user)}:${encodeURIComponent(proxyConfig.pass)}@${proxyConfig.host}:${proxyConfig.port}`
+      : `${proxyConfig.type}://${proxyConfig.host}:${proxyConfig.port}`;
+  }
     
   res.json({
     active: true,
