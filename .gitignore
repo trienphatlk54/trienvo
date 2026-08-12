@@ -10,4 +10,3 @@ shopee-qr-upload/
 node_modules/
 *.zip
 debug*.png
-*.html
