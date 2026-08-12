@@ -119,11 +119,11 @@
     /* ── Main Content ─────────────────────────────── */
     .main-content {
       flex: 1;
-      padding: 40px 30px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      min-width: 0; /* prevent flex blowout */
+      align-items: stretch;
+      min-width: 0;
     }
 
     .tab-pane {
@@ -143,11 +143,6 @@
     }
 
     /* ── Tab Layout Overrides ─────────────────────── */
-      flex-direction: column;
-      align-items: center;
-      padding: 40px 20px 60px;
-    }
-
     /* ── Header ───────────────────────────────────── */
     header {
       width: 100%; max-width: 900px;
@@ -863,8 +858,14 @@
       .card-body { grid-template-columns: 1fr; }
       .qr-panel  { border-right: none; border-bottom: 1px solid var(--border); }
       .user-fields { grid-template-columns: 1fr; }
-      .main-content { padding: 20px 10px; }
+      .main-content { padding: 10px; }
     }
+
+    .compact-table th, .compact-table td {
+      padding: 4px 6px !important;
+      font-size: 11px !important;
+    }
+
 /* ── Modal & Phone Table CSS ─────────────────────── */
 .modal-overlay {
   display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
@@ -1372,8 +1373,8 @@
             <button class="btn btn-primary" onclick="openPhoneModal()">+ Thêm Phone</button>
           </div>
         </div>
-        <div class="table-container" style="max-height: 600px; overflow:auto;">
-          <table class="data-table table-grouped" style="min-width: 1200px;">
+        <div class="table-container" style="max-height: 700px; overflow:auto;">
+          <table class="data-table table-grouped compact-table" style="min-width: 1200px;">
             <thead>
               <tr id="phoneTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 13px; text-transform: uppercase;">
                 <th data-col="identifier" onclick="setPhoneSort('identifier')" style="padding: 12px 8px; width:80px; cursor:pointer;">Định danh ▲</th>
@@ -1418,8 +1419,8 @@
           <button class="btn btn-ghost" onclick="loadFirebaseData(true)" style="height: 32px; padding: 6px 12px; font-size: 12px;">🔄 Làm mới</button>
         </div>
       </div>
-      <div class="card-body" style="grid-template-columns: 1fr; padding: 24px;">
-        <table style="width:100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+      <div class="card-body" style="grid-template-columns: 1fr; padding: 8px;">
+        <table class="compact-table" style="width:100%; border-collapse: collapse; text-align: left; font-size: 13px;">
           <thead>
             <tr id="dataTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
               <th data-col="time" onclick="setDataSort('time')" style="padding: 10px 8px; cursor:pointer;">Thời gian ▼</th>
