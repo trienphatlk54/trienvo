@@ -924,6 +924,9 @@
       <div class="nav-item" onclick="switchTab('settings')">
         <span class="nav-icon">⚙️</span> Cài đặt
       </div>
+      <div class="nav-item" onclick="switchTab('goaffiliate')">
+        <span class="nav-icon">🔗</span> GoAffiliate
+      </div>
     </nav>
   </aside>
 
@@ -1444,6 +1447,43 @@
       <p>Cấu hình Webhook, thời gian lưu trữ cookie, quản lý proxy nâng cao và thông báo Telegram.</p>
     </div>
   </div>
+
+    <!-- Tab 5: GoAffiliate Converter -->
+    <div id="tab-goaffiliate" class="tab-pane">
+      <div class="main-card" style="max-width: 800px; margin: 0 auto;">
+        <div class="card-header">
+          <h2>🔗 Chuyển đổi GoAffiliate</h2>
+          <p style="color:var(--text-muted); font-size:13px; margin-top:8px;">Tự động chuyển đổi link Shopee sang link tiếp thị liên kết (Affiliate).</p>
+        </div>
+        <div class="card-body" style="padding: 24px; display:flex; flex-direction:column; gap:20px;">
+          <div class="input-group">
+            <label>Link Shopee Gốc:</label>
+            <textarea id="goAffiliateOriginalLink" class="proxy-input" style="height: 100px; resize:vertical; font-family:monospace;" placeholder="Nhập link Shopee vào đây... (VD: https://shopee.vn/...)"></textarea>
+          </div>
+          
+          <button id="btnConvertGoAffiliate" class="btn btn-primary" onclick="convertGoAffiliateLink()" style="align-self:flex-start;">
+            Chuyển Đổi Link
+          </button>
+          
+          <div id="goAffiliateResultArea" style="display:none; flex-direction:column; gap:16px; margin-top: 20px; padding-top:20px; border-top:1px solid var(--border);">
+            <div class="input-group">
+              <label>Link Rút Gọn (Short Link):</label>
+              <div style="display:flex; gap:10px;">
+                <input type="text" id="goAffiliateShortLink" class="proxy-input" readonly style="font-family:monospace; color:var(--shopee-dark);" />
+                <button class="btn btn-secondary" onclick="copyToClipboard('goAffiliateShortLink')">Copy</button>
+              </div>
+            </div>
+            <div class="input-group">
+              <label>Link Đầy Đủ (Full Link):</label>
+              <div style="display:flex; gap:10px;">
+                <textarea id="goAffiliateFullLink" class="proxy-input" readonly style="height:80px; font-family:monospace;"></textarea>
+                <button class="btn btn-secondary" onclick="copyToClipboard('goAffiliateFullLink')">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
   </main><!-- /main-content -->
 </div><!-- /app-layout -->
@@ -3117,6 +3157,72 @@ async function executeSaveRequest(payload, currentSaveFields) {
   btn.disabled = false;
   btn.innerText = '🚀 LƯU VÀO MÁY ĐÃ CHỌN';
 }
+// --- GoAffiliate Feature ---
+async function convertGoAffiliateLink() {
+  const originalLink = $('goAffiliateOriginalLink').value.trim();
+  if (!originalLink) {
+    toast('Vui lòng nhập link Shopee gốc!', 'warning');
+    return;
+  }
+  
+  const btn = $('btnConvertGoAffiliate');
+  btn.disabled = true;
+  btn.innerText = 'Đang chuyển đổi...';
+  $('goAffiliateResultArea').style.display = 'none';
+  
+  try {
+    const res = await fetch('https://goaffiliate.online/api/get-link', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': '402622a5a09abb3a063de8fddde59e4c28af7bd44aa89e4eecd77835f963086c'
+      },
+      body: JSON.stringify({ originalLink })
+    });
+    
+    const data = await res.json();
+    if (res.ok && data) {
+      let shortLink = data.shortLink || data.short_link || data.url_short || data.data?.shortLink || data.data?.short_link || data.url || data.data?.url || '';
+      let fullLink = data.fullLink || data.full_link || data.data?.fullLink || data.data?.full_link || '';
+      
+      if (!shortLink && !fullLink) {
+         // Fallback to stringify if API response structure is unknown
+         shortLink = typeof data.data === 'string' ? data.data : JSON.stringify(data);
+         fullLink = JSON.stringify(data);
+      }
+      
+      $('goAffiliateShortLink').value = shortLink;
+      $('goAffiliateFullLink').value = fullLink;
+      $('goAffiliateResultArea').style.display = 'flex';
+      toast('Chuyển đổi thành công!', 'success');
+    } else {
+      toast(data.message || 'Lỗi khi gọi API GoAffiliate.', 'error');
+    }
+  } catch (err) {
+    toast('Lỗi mạng hoặc API từ chối truy cập.', 'error');
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = 'Chuyển Đổi Link';
+  }
+}
+
+function copyToClipboard(elementId) {
+  const el = $(elementId);
+  if (!el || !el.value) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(el.value).then(() => toast('Đã copy vào clipboard!', 'info')).catch(err => {
+      el.select();
+      document.execCommand('copy');
+      toast('Đã copy!', 'info');
+    });
+  } else {
+    el.select();
+    document.execCommand('copy');
+    toast('Đã copy!', 'info');
+  }
+}
+
 </script>
 
 <!-- Modal: Duplicate Warning -->
