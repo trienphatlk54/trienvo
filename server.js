@@ -634,11 +634,11 @@ app.post('/api/ips/clear', async (req, res) => {
 
 // ── Database Endpoints (Firebase) ────────────────────────────────────────────
 app.post('/api/data/save', async (req, res) => {
-  const { phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier, phoneId } = req.body;
+  const { phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier, phoneId, shopeeSpcF, shopeeSpcSt, shopeeUsername } = req.body;
   try {
     const ref = db.ref('shopee_accounts');
     const newEntry = ref.push();
-    await newEntry.set({ phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier: identifier || '', phoneId: phoneId || '', orderStatus: '' });
+    await newEntry.set({ phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier: identifier || '', phoneId: phoneId || '', orderStatus: '', shopeeSpcF: shopeeSpcF || '', shopeeSpcSt: shopeeSpcSt || '', shopeeUsername: shopeeUsername || '' });
     res.json({ status: 1 });
   } catch (e) {
     res.status(500).json({ error: e.message });
