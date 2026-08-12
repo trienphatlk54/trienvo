@@ -759,6 +759,26 @@ app.post('/api/phones/complete', async (req, res) => {
 });
 
 // ─── Start ─────────────────────────────────────────────────────────
+// --- GoAffiliate Proxy ---
+app.post('/api/goaffiliate', async (req, res) => {
+  const { originalLink } = req.body;
+  if (!originalLink) return res.status(400).json({ success: false, message: 'Thiếu originalLink' });
+  try {
+    const apiRes = await fetch('https://goaffiliate.online/api/get-link', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': '402622a5a09abb3a063de8fddde59e4c28af7bd44aa89e4eecd77835f963086c'
+      },
+      body: JSON.stringify({ originalLink })
+    });
+    const data = await apiRes.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 app.listen(PORT, () => console.log(`\n✅ http://localhost:${PORT}\n`));
 process.on('SIGINT', async () => {
   await reset();

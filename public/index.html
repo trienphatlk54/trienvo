@@ -3171,11 +3171,10 @@ async function convertGoAffiliateLink() {
   $('goAffiliateResultArea').style.display = 'none';
   
   try {
-    const res = await fetch('https://goaffiliate.online/api/get-link', {
+    const res = await fetch('/api/goaffiliate', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': '402622a5a09abb3a063de8fddde59e4c28af7bd44aa89e4eecd77835f963086c'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({ originalLink })
     });
