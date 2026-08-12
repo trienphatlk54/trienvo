@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
@@ -1411,26 +1411,27 @@
           <h2>☁️ Dữ liệu Cloud (Firebase)</h2>
           <p>Danh sách các số điện thoại bạn đã chốt được lưu trữ vĩnh viễn trên máy chủ.</p>
         </div>
-        <div>
-          <button class="btn btn-ghost" onclick="syncFirebaseData()" style="color:var(--shopee-light); border:1px solid var(--shopee-light); margin-right:8px;">🔄 Đồng bộ Phone -> Cloud</button>
-          <button class="btn btn-ghost" onclick="clearUsedIps()" style="color:var(--error); border:1px solid var(--error); margin-right:8px;">🗑 Xóa lịch sử IP</button>
-          <button class="btn btn-ghost" onclick="loadFirebaseData()">🔄 Làm mới</button>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <input type="text" id="dataTableSearch" class="proxy-input" placeholder="🔍 Tìm kiếm dữ liệu..." onkeyup="renderFirebaseData()" style="max-width: 200px; padding: 6px 12px; font-size: 12px; height: 32px; box-sizing: border-box;" />
+          <button class="btn btn-ghost" onclick="syncFirebaseData()" style="color:var(--shopee-light); border:1px solid var(--shopee-light); height: 32px; padding: 6px 12px; font-size: 12px;">🔄 Đồng bộ Phone -> Cloud</button>
+          <button class="btn btn-ghost" onclick="clearUsedIps()" style="color:var(--error); border:1px solid var(--error); height: 32px; padding: 6px 12px; font-size: 12px;">🗑 Xóa lịch sử IP</button>
+          <button class="btn btn-ghost" onclick="loadFirebaseData(true)" style="height: 32px; padding: 6px 12px; font-size: 12px;">🔄 Làm mới</button>
         </div>
       </div>
       <div class="card-body" style="grid-template-columns: 1fr; padding: 24px;">
         <table style="width:100%; border-collapse: collapse; text-align: left; font-size: 14px;">
           <thead>
-            <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
-              <th style="padding: 10px 8px;">Thời gian</th>
-              <th style="padding: 10px 8px;">Định danh</th>
-              <th style="padding: 10px 8px;">Nguồn</th>
-              <th style="padding: 10px 8px;">Số Điện Thoại</th>
-              <th style="padding: 10px 8px;">Mật Khẩu</th>
-              <th style="padding: 10px 8px;">Ghi chú</th>
-              <th style="padding: 10px 8px;">IP Proxy</th>
-              <th style="padding: 10px 8px;">Nguồn SIM</th>
-              <th style="padding: 10px 8px;">Tình trạng SIM</th>
-              <th style="padding: 10px 8px;">Tình trạng</th>
+            <tr id="dataTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+              <th data-col="time" onclick="setDataSort('time')" style="padding: 10px 8px; cursor:pointer;">Thời gian ▼</th>
+              <th data-col="identifier" onclick="setDataSort('identifier')" style="padding: 10px 8px; cursor:pointer;">Định danh ↕</th>
+              <th data-col="provider" onclick="setDataSort('provider')" style="padding: 10px 8px; cursor:pointer;">Nguồn ↕</th>
+              <th data-col="phone" onclick="setDataSort('phone')" style="padding: 10px 8px; cursor:pointer;">Số Điện Thoại ↕</th>
+              <th data-col="password" onclick="setDataSort('password')" style="padding: 10px 8px; cursor:pointer;">Mật Khẩu ↕</th>
+              <th data-col="note" onclick="setDataSort('note')" style="padding: 10px 8px; cursor:pointer;">Ghi chú ↕</th>
+              <th data-col="ipProxy" onclick="setDataSort('ipProxy')" style="padding: 10px 8px; cursor:pointer;">IP Proxy ↕</th>
+              <th data-col="simSource" onclick="setDataSort('simSource')" style="padding: 10px 8px; cursor:pointer;">Nguồn SIM ↕</th>
+              <th data-col="simStatus" onclick="setDataSort('simStatus')" style="padding: 10px 8px; cursor:pointer;">Tình trạng SIM ↕</th>
+              <th data-col="orderStatus" onclick="setDataSort('orderStatus')" style="padding: 10px 8px; cursor:pointer;">Tình trạng ↕</th>
               <th style="padding: 10px 8px; width: 60px;">Xóa</th>
             </tr>
           </thead>
@@ -1661,51 +1662,104 @@ async function syncFirebaseData() {
   loadFirebaseData();
 }
 
-async function loadFirebaseData() {
-  const tbody = document.getElementById('firebaseDataTable');
-  if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 16px; color: var(--text-muted);">Đang tải dữ liệu...</td></tr>';
+let dataSortCol = 'time';
+let dataSortAsc = false;
+
+function setDataSort(col) {
+  if (dataSortCol === col) dataSortAsc = !dataSortAsc;
+  else { dataSortCol = col; dataSortAsc = true; }
   
-  try {
-    const res = await fetch('/api/data/all');
-    const result = await res.json();
-    if (result.status === 1) {
-      const data = result.data || {};
-      const keys = Object.keys(data).reverse(); // Mới nhất lên đầu
-      
-      if (keys.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu</td></tr>';
-        return;
+  const tr = document.getElementById('dataTableHeaderTr');
+  if (tr) {
+    tr.querySelectorAll('th[data-col]').forEach(th => {
+      let text = th.innerText.replace(' ▲', '').replace(' ▼', '').replace(' ↕', '');
+      if (th.getAttribute('data-col') === col) {
+        th.innerText = text + (dataSortAsc ? ' ▲' : ' ▼');
+      } else {
+        th.innerText = text + ' ↕';
       }
-      
-      tbody.innerHTML = keys.map(key => {
-        const item = data[key];
-        return `
-          <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-            <td style="padding: 12px 8px; color:var(--text-muted); font-size:12px;">${item.time || '-'}</td>
-            <td style="padding: 12px 8px; font-family:monospace; font-weight:bold;">${item.identifier || ''}</td>
-            <td style="padding: 12px 8px;">
-              <span style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; font-size: 11px;">
-                ${item.provider}
-              </span>
-            </td>
-            <td style="padding: 12px 8px; font-family:monospace; font-weight:bold; color:var(--shopee-light);">${item.phone}</td>
-            <td style="padding: 12px 8px; font-family:monospace; color:var(--warning);">${item.password}</td>
-            <td style="padding: 12px 8px; font-size:12px;">${item.note || ''}</td>
-            <td style="padding: 12px 8px; font-size:12px; font-family:monospace;">${item.ipProxy || ''}</td>
-            <td style="padding: 12px 8px; font-size:12px;">${item.simSource || ''}</td>
-            <td style="padding: 12px 8px; font-size:12px;">${item.simStatus || ''}</td>
-            <td style="padding: 12px 8px;">${renderStatusDropdown(item.orderStatus || '', key, item.phoneId || '')}</td>
-            <td style="padding: 12px 8px;">
-              <button class="btn btn-ghost btn-sm" style="color:var(--error); padding: 4px 8px;" onclick="deleteFirebaseData('${key}')">Xóa</button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-  } catch (e) {
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 16px; color: var(--error);">Lỗi kết nối Firebase</td></tr>';
+    });
   }
+  renderFirebaseData();
+}
+
+async function loadFirebaseData(forceFetch = false) {
+  if (forceFetch || !window.shopeeAccountsData) {
+    const tbody = document.getElementById('firebaseDataTable');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 16px; color: var(--text-muted);">Đang tải dữ liệu...</td></tr>';
+    
+    try {
+      const res = await fetch('/api/data/all');
+      const result = await res.json();
+      if (result.status === 1) {
+        window.shopeeAccountsData = result.data || {};
+      } else {
+        throw new Error('API Lỗi');
+      }
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 16px; color: var(--error);">Lỗi kết nối Firebase</td></tr>';
+      return;
+    }
+  }
+  renderFirebaseData();
+}
+
+function renderFirebaseData() {
+  const tbody = document.getElementById('firebaseDataTable');
+  if (!tbody || !window.shopeeAccountsData) return;
+  
+  const searchInput = $('dataTableSearch')?.value.toLowerCase() || '';
+  let keys = Object.keys(window.shopeeAccountsData);
+  
+  if (keys.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu</td></tr>';
+    return;
+  }
+  
+  // Sort dynamically
+  keys.sort((a, b) => {
+    let valA = (window.shopeeAccountsData[a][dataSortCol] || '').toString();
+    let valB = (window.shopeeAccountsData[b][dataSortCol] || '').toString();
+    // Default time is usually better reverse sorted if same
+    return dataSortAsc 
+      ? valA.localeCompare(valB, undefined, {numeric: true})
+      : valB.localeCompare(valA, undefined, {numeric: true});
+  });
+  
+  let html = '';
+  for (const key of keys) {
+    const item = window.shopeeAccountsData[key];
+    
+    if (searchInput) {
+      const matchStr = Object.values(item).join(' ').toLowerCase();
+      if (!matchStr.includes(searchInput)) continue;
+    }
+    
+    html += `
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+        <td style="padding: 12px 8px; color:var(--text-muted); font-size:12px;">${item.time || '-'}</td>
+        <td style="padding: 12px 8px; font-family:monospace; font-weight:bold;">${item.identifier || ''}</td>
+        <td style="padding: 12px 8px;">
+          <span style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; font-size: 11px;">
+            ${item.provider}
+          </span>
+        </td>
+        <td style="padding: 12px 8px; font-family:monospace; font-weight:bold; color:var(--shopee-light);">${item.phone}</td>
+        <td style="padding: 12px 8px; font-family:monospace; color:var(--warning);">${item.password}</td>
+        <td style="padding: 12px 8px; font-size:12px;">${item.note || ''}</td>
+        <td style="padding: 12px 8px; font-size:12px; font-family:monospace;">${item.ipProxy || ''}</td>
+        <td style="padding: 12px 8px; font-size:12px;">${item.simSource || ''}</td>
+        <td style="padding: 12px 8px; font-size:12px;">${item.simStatus || ''}</td>
+        <td style="padding: 12px 8px;">${renderStatusDropdown(item.orderStatus || '', key, item.phoneId || '')}</td>
+        <td style="padding: 12px 8px;">
+          <button class="btn btn-ghost btn-sm" style="color:var(--error); padding: 4px 8px;" onclick="deleteFirebaseData('${key}')">Xóa</button>
+        </td>
+      </tr>
+    `;
+  }
+  
+  tbody.innerHTML = html || '<tr><td colspan="11" style="text-align:center; padding: 16px; color: var(--text-muted);">Không tìm thấy kết quả phù hợp</td></tr>';
 }
 
 async function deleteFirebaseData(id) {
