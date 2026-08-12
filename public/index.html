@@ -1372,22 +1372,22 @@
         <div class="table-container" style="max-height: 600px; overflow:auto;">
           <table class="data-table table-grouped" style="min-width: 1200px;">
             <thead>
-              <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 13px; text-transform: uppercase;">
-                <th style="padding: 12px 8px; width:80px;">Định danh</th>
-                <th style="padding: 12px 8px; width:60px;">Loại</th>
-                <th style="padding: 12px 8px;">SĐT Shopee</th>
-                <th style="padding: 12px 8px;">Mật Khẩu</th>
-                <th style="padding: 12px 8px;">SPC_F</th>
-                <th style="padding: 12px 8px;">SPC_ST</th>
-                <th style="padding: 12px 8px;">Username</th>
-                <th style="padding: 12px 8px;">Email</th>
-                <th style="padding: 12px 8px;">Ngày tạo</th>
-                <th style="padding: 12px 8px;">Ghi chú</th>
-                <th style="padding: 12px 8px;">IP Proxy</th>
-                <th style="padding: 12px 8px;">Nguồn SIM</th>
-                <th style="padding: 12px 8px;">TT SIM</th>
-                <th style="padding: 12px 8px;">SĐT Phụ</th>
-                <th style="padding: 12px 8px;">SS Time</th>
+              <tr id="phoneTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 13px; text-transform: uppercase;">
+                <th data-col="identifier" onclick="setPhoneSort('identifier')" style="padding: 12px 8px; width:80px; cursor:pointer;">Định danh ▲</th>
+                <th data-col="type" onclick="setPhoneSort('type')" style="padding: 12px 8px; width:60px; cursor:pointer;">Loại ↕</th>
+                <th data-col="shopeePhone" onclick="setPhoneSort('shopeePhone')" style="padding: 12px 8px; cursor:pointer;">SĐT Shopee ↕</th>
+                <th data-col="shopeePassword" onclick="setPhoneSort('shopeePassword')" style="padding: 12px 8px; cursor:pointer;">Mật Khẩu ↕</th>
+                <th data-col="shopeeSpcF" onclick="setPhoneSort('shopeeSpcF')" style="padding: 12px 8px; cursor:pointer;">SPC_F ↕</th>
+                <th data-col="shopeeSpcSt" onclick="setPhoneSort('shopeeSpcSt')" style="padding: 12px 8px; cursor:pointer;">SPC_ST ↕</th>
+                <th data-col="shopeeUsername" onclick="setPhoneSort('shopeeUsername')" style="padding: 12px 8px; cursor:pointer;">Username ↕</th>
+                <th data-col="shopeeEmail" onclick="setPhoneSort('shopeeEmail')" style="padding: 12px 8px; cursor:pointer;">Email ↕</th>
+                <th data-col="shopeeCreatedAt" onclick="setPhoneSort('shopeeCreatedAt')" style="padding: 12px 8px; cursor:pointer;">Ngày tạo ↕</th>
+                <th data-col="note" onclick="setPhoneSort('note')" style="padding: 12px 8px; cursor:pointer;">Ghi chú ↕</th>
+                <th data-col="ipProxy" onclick="setPhoneSort('ipProxy')" style="padding: 12px 8px; cursor:pointer;">IP Proxy ↕</th>
+                <th data-col="simSource" onclick="setPhoneSort('simSource')" style="padding: 12px 8px; cursor:pointer;">Nguồn SIM ↕</th>
+                <th data-col="simStatus" onclick="setPhoneSort('simStatus')" style="padding: 12px 8px; cursor:pointer;">TT SIM ↕</th>
+                <th data-col="shopeePhoneAlt" onclick="setPhoneSort('shopeePhoneAlt')" style="padding: 12px 8px; cursor:pointer;">SĐT Phụ ↕</th>
+                <th data-col="shopeeSessionTime" onclick="setPhoneSort('shopeeSessionTime')" style="padding: 12px 8px; cursor:pointer;">SS Time ↕</th>
                 <th style="padding: 12px 8px; width: 120px; text-align:center;">Thao tác</th>
               </tr>
             </thead>
@@ -2506,6 +2506,27 @@ function exportPhoneTableXLS() {
   URL.revokeObjectURL(url);
 }
 
+let phoneSortCol = 'identifier';
+let phoneSortAsc = true;
+
+function setPhoneSort(col) {
+  if (phoneSortCol === col) phoneSortAsc = !phoneSortAsc;
+  else { phoneSortCol = col; phoneSortAsc = true; }
+  
+  const tr = document.getElementById('phoneTableHeaderTr');
+  if (tr) {
+    tr.querySelectorAll('th[data-col]').forEach(th => {
+      let text = th.innerText.replace(' ▲', '').replace(' ▼', '').replace(' ↕', '');
+      if (th.getAttribute('data-col') === col) {
+        th.innerText = text + (phoneSortAsc ? ' ▲' : ' ▼');
+      } else {
+        th.innerText = text + ' ↕';
+      }
+    });
+  }
+  renderPhoneTable();
+}
+
 function renderPhoneTable() {
   const tbody = $('phoneTableBody');
   const searchInput = $('phoneTableSearch')?.value.toLowerCase() || '';
@@ -2516,20 +2537,22 @@ function renderPhoneTable() {
     return;
   }
 
-  // Sort by identifier ascending
+  // Sort dynamically
   ids.sort((a, b) => {
-    const valA = (phonesData[a].identifier || '').toString();
-    const valB = (phonesData[b].identifier || '').toString();
-    return valA.localeCompare(valB, undefined, {numeric: true});
+    let valA = (phonesData[a][phoneSortCol] || '').toString();
+    let valB = (phonesData[b][phoneSortCol] || '').toString();
+    return phoneSortAsc 
+      ? valA.localeCompare(valB, undefined, {numeric: true})
+      : valB.localeCompare(valA, undefined, {numeric: true});
   });
   
   let html = '';
   let count = 0;
   for (const id of ids) {
     const p = phonesData[id];
-    // Filter
+    // Filter by all columns
     if (searchInput) {
-      const matchStr = `${p.identifier} ${p.type} ${p.shopeePhone} ${p.shopeeUsername} ${p.shopeeEmail}`.toLowerCase();
+      const matchStr = Object.values(p).join(' ').toLowerCase();
       if (!matchStr.includes(searchInput)) continue;
     }
     
