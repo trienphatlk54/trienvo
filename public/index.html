@@ -1415,6 +1415,7 @@
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <input type="text" id="dataTableSearch" class="proxy-input" placeholder="🔍 Tìm kiếm dữ liệu..." onkeyup="renderFirebaseData()" style="max-width: 200px; padding: 6px 12px; font-size: 12px; height: 32px; box-sizing: border-box;" />
           <button class="btn btn-ghost" onclick="syncFirebaseData()" style="color:var(--shopee-light); border:1px solid var(--shopee-light); height: 32px; padding: 6px 12px; font-size: 12px;">🔄 Đồng bộ Phone -> Cloud</button>
+          <button class="btn btn-ghost" onclick="cleanupFirebaseData()" style="color:var(--warning); border:1px solid var(--warning); height: 32px; padding: 6px 12px; font-size: 12px;">🧹 Dọn trùng lặp</button>
           <button class="btn btn-ghost" onclick="clearUsedIps()" style="color:var(--error); border:1px solid var(--error); height: 32px; padding: 6px 12px; font-size: 12px;">🗑 Xóa lịch sử IP</button>
           <button class="btn btn-ghost" onclick="loadFirebaseData(true)" style="height: 32px; padding: 6px 12px; font-size: 12px;">🔄 Làm mới</button>
         </div>
@@ -1629,6 +1630,7 @@ async function syncFirebaseData() {
           simStatus: p.simStatus || '',
           identifier: p.identifier || '',
           phoneId: id,
+          syncId: 'active_' + id,
           shopeeSpcF: p.shopeeSpcF || '',
           shopeeSpcSt: p.shopeeSpcSt || '',
           shopeeUsername: p.shopeeUsername || ''
@@ -1655,6 +1657,7 @@ async function syncFirebaseData() {
               simStatus: h.simStatus || '',
               identifier: p.identifier || '',
               phoneId: id,
+              syncId: 'history_' + id + '_' + k,
               shopeeSpcF: h.shopeeSpcF || '',
               shopeeSpcSt: h.shopeeSpcSt || '',
               shopeeUsername: h.shopeeUsername || ''
@@ -1669,6 +1672,29 @@ async function syncFirebaseData() {
   btn.disabled = false;
   toast(`✅ Đã đồng bộ ${count} tài khoản lên Cloud!`, 'success');
   loadFirebaseData();
+}
+
+async function cleanupFirebaseData() {
+  if (!confirm('Bạn có chắc chắn muốn dọn dẹp các dữ liệu trùng lặp trên Cloud không?')) return;
+  const btn = event.target;
+  const originalText = btn.innerText;
+  btn.innerText = '🧹 Đang dọn...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/data/cleanup', { method: 'POST' });
+    const json = await res.json();
+    if (json.status === 1) {
+      toast(`Đã xóa ${json.deleted} bản ghi trùng lặp!`, 'success');
+      loadFirebaseData(true);
+    } else {
+      toast('Lỗi: ' + json.error, 'error');
+    }
+  } catch (e) {
+    toast('Lỗi kết nối khi dọn dẹp', 'error');
+  }
+  btn.innerText = originalText;
+  btn.disabled = false;
 }
 
 let dataSortCol = 'time';
@@ -3228,6 +3254,7 @@ async function executeSaveRequest(payload, currentSaveFields) {
               simStatus: payload.simStatus || '',
               identifier: payload.identifier || '',
               phoneId: window.currentPhoneId || '',
+              syncId: window.currentPhoneId ? 'active_' + window.currentPhoneId : '',
               shopeeSpcF: payload.shopeeSpcF || '',
               shopeeSpcSt: payload.shopeeSpcSt || '',
               shopeeUsername: payload.shopeeUsername || ''

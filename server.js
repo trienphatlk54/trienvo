@@ -634,12 +634,44 @@ app.post('/api/ips/clear', async (req, res) => {
 
 // ── Database Endpoints (Firebase) ────────────────────────────────────────────
 app.post('/api/data/save', async (req, res) => {
-  const { phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier, phoneId, shopeeSpcF, shopeeSpcSt, shopeeUsername } = req.body;
+  const { phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier, phoneId, shopeeSpcF, shopeeSpcSt, shopeeUsername, syncId } = req.body;
   try {
     const ref = db.ref('shopee_accounts');
-    const newEntry = ref.push();
-    await newEntry.set({ phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier: identifier || '', phoneId: phoneId || '', orderStatus: '', shopeeSpcF: shopeeSpcF || '', shopeeSpcSt: shopeeSpcSt || '', shopeeUsername: shopeeUsername || '' });
+    if (syncId) {
+      await ref.child(syncId).update({ phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier: identifier || '', phoneId: phoneId || '', shopeeSpcF: shopeeSpcF || '', shopeeSpcSt: shopeeSpcSt || '', shopeeUsername: shopeeUsername || '' });
+    } else {
+      const newEntry = ref.push();
+      await newEntry.set({ phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier: identifier || '', phoneId: phoneId || '', orderStatus: '', shopeeSpcF: shopeeSpcF || '', shopeeSpcSt: shopeeSpcSt || '', shopeeUsername: shopeeUsername || '' });
+    }
     res.json({ status: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/data/cleanup', async (req, res) => {
+  try {
+    const ref = db.ref('shopee_accounts');
+    const snap = await ref.once('value');
+    const data = snap.val();
+    if (!data) return res.json({ status: 1, deleted: 0 });
+
+    const seen = new Set();
+    let count = 0;
+    for (const key in data) {
+      const item = data[key];
+      const uniqueStr = [item.phoneId, item.provider, item.phone, item.password, item.identifier].join('|');
+      const exactStr = [item.phone, item.time, item.provider, item.password].join('|');
+      const sig = item.phoneId ? uniqueStr : exactStr;
+
+      if (seen.has(sig)) {
+        await ref.child(key).remove();
+        count++;
+      } else {
+        seen.add(sig);
+      }
+    }
+    res.json({ status: 1, deleted: count });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
