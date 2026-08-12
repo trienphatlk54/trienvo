@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
@@ -913,13 +913,13 @@
     </div>
     <nav class="nav-menu">
       <div class="nav-item active" onclick="switchTab('create')">
-        <span class="nav-icon">🧰</span> Tạo Shopee Accounts
+        <span class="nav-icon">🧰</span> Shopee Accounts
       </div>
       <div class="nav-item" onclick="switchTab('analytics')">
-        <span class="icon">📋</span> Quản lý dữ liệu
+        <span class="icon">📋</span> Accounts & Cookies
       </div>
       <div class="nav-item" onclick="switchTab('phone')">
-        <span class="icon">📱</span> Quản lý phone
+        <span class="icon">📱</span> Phone Management & Sessions
       </div>
       <div class="nav-item" onclick="switchTab('settings')">
         <span class="nav-icon">⚙️</span> Cài đặt
@@ -1166,7 +1166,7 @@
       <div class="card-header">
         <div>
           <h2>📱 Chọn máy lưu tài khoản</h2>
-          <p>Danh sách điện thoại (Số định danh và Loại) được lấy từ bảng Quản lý phone.</p>
+          <p>Danh sách điện thoại (Số định danh và Loại) được lấy từ bảng Phone Management & Sessions.</p>
         </div>
       </div>
       <div class="card-body" style="padding: 24px; display: flex; flex-direction: column; gap: 10px;">
@@ -2809,7 +2809,7 @@ function renderPhoneSelect() {
 
   let ids = Object.keys(phonesData);
   if (ids.length === 0) {
-    list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px;">Chưa có dữ liệu điện thoại. Hãy thêm bên Tab Quản lý Phone.</div>';
+    list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px;">Chưa có dữ liệu điện thoại. Hãy thêm bên Tab Phone Management & Sessions.</div>';
     return;
   }
 
