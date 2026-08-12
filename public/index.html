@@ -1562,18 +1562,7 @@ function togglePhoneMethod() {
 }
 
 // ── Data Table Logic ───────────────────────────────────────────────────────────
-async function saveToFirebase(phone, provider) {
-  const password = document.getElementById('generatedPassword').textContent;
-  const time = new Date().toLocaleString('vi-VN');
-  try {
-    await fetch('/api/data/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, password, provider, time })
-    });
-  } catch (e) {
-    console.error('Lỗi lưu Firebase:', e);
-  }
+
 }
 
 function confirmManualPhone() {
@@ -1588,8 +1577,7 @@ function confirmManualPhone() {
   document.getElementById('currentConfirmedPhoneText').textContent = phone;
   
   document.getElementById('manualPhoneInput').value = '';
-  saveToFirebase(phone, 'Nhập tay');
-  toast('✅ Đã chốt số ' + phone + ' (Đã lưu Cloud)', 'success');
+  toast('✅ Đã chốt số ' + phone + ' (Chờ lưu tài khoản)', 'success');
 }
 
 function confirmApiPhone(phone, orderId, provider) {
@@ -1599,8 +1587,7 @@ function confirmApiPhone(phone, orderId, provider) {
 
   document.getElementById('currentConfirmedPhoneBlock').style.display = 'flex';
   document.getElementById('currentConfirmedPhoneText').textContent = phone;
-  saveToFirebase(phone, provider || 'API');
-  toast('✅ Đã chốt số ' + phone + ' (Đã lưu Cloud)', 'success');
+  toast('✅ Đã chốt số ' + phone + ' (Chờ lưu tài khoản)', 'success');
 }
 
 async function syncFirebaseData() {

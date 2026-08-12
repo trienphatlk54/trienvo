@@ -664,7 +664,7 @@ app.post('/api/data/cleanup', async (req, res) => {
       const exactStr = [item.phone, item.time, item.provider, item.password].join('|');
       const sig = item.phoneId ? uniqueStr : exactStr;
 
-      if (seen.has(sig)) {
+      if (['365otp', 'viotp', 'Nhập tay'].includes(item.provider) || seen.has(sig)) {
         await ref.child(key).remove();
         count++;
       } else {
