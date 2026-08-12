@@ -1,0 +1,13 @@
+node_modules/
+firebase-key.json
+.env
+.DS_Store
+
+.cache/
+temp-zip/
+zip/
+shopee-qr-upload/
+node_modules/
+*.zip
+debug*.png
+*.html
