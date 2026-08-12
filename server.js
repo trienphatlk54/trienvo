@@ -634,12 +634,51 @@ app.post('/api/ips/clear', async (req, res) => {
 
 // ── Database Endpoints (Firebase) ────────────────────────────────────────────
 app.post('/api/data/save', async (req, res) => {
-  const { phone, password, provider, time, note, ipProxy, simSource, simStatus } = req.body;
+  const { phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier, phoneId } = req.body;
   try {
     const ref = db.ref('shopee_accounts');
     const newEntry = ref.push();
-    await newEntry.set({ phone, password, provider, time, note, ipProxy, simSource, simStatus });
+    await newEntry.set({ phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier: identifier || '', phoneId: phoneId || '', orderStatus: '' });
     res.json({ status: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/sync/status', async (req, res) => {
+  const { phoneId, dataId, status } = req.body;
+  try {
+    let targetPhoneId = phoneId;
+
+    // If only dataId is provided, find the associated phoneId
+    if (!targetPhoneId && dataId) {
+      const dataSnap = await db.ref(`shopee_accounts/${dataId}`).once('value');
+      if (dataSnap.exists()) {
+        targetPhoneId = dataSnap.val().phoneId;
+      }
+    }
+
+    // Always update the specific dataId if provided
+    if (dataId) {
+      await db.ref(`shopee_accounts/${dataId}`).update({ orderStatus: status });
+    }
+
+    if (targetPhoneId) {
+      // Update phone
+      await db.ref(`phones/${targetPhoneId}`).update({ orderStatus: status });
+      
+      // Sync to all data rows having this phoneId
+      const dataRowsSnap = await db.ref('shopee_accounts').orderByChild('phoneId').equalTo(targetPhoneId).once('value');
+      const updates = {};
+      dataRowsSnap.forEach(child => {
+        updates[`${child.key}/orderStatus`] = status;
+      });
+      if (Object.keys(updates).length > 0) {
+        await db.ref('shopee_accounts').update(updates);
+      }
+    }
+
+    res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
