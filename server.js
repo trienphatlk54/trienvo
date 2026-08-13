@@ -203,9 +203,9 @@ async function navigateAndWaitForQR(page, proxy) {
   });
   console.log('  ✔️ HTML loaded, đang chờ API trả về QR...');
 
-  // Bước 2: Chờ S.qrImage được gán từ bộ bắt API (tối đa 90s)
-  // KHÔNG reload giữa chừng vì sẽ huỷ mất request API đang chạy ngầm
-  const maxWait = 180; // 180 * 500ms = 90 giây
+  // Bước 2: Chờ S.qrImage được gán từ bộ bắt API (tối đa 50s để tránh Nginx 504)
+  // KHONG reload giữa chừng vì sẽ huỷ mất request API đang chạy ngầm
+  const maxWait = 100; // 100 * 500ms = 50 giây
   for (let i = 0; i < maxWait; i++) {
     if (S.qrImage) break;
     if (i > 0 && i % 20 === 0) { // Log mỗi 10 giây
@@ -325,6 +325,7 @@ app.post('/api/proxy/save', async (req, res) => {
     ];
 
     let ip = '';
+    let failReasons = [];
     for (const svc of ipServices) {
       try {
         console.log(`  🔍 Thử ${svc.url}...`);
@@ -337,9 +338,12 @@ app.post('/api/proxy/save', async (req, res) => {
           console.log(`  ✅ IP: ${ip}`);
           break;
         }
-        console.log(`  ⚠️ Response không hợp lệ: "${(body || '').substring(0, 60)}"`);
+        const shortBody = (body || '').substring(0, 60).replace(/\n/g, ' ');
+        console.log(`  ⚠️ Response không hợp lệ: "${shortBody}"`);
+        failReasons.push(`${svc.url} (Invalid: ${shortBody})`);
       } catch(e2) {
         console.log(`  ⚠️ ${svc.url} lỗi: ${e2.message.substring(0, 50)}`);
+        failReasons.push(`${svc.url} (${e2.message.substring(0, 40)})`);
       }
     }
 
@@ -350,7 +354,7 @@ app.post('/api/proxy/save', async (req, res) => {
 
     if (!ip) {
       proxyConfig = null;
-      return res.json({ success:false, error:'Proxy kết nối nhưng không lấy được IP. Kiểm tra lại proxy.' });
+      return res.json({ success:false, error:'Proxy kết nối nhưng không lấy được IP. Chi tiết: ' + failReasons.join('; ') });
     }
 
     p.verified = true;
