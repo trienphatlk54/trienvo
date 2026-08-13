@@ -3364,6 +3364,7 @@ async function executeSaveRequest(payload, currentSaveFields) {
 function getStatusColor(status) {
   switch (status) {
     case 'Hủy bất thường': return 'var(--error)';
+    case 'Khóa tài khoản': return '#8b0000';
     case 'Không mã voucher': return '#f97316';
     case 'Lỗi Captcha': return '#3b82f6';
     case 'Đặt thành công 1 đơn': return '#22c55e';
@@ -3379,6 +3380,7 @@ function renderStatusDropdown(currentStatus, dataId, phoneId) {
     <select class="status-dropdown" style="background-color: ${color}; color: ${currentStatus ? '#fff' : 'inherit'}; border: 1px solid var(--border); border-radius: 4px; padding: 4px; font-size: 11px;" onchange="syncOrderStatus(event, '${dataId}', '${phoneId}')" onclick="event.stopPropagation()">
       <option value="" style="background:#fff; color:#000;">-- Chọn --</option>
       <option value="Hủy bất thường" ${currentStatus === 'Hủy bất thường' ? 'selected' : ''} style="background:#fff; color:#000;">Hủy bất thường</option>
+      <option value="Khóa tài khoản" ${currentStatus === 'Khóa tài khoản' ? 'selected' : ''} style="background:#fff; color:#000;">Khóa tài khoản</option>
       <option value="Không mã voucher" ${currentStatus === 'Không mã voucher' ? 'selected' : ''} style="background:#fff; color:#000;">Không mã voucher</option>
       <option value="Lỗi Captcha" ${currentStatus === 'Lỗi Captcha' ? 'selected' : ''} style="background:#fff; color:#000;">Lỗi Captcha</option>
       <option value="Đặt thành công 1 đơn" ${currentStatus === 'Đặt thành công 1 đơn' ? 'selected' : ''} style="background:#fff; color:#000;">Đặt thành công 1 đơn</option>
