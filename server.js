@@ -1051,10 +1051,15 @@ app.post('/api/voucher-check', async (req, res) => {
     try {
       await page.waitForSelector('input[placeholder*="voucher" i], input[placeholder*="Mã" i]', { timeout: 15000 });
     } catch (e) {
-      let b64 = '';
-      try { b64 = await page.screenshot({ encoding: 'base64' }); } catch(err) {}
+      let b64 = '', pageUrl = '', pageTitle = '', bodyText = '';
+      try { 
+        b64 = await page.screenshot({ encoding: 'base64' }); 
+        pageUrl = page.url();
+        pageTitle = await page.title();
+        bodyText = await page.evaluate(() => document.body ? document.body.innerText.substring(0, 200) : 'No body');
+      } catch(err) {}
       const imgTag = b64 ? '<br><img src="data:image/png;base64,' + b64 + '" style="max-width:400px; border:1px solid #ccc; margin-top:10px;">' : '';
-      throw new Error('Không tìm thấy ô nhập mã voucher. Cookie có thể đã chết (bị văng ra trang đăng nhập) hoặc giao diện thay đổi. Ảnh màn hình hiện tại: ' + imgTag);
+      throw new Error('Không tìm thấy ô nhập mã voucher. Cookie có thể đã chết hoặc giao diện thay đổi.<br><b>URL:</b> ' + pageUrl + '<br><b>Title:</b> ' + pageTitle + '<br><b>Text:</b> ' + bodyText + '<br>Ảnh màn hình hiện tại: ' + imgTag);
     }
 
     sendEvent('progress', { message: 'Bắt đầu check mã...' });
