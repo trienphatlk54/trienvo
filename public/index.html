@@ -2493,20 +2493,19 @@ async function startSession() {
   toast('🚀 Đang khởi động Shopee...', 'info');
 
   try {
-    const res  = await fetch('/api/start', { method: 'POST' });
-    let data;
-    try {
-      data = await res.json();
-    } catch(e) {
-      if (!res.ok) throw new Error('Máy chủ phản hồi chậm hoặc bị lỗi mạng (Nginx Timeout). Vui lòng thử lại!');
-      throw new Error('Dữ liệu trả về không hợp lệ');
-    }
-
+    // Gửi lệnh start (server trả về ngay, chạy ngầm)
+    const res = await fetch('/api/start', { method: 'POST' });
+    const data = await res.json();
     if (!data.success) throw new Error(data.error || 'Lỗi không xác định');
 
-    setQRImage(data.qrImage);
+    // Poll chờ QR sẵn sàng (tối đa 3 phút)
+    toast('⏳ Đang lấy mã QR từ Shopee...', 'info');
+    const qrData = await waitForQR(180);
+    if (!qrData) throw new Error('Hết thời gian chờ QR (3 phút). Thử lại!');
+
+    setQRImage(qrData.qrImage);
     setStatus('ready', 'Chờ quét QR');
-    startTimer(data.expiresAt);
+    startTimer(qrData.expiresAt);
     startPolling();
 
     $('btnRefresh').style.display = 'inline-flex';
@@ -2523,6 +2522,29 @@ async function startSession() {
   }
 }
 
+// Poll /api/status chờ QR image hoặc error
+async function waitForQR(maxSeconds) {
+  for (let i = 0; i < maxSeconds; i++) {
+    await new Promise(r => setTimeout(r, 1000));
+    try {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      if (data.status === 'ready' && data.qrImage) {
+        return data;
+      }
+      if (data.status === 'error') {
+        throw new Error(data.error || 'Lỗi server');
+      }
+      if (i > 0 && i % 10 === 0) {
+        toast(`⏳ Đang chờ QR... (${i}s)`, 'info', 2000);
+      }
+    } catch(e) {
+      if (e.message && !e.message.includes('fetch')) throw e;
+    }
+  }
+  return null;
+}
+
 // ── Refresh QR ─────────────────────────────────────────────────────────────────
 async function refreshQR() {
   $('btnRefresh').disabled = true;
@@ -2531,20 +2553,17 @@ async function refreshQR() {
   toast('🔄 Đang làm mới mã QR...', 'info');
 
   try {
-    const res  = await fetch('/api/refresh', { method: 'POST' });
-    let data;
-    try {
-      data = await res.json();
-    } catch(e) {
-      if (!res.ok) throw new Error('Máy chủ phản hồi chậm hoặc bị lỗi mạng. Vui lòng thử lại!');
-      throw new Error('Dữ liệu trả về không hợp lệ');
-    }
-
+    const res = await fetch('/api/refresh', { method: 'POST' });
+    const data = await res.json();
     if (!data.success) throw new Error(data.error || 'Lỗi không xác định');
 
-    setQRImage(data.qrImage);
+    toast('⏳ Đang lấy mã QR mới...', 'info');
+    const qrData = await waitForQR(120);
+    if (!qrData) throw new Error('Hết thời gian chờ. Thử Bắt đầu lại!');
+
+    setQRImage(qrData.qrImage);
     setStatus('ready', 'Chờ quét QR');
-    startTimer(data.expiresAt);
+    startTimer(qrData.expiresAt);
     startPolling();
 
     $('btnRefresh').disabled = false;

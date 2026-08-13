@@ -484,13 +484,17 @@ app.delete('/api/proxy', (_req, res) => {
 
 // ─── POST /api/start ───────────────────────────────────────────────
 app.post('/api/start', async (_req, res) => {
+  // Trả về ngay lập tức, chạy ngầm để tránh Nginx timeout
+  await reset();
+  S.status = 'loading';
+  S.error = null;
+  res.json({ success:true, status:'loading', message:'Đang khởi động...' });
+
+  // Chạy ngầm
+  const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
+  console.log(`\n🚀 PHIÊN MỚI ${proxy ? '(proxy: '+proxyUrl(proxy)+')' : '(IP thật)'}`);
+
   try {
-    await reset();
-    S.status = 'loading';
-
-    const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
-    console.log(`\n🚀 PHIÊN MỚI ${proxy ? '(proxy: '+proxyUrl(proxy)+')' : '(IP thật)'}`);
-
     S.browser = await launchBrowser(proxy);
     const { ctx, page } = await newPage(S.browser, proxy);
     S.ctx = ctx;
@@ -509,26 +513,26 @@ app.post('/api/start', async (_req, res) => {
 
     startPoll(S.page);
     console.log('  ✅ QR sẵn sàng\n');
-    res.json({ success:true, qrImage:qr, expiresAt:S.expiresAt, usingProxy: !!proxy });
   } catch(e) {
     console.error('❌', e.message);
     S.status = 'error'; S.error = e.message;
     try { await reset(); } catch(_) {}
-    res.status(500).json({ success:false, error:e.message });
   }
 });
 
 // ─── POST /api/refresh ─────────────────────────────────────────────
 app.post('/api/refresh', async (_req, res) => {
+  // Trả về ngay lập tức
+  clearTimeout(S.expire); clearInterval(S.poll);
+  S.status = 'loading';
+  S.qrImage = null;
+  S.error = null;
+  res.json({ success:true, status:'loading', message:'Đang làm mới QR...' });
+
+  console.log('\n🔄 Refresh QR...');
+  const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
+
   try {
-    clearTimeout(S.expire); clearInterval(S.poll);
-    S.status = 'loading';
-    S.qrImage = null;
-    console.log('\n🔄 Refresh QR...');
-
-    const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
-
-    // Nếu page còn sống thì thử reload
     if (S.page) {
       try {
         await S.page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -560,11 +564,9 @@ app.post('/api/refresh', async (_req, res) => {
     S.expire = setTimeout(() => { if (S.status === 'ready') S.status = 'expired'; }, QR_TTL - 30000);
     startPoll(S.page);
     console.log('  ✅ QR mới\n');
-    res.json({ success:true, qrImage:qr, expiresAt:S.expiresAt });
   } catch(e) {
     console.error('❌', e.message);
     S.status = 'error'; S.error = e.message;
-    res.status(500).json({ success:false, error:e.message });
   }
 });
 
@@ -573,6 +575,7 @@ app.get('/api/status', (_req, res) => {
   res.json({
     status:    S.status,
     expiresAt: S.expiresAt,
+    qrImage:   S.qrImage  || undefined,
     cookies:   S.cookies  || undefined,
     userInfo:  S.userInfo || undefined,
     error:     S.error    || undefined,
