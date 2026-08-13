@@ -1993,7 +1993,13 @@ async function continueSim() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider, orderId })
     });
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch(e) {
+      if (!res.ok) throw new Error('Kết nối quá lâu (Nginx Timeout). Proxy mạng chậm hoặc bị lỗi!');
+      throw new Error('Dữ liệu trả về không hợp lệ');
+    }
     
     if (data.status === 1) {
       const newId = data.id || orderId;

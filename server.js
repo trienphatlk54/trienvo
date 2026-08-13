@@ -321,7 +321,6 @@ app.post('/api/proxy/save', async (req, res) => {
       { url: 'https://api.ipify.org?format=json', parse: b => { try { return JSON.parse(b).ip; } catch(_) { return null; } } },
       { url: 'https://icanhazip.com',              parse: b => b.trim() },
       { url: 'https://checkip.amazonaws.com',       parse: b => b.trim() },
-      { url: 'https://api.myip.com',                parse: b => { try { return JSON.parse(b).ip; } catch(_) { return null; } } },
     ];
 
     let ip = '';
@@ -329,7 +328,7 @@ app.post('/api/proxy/save', async (req, res) => {
     for (const svc of ipServices) {
       try {
         console.log(`  🔍 Thử ${svc.url}...`);
-        await page.goto(svc.url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        await page.goto(svc.url, { waitUntil: 'domcontentloaded', timeout: 10000 });
         const body = await page.evaluate(() => document.body.innerText);
         const parsed = svc.parse(body);
         // Kiểm tra IP hợp lệ (IPv4 hoặc IPv6)
