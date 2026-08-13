@@ -998,9 +998,9 @@ app.post('/api/voucher-check', async (req, res) => {
   if (proxyStr) {
     const p = proxyStr.trim().split(':');
     if (p.length === 4) {
-      proxyConfig = { host: p[0], port: p[1], username: p[2], password: p[3] };
+      proxyConfig = { type: 'http', host: p[0], port: p[1], username: p[2], password: p[3] };
     } else if (p.length === 2) {
-      proxyConfig = { host: p[0], port: p[1] };
+      proxyConfig = { type: 'http', host: p[0], port: p[1] };
     }
   }
 
