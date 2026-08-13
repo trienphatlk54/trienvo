@@ -223,10 +223,14 @@ async function navigateAndWaitForQR(page, proxy) {
   console.log('  🚀 Tải /buyer/login/qr ...');
 
   // Bước 1: Điều hướng với domcontentloaded (rất nhanh)
-  await page.goto('https://shopee.vn/buyer/login/qr', {
-    waitUntil: 'domcontentloaded',
-    timeout: 120000,
-  });
+  try {
+    await page.goto('https://shopee.vn/buyer/login/qr', {
+      waitUntil: 'domcontentloaded',
+      timeout: 120000,
+    });
+  } catch (err) {
+    console.log('  ⚠️ Điều hướng có cảnh báo (vẫn tiếp tục): ' + err.message);
+  }
   console.log('  ✔️ HTML loaded, đang chờ API trả về QR...');
 
   // Bước 2: Chờ S.qrImage được gán từ bộ bắt API (tối đa 90s)
