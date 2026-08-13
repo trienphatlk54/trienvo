@@ -1,5 +1,6 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
+const proxyChain = require('proxy-chain');
 
 // Simple log capturer
 const sysLogs = [];
@@ -53,16 +54,26 @@ const delay = ms => new Promise(r => setTimeout(r, ms));
 let proxyConfig = null;
 
 function parseProxy(type, raw) {
-  const parts = raw.trim().split(':');
-  if (parts.length < 2) return null;
-  return {
-    type,
-    host: parts[0],
-    port: parts[1],
-    user: parts[2] || '',
-    pass: parts[3] || '',
-    verified: false,
-  };
+  let cleaned = raw.trim().replace(/^https?:\/\//i, '').replace(/^socks5?:\/\//i, '').replace(/\s+/g, '');
+  let host, port, user = '', pass = '';
+  
+  if (cleaned.includes('@')) {
+    const parts = cleaned.split('@');
+    const auth = parts[0].split(':');
+    const server = parts[1].split(':');
+    if (auth.length >= 2) { user = auth[0]; pass = auth.slice(1).join(':'); }
+    if (server.length >= 2) { host = server[0]; port = server[1]; }
+  } else {
+    const parts = cleaned.split(':');
+    if (parts.length >= 2) {
+      host = parts[0]; port = parts[1];
+      if (parts.length >= 4) { user = parts[2]; pass = parts[3]; }
+    }
+  }
+  
+  if (!host || !port) return null;
+  
+  return { type, host, port, user, pass, verified: false };
 }
 
 function proxyUrl(p) {
@@ -89,7 +100,13 @@ async function reset() {
   S.poll = S.expire = null;
   if (S.page) { try { await S.page.close(); } catch(_){} S.page = null; }
   if (S.ctx)  { try { await S.ctx.close();  } catch(_){} S.ctx  = null; }
-  if (S.browser) { try { await S.browser.close(); } catch(_){} S.browser = null; }
+  if (S.browser) { 
+    try { await S.browser.close(); } catch(_){} 
+    if (S.browser.anonymizedProxyUrl) {
+      proxyChain.closeAnonymizedProxy(S.browser.anonymizedProxyUrl, true).catch(()=>{});
+    }
+    S.browser = null; 
+  }
   Object.assign(S, { status:'idle', qrImage:null, cookies:null, userInfo:null, error:null, expiresAt:null });
 }
 
@@ -101,18 +118,34 @@ async function launchBrowser(proxy) {
     '--disable-gpu','--disable-extensions','--disable-background-networking',
     '--disable-default-apps','--disable-sync','--no-first-run',
   ];
+  let anonymizedProxyUrl = null;
+  
   if (proxy) {
-    args.push(`--proxy-server=${proxyUrl(proxy)}`);
-    console.log(`  🌐 Chrome + proxy: ${proxyUrl(proxy)}`);
+    let finalProxyUrl = proxyUrl(proxy);
+    // Use proxy-chain for HTTP proxies with authentication to ensure Puppeteer compatibility
+    if (proxy.user && proxy.type === 'http') {
+      try {
+        anonymizedProxyUrl = await proxyChain.anonymizeProxy(`${proxy.type}://${proxy.user}:${proxy.pass}@${proxy.host}:${proxy.port}`);
+        finalProxyUrl = anonymizedProxyUrl;
+        console.log(`  🌐 Proxy-chain anonymized: ${finalProxyUrl}`);
+      } catch (err) {
+        console.error(`  ❌ Proxy-chain error: ${err.message}`);
+      }
+    }
+    args.push(`--proxy-server=${finalProxyUrl}`);
+    console.log(`  🌐 Chrome + proxy: ${finalProxyUrl}`);
   } else {
     console.log('  🌐 Chrome (không proxy)');
   }
-  return await puppeteer.launch({
+  
+  const browser = await puppeteer.launch({
     headless: 'new',
     args,
     defaultViewport: { width: 1280, height: 900 },
-    protocolTimeout: 180000, // 3 phút, tránh lỗi WS endpoint timeout
+    protocolTimeout: 180000,
   });
+  browser.anonymizedProxyUrl = anonymizedProxyUrl;
+  return browser;
 }
 
 async function newPage(browser, proxy) {
@@ -339,6 +372,9 @@ app.post('/api/proxy/save', async (req, res) => {
     await page.close();
     await ctx.close();
     await testBrowser.close();
+    if (testBrowser.anonymizedProxyUrl) {
+      await proxyChain.closeAnonymizedProxy(testBrowser.anonymizedProxyUrl, true).catch(()=>{});
+    }
     testBrowser = null;
 
     if (!ip) {
