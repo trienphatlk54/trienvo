@@ -444,6 +444,7 @@ app.post('/api/refresh', async (_req, res) => {
     S.status = 'loading';
     console.log('\n🔄 Refresh QR...');
     const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
+    S.qrImage = null; // BẮT BUỘC xoá ảnh cũ để vòng lặp chờ hoạt động
     const qr = await navigateAndWaitForQR(S.page, proxy);
     S.qrImage   = qr;
     S.status    = 'ready';
