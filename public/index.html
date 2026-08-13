@@ -2488,7 +2488,13 @@ async function startSession() {
 
   try {
     const res  = await fetch('/api/start', { method: 'POST' });
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch(e) {
+      if (!res.ok) throw new Error('Máy chủ phản hồi chậm hoặc bị lỗi mạng (Nginx Timeout). Vui lòng thử lại!');
+      throw new Error('Dữ liệu trả về không hợp lệ');
+    }
 
     if (!data.success) throw new Error(data.error || 'Lỗi không xác định');
 
@@ -2520,7 +2526,13 @@ async function refreshQR() {
 
   try {
     const res  = await fetch('/api/refresh', { method: 'POST' });
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch(e) {
+      if (!res.ok) throw new Error('Máy chủ phản hồi chậm hoặc bị lỗi mạng. Vui lòng thử lại!');
+      throw new Error('Dữ liệu trả về không hợp lệ');
+    }
 
     if (!data.success) throw new Error(data.error || 'Lỗi không xác định');
 
