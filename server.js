@@ -82,9 +82,11 @@ const S = {
   poll:     null,
   expire:   null,
   expiresAt:null,
+  attemptId:0,
 };
 
 async function reset() {
+  S.attemptId++;
   clearInterval(S.poll); clearTimeout(S.expire);
   S.poll = S.expire = null;
   if (S.page) { try { await S.page.close(); } catch(_){} S.page = null; }
@@ -254,7 +256,7 @@ async function screenshotQR(page) {
 }
 
 // ── Master: Lấy QR với nhiều chiến lược ──────────────────────────────
-async function fetchQRCode(page, proxy) {
+async function fetchQRCode(page, proxy, attemptId) {
   console.log('  🚀 Bắt đầu lấy mã QR Shopee...');
   S.qrImage = null;
   S.qrToken = null;
@@ -276,6 +278,7 @@ async function fetchQRCode(page, proxy) {
   // Chờ API intercept (Strategy 1) — tối đa 30s
   console.log('  ⏳ Chờ API QR response...');
   for (let i = 0; i < 60; i++) {
+    if (attemptId !== undefined && S.attemptId !== attemptId) return null;
     if (S.qrImage) {
       console.log(`  ✅ [Strategy 1] QR từ API intercept (${i * 500}ms)`);
       return S.qrImage;
@@ -301,6 +304,7 @@ async function fetchQRCode(page, proxy) {
   // Chờ thêm 15s cho trường hợp trang chậm
   console.log('  ⏳ Chờ thêm 15s...');
   for (let i = 0; i < 30; i++) {
+    if (attemptId !== undefined && S.attemptId !== attemptId) return null;
     if (S.qrImage) {
       console.log('  ✅ [Strategy 1 - delayed] QR từ API!');
       return S.qrImage;
@@ -484,23 +488,26 @@ app.delete('/api/proxy', (_req, res) => {
 
 // ─── POST /api/start ───────────────────────────────────────────────
 app.post('/api/start', async (_req, res) => {
-  // Trả về ngay lập tức, chạy ngầm để tránh Nginx timeout
   await reset();
+  const myAttemptId = S.attemptId;
   S.status = 'loading';
   S.error = null;
   res.json({ success:true, status:'loading', message:'Đang khởi động...' });
 
-  // Chạy ngầm
   const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
   console.log(`\n🚀 PHIÊN MỚI ${proxy ? '(proxy: '+proxyUrl(proxy)+')' : '(IP thật)'}`);
 
   try {
     S.browser = await launchBrowser(proxy);
+    if (S.attemptId !== myAttemptId) return; // Superseded
     const { ctx, page } = await newPage(S.browser, proxy);
+    if (S.attemptId !== myAttemptId) return; // Superseded
     S.ctx = ctx;
     S.page = page;
 
-    const qr = await fetchQRCode(S.page, proxy);
+    const qr = await fetchQRCode(S.page, proxy, myAttemptId);
+    if (S.attemptId !== myAttemptId) return; // Superseded
+
     if (!qr) throw new Error("Không lấy được mã QR. Thử lại hoặc đổi IP/Proxy.");
     
     S.qrImage   = qr;
@@ -514,7 +521,8 @@ app.post('/api/start', async (_req, res) => {
     startPoll(S.page);
     console.log('  ✅ QR sẵn sàng\n');
   } catch(e) {
-    console.error('❌', e.message);
+    if (S.attemptId !== myAttemptId) return; // Ignore errors from old tasks
+    console.error('❌ /api/start error:', e.message);
     S.status = 'error'; S.error = e.message;
     try { await reset(); } catch(_) {}
   }
@@ -522,7 +530,8 @@ app.post('/api/start', async (_req, res) => {
 
 // ─── POST /api/refresh ─────────────────────────────────────────────
 app.post('/api/refresh', async (_req, res) => {
-  // Trả về ngay lập tức
+  S.attemptId++;
+  const myAttemptId = S.attemptId;
   clearTimeout(S.expire); clearInterval(S.poll);
   S.status = 'loading';
   S.qrImage = null;
@@ -537,25 +546,32 @@ app.post('/api/refresh', async (_req, res) => {
       try {
         await S.page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
       } catch(reloadErr) {
+        if (S.attemptId !== myAttemptId) return;
         console.log('  ⚠️ Reload lỗi, tạo page mới...');
         try { if (S.page) await S.page.close(); } catch(_) {}
         try { if (S.ctx) await S.ctx.close(); } catch(_) {}
         const { ctx, page } = await newPage(S.browser, proxy);
+        if (S.attemptId !== myAttemptId) return;
         S.ctx = ctx;
         S.page = page;
       }
     } else if (S.browser) {
       const { ctx, page } = await newPage(S.browser, proxy);
+      if (S.attemptId !== myAttemptId) return;
       S.ctx = ctx;
       S.page = page;
     } else {
       S.browser = await launchBrowser(proxy);
+      if (S.attemptId !== myAttemptId) return;
       const { ctx, page } = await newPage(S.browser, proxy);
+      if (S.attemptId !== myAttemptId) return;
       S.ctx = ctx;
       S.page = page;
     }
 
-    const qr = await fetchQRCode(S.page, proxy);
+    const qr = await fetchQRCode(S.page, proxy, myAttemptId);
+    if (S.attemptId !== myAttemptId) return;
+
     if (!qr) throw new Error("Không lấy được mã QR khi refresh. Thử Bắt đầu lại.");
 
     S.qrImage   = qr;
@@ -565,7 +581,8 @@ app.post('/api/refresh', async (_req, res) => {
     startPoll(S.page);
     console.log('  ✅ QR mới\n');
   } catch(e) {
-    console.error('❌', e.message);
+    if (S.attemptId !== myAttemptId) return;
+    console.error('❌ /api/refresh error:', e.message);
     S.status = 'error'; S.error = e.message;
   }
 });
