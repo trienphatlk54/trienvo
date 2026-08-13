@@ -1010,9 +1010,15 @@ app.post('/api/voucher-check', async (req, res) => {
   try {
     sendEvent('progress', { message: 'Đang khởi động trình duyệt...' });
     browser = await launchBrowser(proxyConfig);
-    const result = await newPage(browser, proxyConfig);
-    ctx = result.ctx;
-    const page = result.page;
+    ctx = await browser.createBrowserContext();
+    const page = await ctx.newPage();
+    if (proxyConfig && proxyConfig.user && proxyConfig.pass) {
+      await page.authenticate({ username: proxyConfig.user, password: proxyConfig.pass });
+    }
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    });
 
     // Parse cookies
     let spcF = '', spcSt = '';
