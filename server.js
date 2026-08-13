@@ -102,8 +102,7 @@ async function launchBrowser(proxy) {
   const args = [
     '--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage',
     '--disable-blink-features=AutomationControlled','--lang=vi-VN,vi',
-    '--disable-gpu','--disable-extensions','--disable-background-networking',
-    '--disable-default-apps','--disable-sync','--no-first-run',
+    '--disable-gpu', '--no-first-run',
     '--disable-features=site-per-process',
   ];
   if (proxy) {
@@ -1018,9 +1017,7 @@ app.post('/api/voucher-check', async (req, res) => {
       await page.authenticate({ username: proxyConfig.user, password: proxyConfig.pass });
     }
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    await page.evaluateOnNewDocument(() => {
-      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-    });
+    
 
     // Parse cookies
     let spcF = '', spcSt = '';
@@ -1052,7 +1049,8 @@ app.post('/api/voucher-check', async (req, res) => {
     }
 
     sendEvent('progress', { message: 'Đang truy cập ví Voucher...' });
-    await page.goto('https://shopee.vn/user/voucher-wallet?lang=en', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.goto('https://shopee.vn/user/voucher-wallet?lang=en', { waitUntil: 'networkidle2', timeout: 60000 });
+    await new Promise(r => setTimeout(r, 3000)); // give React extra time
     
     // Wait for the input box
     sendEvent('progress', { message: 'Chờ giao diện Shopee...' });
