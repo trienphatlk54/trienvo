@@ -1741,7 +1741,26 @@ function renderFirebaseData() {
   keys.sort((a, b) => {
     let valA = (window.shopeeAccountsData[a][dataSortCol] || '').toString();
     let valB = (window.shopeeAccountsData[b][dataSortCol] || '').toString();
-    // Default time is usually better reverse sorted if same
+    
+    if (dataSortCol === 'time') {
+      const parseTime = (str) => {
+        if (!str) return 0;
+        const parts = str.trim().split(' ');
+        let t = parts[0], d = parts[1];
+        if (parts.length === 2 && parts[1].includes(':')) {
+           t = parts[1]; d = parts[0];
+        }
+        if (!t || !d) return new Date(str).getTime() || 0;
+        const hms = t.split(':').map(Number);
+        const dmy = d.split('/').map(Number);
+        return new Date(dmy[2] || 0, (dmy[1] || 1) - 1, dmy[0] || 1, hms[0] || 0, hms[1] || 0, hms[2] || 0).getTime();
+      };
+      const timeA = parseTime(valA);
+      const timeB = parseTime(valB);
+      return dataSortAsc ? timeA - timeB : timeB - timeA;
+    }
+
+    // Default sort for other columns
     return dataSortAsc 
       ? valA.localeCompare(valB, undefined, {numeric: true})
       : valB.localeCompare(valA, undefined, {numeric: true});
