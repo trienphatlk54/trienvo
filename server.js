@@ -973,6 +973,186 @@ app.post('/api/phones/complete', async (req, res) => {
 });
 
 // ─── Start ─────────────────────────────────────────────────────────
+
+// ─── Voucher Checking ──────────────────────────────────────────────
+app.post('/api/voucher-check', async (req, res) => {
+  const { vouchers, cookieStr, proxyStr } = req.body;
+  if (!vouchers || !Array.isArray(vouchers) || vouchers.length === 0) {
+    return res.status(400).json({ error: 'Missing vouchers array' });
+  }
+  if (!cookieStr) {
+    return res.status(400).json({ error: 'Missing cookie string' });
+  }
+
+  // Set up streaming response
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders(); // Establish stream
+
+  const sendEvent = (event, data) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+
+  let proxyConfig = null;
+  if (proxyStr) {
+    const p = proxyStr.trim().split(':');
+    if (p.length === 4) {
+      proxyConfig = { host: p[0], port: p[1], username: p[2], password: p[3] };
+    } else if (p.length === 2) {
+      proxyConfig = { host: p[0], port: p[1] };
+    }
+  }
+
+  let browser = null;
+  let ctx = null;
+  
+  try {
+    sendEvent('progress', { message: 'Đang khởi động trình duyệt...' });
+    browser = await launchBrowser(proxyConfig);
+    const result = await newPage(browser, proxyConfig);
+    ctx = result.ctx;
+    const page = result.page;
+
+    // Parse cookies
+    let spcF = '', spcSt = '';
+    const cookieString = cookieStr.trim();
+    if (cookieString.startsWith('SPC_F=')) {
+      // SPC_F=abcd|user|pass
+      spcF = cookieString.substring(6).split('|')[0];
+    } else if (cookieString.startsWith('SPC_ST=')) {
+      spcSt = cookieString.substring(7).split(';')[0];
+    } else if (cookieString.includes('SPC_F=')) {
+      const match = cookieString.match(/SPC_F=([^;]+)/);
+      if (match) spcF = match[1];
+    } else if (cookieString.includes('SPC_ST=')) {
+      const match = cookieString.match(/SPC_ST=([^;]+)/);
+      if (match) spcSt = match[1];
+    } else {
+      // Assume raw SPC_ST or SPC_F value if no prefix
+      if (cookieString.length > 50) spcSt = cookieString;
+      else spcF = cookieString;
+    }
+
+    sendEvent('progress', { message: 'Đang thiết lập cookie...' });
+    const cookieObjs = [];
+    if (spcF) cookieObjs.push({ name: 'SPC_F', value: spcF, domain: '.shopee.vn', path: '/' });
+    if (spcSt) cookieObjs.push({ name: 'SPC_ST', value: spcSt, domain: '.shopee.vn', path: '/' });
+    
+    if (cookieObjs.length > 0) {
+      await page.setCookie(...cookieObjs);
+    }
+
+    sendEvent('progress', { message: 'Đang truy cập ví Voucher...' });
+    await page.goto('https://shopee.vn/user/voucher-wallet?lang=en', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    
+    // Wait for the input box
+    sendEvent('progress', { message: 'Chờ giao diện Shopee...' });
+    try {
+      await page.waitForSelector('input[placeholder*="voucher code"], input[placeholder*="Mã Voucher"]', { timeout: 20000 });
+    } catch (e) {
+      throw new Error('Không tìm thấy ô nhập mã voucher, có thể cookie đã chết hoặc giao diện thay đổi.');
+    }
+
+    sendEvent('progress', { message: 'Bắt đầu check mã...' });
+    
+    for (let i = 0; i < vouchers.length; i++) {
+      const vCode = vouchers[i].trim();
+      if (!vCode) continue;
+      
+      try {
+        const inputSelector = 'input[placeholder*="voucher code"], input[placeholder*="Mã Voucher"]';
+        
+        // Clear input and type
+        await page.click(inputSelector, { clickCount: 3 });
+        await page.keyboard.press('Backspace');
+        await page.type(inputSelector, vCode, { delay: 30 });
+        
+        // Find and click redeem button
+        const redeemBtnClicked = await page.evaluate(() => {
+          const btns = Array.from(document.querySelectorAll('button'));
+          const btn = btns.find(b => 
+            b.innerText.toLowerCase().includes('redeem') || 
+            b.innerText.toLowerCase().includes('lưu') ||
+            b.innerText.toLowerCase().includes('áp dụng') ||
+            b.innerText.toLowerCase().includes('save')
+          );
+          if (btn && !btn.disabled) {
+            btn.click();
+            return true;
+          }
+          return false;
+        });
+
+        if (!redeemBtnClicked) {
+          sendEvent('result', { voucher: vCode, result: 'Không bấm được nút Redeem (nút bị vô hiệu hóa hoặc không tìm thấy)' });
+          continue;
+        }
+
+        // Wait for response text. It usually appears next to/below the input, or in a toast.
+        // We will observe DOM mutations or wait for a specific text/toast to appear.
+        let msg = '';
+        try {
+          msg = await page.evaluate(async () => {
+            return new Promise(resolve => {
+              // Wait up to 5 seconds for a message
+              let ms = 0;
+              const check = setInterval(() => {
+                ms += 200;
+                
+                // 1. Check for error message directly below the input (shopee often uses a specific class, or we can just find any text node containing typical error keywords)
+                // Wait for any text containing "Sorry", "invalid", "limit", "reached", "không hợp lệ", "đã dùng", "thành công", "successfully"
+                const errorElements = Array.from(document.querySelectorAll('div, span, p')).filter(el => {
+                  if (el.children.length > 0) return false; // Only get leaf nodes
+                  const text = el.innerText.toLowerCase();
+                  return text.includes('sorry') || text.includes('invalid') || 
+                         text.includes('limit') || text.includes('không hợp lệ') || 
+                         text.includes('đã hết') || text.includes('thành công') || 
+                         text.includes('successfully') || text.includes('already');
+                });
+                
+                if (errorElements.length > 0) {
+                  // Prioritize elements that are near the input or toasts
+                  const res = errorElements.map(e => e.innerText.trim()).find(t => t.length > 5);
+                  if (res) {
+                    clearInterval(check);
+                    resolve(res);
+                  }
+                }
+                
+                if (ms > 5000) {
+                  clearInterval(check);
+                  resolve('Timeout: Không nhận được phản hồi từ Shopee');
+                }
+              }, 200);
+            });
+          });
+        } catch (e) {
+          msg = 'Lỗi khi trích xuất kết quả';
+        }
+
+        sendEvent('result', { voucher: vCode, result: msg });
+        
+        // Wait a bit before next voucher
+        await new Promise(r => setTimeout(r, 1000));
+        
+      } catch (err) {
+        sendEvent('result', { voucher: vCode, result: 'Lỗi: ' + err.message });
+      }
+    }
+    
+    sendEvent('done', { message: 'Hoàn tất check voucher' });
+
+  } catch (e) {
+    sendEvent('error', { message: e.message });
+  } finally {
+    if (page) try { await page.close(); } catch(_) {}
+    if (ctx) try { await ctx.close(); } catch(_) {}
+    if (browser) try { await browser.close(); } catch(_) {}
+    res.end();
+  }
+});
+
 // --- GoAffiliate Proxy ---
 app.post('/api/goaffiliate', async (req, res) => {
   const { originalLink } = req.body;

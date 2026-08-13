@@ -1493,6 +1493,57 @@
       </div>
     </div>
 
+
+    <!-- Tab 6: Voucher Checking -->
+    <div id="tab-vouchercheck" class="tab-pane">
+      <div class="main-card" style="max-width: 900px; margin: 0 auto;">
+        <div class="card-header">
+          <h2>🎫 Kiểm tra Voucher hàng loạt</h2>
+          <p style="color:var(--text-muted); font-size:13px; margin-top:8px;">Tự động đăng nhập và check danh sách mã voucher trên ví Shopee.</p>
+        </div>
+        <div class="card-body" style="padding: 24px; display:flex; flex-direction:column; gap:20px;">
+          
+          <div class="input-group">
+            <label>Danh sách mã Voucher (mỗi mã 1 dòng):</label>
+            <textarea id="voucherListInput" class="proxy-input" style="height: 120px; resize:vertical; font-family:monospace;" placeholder="VOUCHERCODE1\nVOUCHERCODE2\nVOUCHERCODE3"></textarea>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="input-group">
+              <label>Cookie (SPC_F combo hoặc SPC_ST):</label>
+              <input type="text" id="voucherCookieInput" class="proxy-input" placeholder="SPC_ST=... hoặc SPC_F=..." />
+            </div>
+            
+            <div class="input-group">
+              <label>Proxy (Tùy chọn):</label>
+              <input type="text" id="voucherProxyInput" class="proxy-input" placeholder="IP:Port:User:Pass" />
+            </div>
+          </div>
+          
+          <button id="btnCheckVoucher" class="btn btn-primary" onclick="startVoucherCheck()" style="align-self:flex-start;">
+            🚀 Bắt đầu Check Voucher
+          </button>
+          
+          <div id="voucherCheckProgress" style="color:var(--shopee); font-size:13px; margin-top:5px; font-weight:bold;"></div>
+
+          <div style="margin-top: 20px; padding-top:20px; border-top:1px solid var(--border);">
+            <table class="compact-table" style="width:100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                  <th style="padding: 10px 8px; width: 40px;">STT</th>
+                  <th style="padding: 10px 8px; width: 150px;">Mã Voucher</th>
+                  <th style="padding: 10px 8px;">Kết quả</th>
+                </tr>
+              </thead>
+              <tbody id="voucherCheckResults">
+                <tr><td colspan="3" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main><!-- /main-content -->
 </div><!-- /app-layout -->
 
