@@ -2147,7 +2147,8 @@ function setStatus(s, label) {
 // ── QR Overlays ────────────────────────────────────────────────────────────────
 function showOverlay(id) {
   ['overlayIdle','overlayLoading','overlayExpired','overlayScanned','overlaySuccess'].forEach(o => {
-    $(o).classList.toggle('hidden', o !== id);
+    const el = $(o);
+    if (el) el.classList.toggle('hidden', o !== id);
   });
 }
 
@@ -2188,12 +2189,22 @@ function stopTimer() {
 
 // ── Set QR Image ───────────────────────────────────────────────────────────────
 function setQRImage(src) {
+  console.log('[setQRImage] src length:', src ? src.length : 0, 'starts:', src ? src.substring(0, 50) : 'null');
   const img = $('qrImage');
+  if (!img) {
+    console.error('[setQRImage] img element not found!');
+    return;
+  }
   img.src = src;
   img.style.display = 'block';
   showOverlay(null);
-  ['overlayIdle','overlayLoading','overlayExpired','overlayScanned','overlaySuccess'].forEach(o => $(o).classList.add('hidden'));
-  $('scanLine').classList.add('active');
+  ['overlayIdle','overlayLoading','overlayExpired','overlayScanned','overlaySuccess'].forEach(o => {
+    const el = $(o);
+    if (el) el.classList.add('hidden');
+  });
+  const scanLine = $('scanLine');
+  if (scanLine) scanLine.classList.add('active');
+  console.log('[setQRImage] Done, img displayed');
 }
 
 // ── Display Cookies ────────────────────────────────────────────────────────────
@@ -2494,19 +2505,32 @@ async function startSession() {
 
   try {
     // Gửi lệnh start (server trả về ngay, chạy ngầm)
+    console.log('[startSession] Gửi /api/start...');
     const res = await fetch('/api/start', { method: 'POST' });
     const data = await res.json();
+    console.log('[startSession] Response:', JSON.stringify(data).substring(0, 200));
     if (!data.success) throw new Error(data.error || 'Lỗi không xác định');
 
-    // Poll chờ QR sẵn sàng (tối đa 3 phút)
-    toast('⏳ Đang lấy mã QR từ Shopee...', 'info');
-    const qrData = await waitForQR(180);
-    if (!qrData) throw new Error('Hết thời gian chờ QR (3 phút). Thử lại!');
+    // Nếu server trả QR ngay trong response (tương thích cũ)
+    if (data.qrImage) {
+      console.log('[startSession] QR có sẵn trong response');
+      setQRImage(data.qrImage);
+      setStatus('ready', 'Chờ quét QR');
+      if (data.expiresAt) startTimer(data.expiresAt);
+      startPolling();
+    } else {
+      // Poll chờ QR sẵn sàng (tối đa 3 phút)
+      console.log('[startSession] Chờ QR qua polling...');
+      toast('⏳ Đang lấy mã QR từ Shopee...', 'info');
+      const qrData = await waitForQR(180);
+      if (!qrData) throw new Error('Hết thời gian chờ QR (3 phút). Thử lại!');
 
-    setQRImage(qrData.qrImage);
-    setStatus('ready', 'Chờ quét QR');
-    startTimer(qrData.expiresAt);
-    startPolling();
+      console.log('[startSession] Nhận QR, hiển thị...');
+      setQRImage(qrData.qrImage);
+      setStatus('ready', 'Chờ quét QR');
+      startTimer(qrData.expiresAt);
+      startPolling();
+    }
 
     $('btnRefresh').style.display = 'inline-flex';
     $('btnRefresh').disabled = false;
@@ -2524,18 +2548,26 @@ async function startSession() {
 
 // Poll /api/status chờ QR image hoặc error
 async function waitForQR(maxSeconds) {
+  console.log('[waitForQR] Bắt đầu poll, tối đa', maxSeconds, 'giây');
   for (let i = 0; i < maxSeconds; i++) {
     await new Promise(r => setTimeout(r, 1000));
     try {
       const res = await fetch('/api/status');
       const data = await res.json();
+      console.log('[waitForQR]', i + 's, status:', data.status, 'hasQR:', !!data.qrImage);
       if (data.status === 'ready' && data.qrImage) {
         return data;
       }
       if (data.status === 'error') {
         throw new Error(data.error || 'Lỗi server');
       }
-      if (i > 0 && i % 10 === 0) {
+      // Cập nhật overlay text khi đang loading
+      if (i > 0 && i % 5 === 0) {
+        const loadText = document.getElementById('overlayLoading')?.querySelector('.overlay-text') 
+                      || document.getElementById('overlayLoading_create')?.querySelector('.overlay-text');
+        if (loadText) loadText.innerHTML = `Đang tải mã QR<br/>từ Shopee... (${i}s)`;
+      }
+      if (i > 0 && i % 15 === 0) {
         toast(`⏳ Đang chờ QR... (${i}s)`, 'info', 2000);
       }
     } catch(e) {
@@ -2557,14 +2589,21 @@ async function refreshQR() {
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'Lỗi không xác định');
 
-    toast('⏳ Đang lấy mã QR mới...', 'info');
-    const qrData = await waitForQR(120);
-    if (!qrData) throw new Error('Hết thời gian chờ. Thử Bắt đầu lại!');
+    if (data.qrImage) {
+      setQRImage(data.qrImage);
+      setStatus('ready', 'Chờ quét QR');
+      if (data.expiresAt) startTimer(data.expiresAt);
+      startPolling();
+    } else {
+      toast('⏳ Đang lấy mã QR mới...', 'info');
+      const qrData = await waitForQR(120);
+      if (!qrData) throw new Error('Hết thời gian chờ. Thử Bắt đầu lại!');
 
-    setQRImage(qrData.qrImage);
-    setStatus('ready', 'Chờ quét QR');
-    startTimer(qrData.expiresAt);
-    startPolling();
+      setQRImage(qrData.qrImage);
+      setStatus('ready', 'Chờ quét QR');
+      startTimer(qrData.expiresAt);
+      startPolling();
+    }
 
     $('btnRefresh').disabled = false;
     toast('✅ Mã QR mới đã sẵn sàng!', 'success');
