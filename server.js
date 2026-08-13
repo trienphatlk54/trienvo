@@ -1,6 +1,5 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
-const proxyChain = require('proxy-chain');
 
 // Simple log capturer
 const sysLogs = [];
@@ -43,6 +42,13 @@ const QR_TTL = 3 * 60 * 1000;
 
 const app = express();
 app.get('/api/logs', (req, res) => res.type('text/plain').send(sysLogs.join('\n')));
+app.get('/api/debug/image', (req, res) => {
+  const fs = require('fs');
+  const files = fs.readdirSync(__dirname).filter(f => f.startsWith('debug_') && f.endsWith('.png'));
+  if (files.length === 0) return res.status(404).send('No debug image found');
+  files.sort((a, b) => fs.statSync(path.join(__dirname, b)).mtime.getTime() - fs.statSync(path.join(__dirname, a)).mtime.getTime());
+  res.sendFile(path.join(__dirname, files[0]));
+});
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(__dirname)); // Fallback cho trường hợp up code không có folder public
@@ -54,26 +60,16 @@ const delay = ms => new Promise(r => setTimeout(r, ms));
 let proxyConfig = null;
 
 function parseProxy(type, raw) {
-  let cleaned = raw.trim().replace(/^https?:\/\//i, '').replace(/^socks5?:\/\//i, '').replace(/\s+/g, '');
-  let host, port, user = '', pass = '';
-  
-  if (cleaned.includes('@')) {
-    const parts = cleaned.split('@');
-    const auth = parts[0].split(':');
-    const server = parts[1].split(':');
-    if (auth.length >= 2) { user = auth[0]; pass = auth.slice(1).join(':'); }
-    if (server.length >= 2) { host = server[0]; port = server[1]; }
-  } else {
-    const parts = cleaned.split(':');
-    if (parts.length >= 2) {
-      host = parts[0]; port = parts[1];
-      if (parts.length >= 4) { user = parts[2]; pass = parts[3]; }
-    }
-  }
-  
-  if (!host || !port) return null;
-  
-  return { type, host, port, user, pass, verified: false };
+  const parts = raw.trim().split(':');
+  if (parts.length < 2) return null;
+  return {
+    type,
+    host: parts[0],
+    port: parts[1],
+    user: parts[2] || '',
+    pass: parts[3] || '',
+    verified: false,
+  };
 }
 
 function proxyUrl(p) {
@@ -100,13 +96,7 @@ async function reset() {
   S.poll = S.expire = null;
   if (S.page) { try { await S.page.close(); } catch(_){} S.page = null; }
   if (S.ctx)  { try { await S.ctx.close();  } catch(_){} S.ctx  = null; }
-  if (S.browser) { 
-    try { await S.browser.close(); } catch(_){} 
-    if (S.browser.anonymizedProxyUrl) {
-      proxyChain.closeAnonymizedProxy(S.browser.anonymizedProxyUrl, true).catch(()=>{});
-    }
-    S.browser = null; 
-  }
+  if (S.browser) { try { await S.browser.close(); } catch(_){} S.browser = null; }
   Object.assign(S, { status:'idle', qrImage:null, cookies:null, userInfo:null, error:null, expiresAt:null });
 }
 
@@ -118,34 +108,18 @@ async function launchBrowser(proxy) {
     '--disable-gpu','--disable-extensions','--disable-background-networking',
     '--disable-default-apps','--disable-sync','--no-first-run',
   ];
-  let anonymizedProxyUrl = null;
-  
   if (proxy) {
-    let finalProxyUrl = proxyUrl(proxy);
-    // Use proxy-chain for HTTP proxies with authentication to ensure Puppeteer compatibility
-    if (proxy.user && proxy.type === 'http') {
-      try {
-        anonymizedProxyUrl = await proxyChain.anonymizeProxy(`${proxy.type}://${proxy.user}:${proxy.pass}@${proxy.host}:${proxy.port}`);
-        finalProxyUrl = anonymizedProxyUrl;
-        console.log(`  🌐 Proxy-chain anonymized: ${finalProxyUrl}`);
-      } catch (err) {
-        console.error(`  ❌ Proxy-chain error: ${err.message}`);
-      }
-    }
-    args.push(`--proxy-server=${finalProxyUrl}`);
-    console.log(`  🌐 Chrome + proxy: ${finalProxyUrl}`);
+    args.push(`--proxy-server=${proxyUrl(proxy)}`);
+    console.log(`  🌐 Chrome + proxy: ${proxyUrl(proxy)}`);
   } else {
     console.log('  🌐 Chrome (không proxy)');
   }
-  
-  const browser = await puppeteer.launch({
+  return await puppeteer.launch({
     headless: 'new',
     args,
     defaultViewport: { width: 1280, height: 900 },
-    protocolTimeout: 180000,
+    protocolTimeout: 180000, // 3 phút, tránh lỗi WS endpoint timeout
   });
-  browser.anonymizedProxyUrl = anonymizedProxyUrl;
-  return browser;
 }
 
 async function newPage(browser, proxy) {
@@ -223,14 +197,10 @@ async function navigateAndWaitForQR(page, proxy) {
   console.log('  🚀 Tải /buyer/login/qr ...');
 
   // Bước 1: Điều hướng với domcontentloaded (rất nhanh)
-  try {
-    await page.goto('https://shopee.vn/buyer/login/qr', {
-      waitUntil: 'domcontentloaded',
-      timeout: 120000,
-    });
-  } catch (err) {
-    console.log('  ⚠️ Điều hướng có cảnh báo (vẫn tiếp tục): ' + err.message);
-  }
+  await page.goto('https://shopee.vn/buyer/login/qr', {
+    waitUntil: 'domcontentloaded',
+    timeout: 120000,
+  });
   console.log('  ✔️ HTML loaded, đang chờ API trả về QR...');
 
   // Bước 2: Chờ S.qrImage được gán từ bộ bắt API (tối đa 90s)
@@ -376,9 +346,6 @@ app.post('/api/proxy/save', async (req, res) => {
     await page.close();
     await ctx.close();
     await testBrowser.close();
-    if (testBrowser.anonymizedProxyUrl) {
-      await proxyChain.closeAnonymizedProxy(testBrowser.anonymizedProxyUrl, true).catch(()=>{});
-    }
     testBrowser = null;
 
     if (!ip) {
