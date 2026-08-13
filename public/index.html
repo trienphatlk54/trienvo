@@ -3604,7 +3604,7 @@ async function startVoucherCheck() {
         if (dataStr) {
           const data = JSON.parse(dataStr);
           if (eventType === 'progress') {
-            progress.innerText = data.message;
+            progress.innerHTML = data.message;
           } else if (eventType === 'result') {
             const tr = document.createElement('tr');
             tr.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
@@ -3624,9 +3624,9 @@ async function startVoucherCheck() {
             tbody.appendChild(tr);
           } else if (eventType === 'error') {
             toast('Lỗi: ' + data.message, 'error');
-            progress.innerText = 'Đã dừng do lỗi: ' + data.message;
+            progress.innerHTML = '<span style="color:var(--error);">Đã dừng do lỗi:</span><br>' + data.message;
           } else if (eventType === 'done') {
-            progress.innerText = 'Hoàn tất!';
+            progress.innerHTML = 'Hoàn tất!';
             toast('Hoàn tất check voucher', 'success');
           }
         }
@@ -3634,7 +3634,7 @@ async function startVoucherCheck() {
     }
   } catch(e) {
     toast('Lỗi: ' + e.message, 'error');
-    progress.innerText = 'Lỗi: ' + e.message;
+    progress.innerHTML = 'Lỗi: ' + e.message;
   } finally {
     btn.disabled = false;
     btn.innerText = '🚀 Bắt đầu Check Voucher';
