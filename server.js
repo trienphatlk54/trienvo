@@ -1049,13 +1049,13 @@ app.post('/api/voucher-check', async (req, res) => {
     }
 
     sendEvent('progress', { message: 'Đang truy cập ví Voucher...' });
-    await page.goto('https://shopee.vn/user/voucher-wallet?lang=en', { waitUntil: 'networkidle2', timeout: 60000 });
+    await page.goto('https://shopee.vn/user/voucher-wallet?lang=en', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await new Promise(r => setTimeout(r, 3000)); // give React extra time
     
     // Wait for the input box
     sendEvent('progress', { message: 'Chờ giao diện Shopee...' });
     try {
-      await page.waitForSelector('input[placeholder*="voucher" i], input[placeholder*="Mã" i]', { timeout: 15000 });
+      await page.waitForSelector('input[placeholder*="voucher" i], input[placeholder*="Mã" i]', { timeout: 30000 });
     } catch (e) {
       let b64 = '', pageUrl = '', pageTitle = '', bodyText = '';
       try { 
