@@ -2345,7 +2345,7 @@ async function clearUsedIps() {
 }
 
 async function saveProxy() {
-  const isCreate = document.getElementById('tab-shopee') && document.getElementById('tab-shopee').classList.contains('active');
+  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
   const suf = isCreate ? '_create' : '';
 
   const type = $('proxyType' + suf).value;
@@ -2406,7 +2406,7 @@ async function saveProxy() {
 }
 
 function clearProxy() {
-  const isCreate = document.getElementById('tab-shopee') && document.getElementById('tab-shopee').classList.contains('active');
+  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
   const suf = isCreate ? '_create' : '';
 
   fetch('/api/proxy', { method: 'DELETE' });
