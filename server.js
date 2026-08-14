@@ -116,6 +116,7 @@ async function launchBrowser(proxy) {
     args,
     defaultViewport: { width: 1280, height: 900 },
     protocolTimeout: 180000,
+    timeout: 60000,
   });
 }
 
