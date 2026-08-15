@@ -395,6 +395,8 @@ function startPoll(page) {
 
 // ─── POST /api/proxy/save ──────────────────────────────────────────
 app.post('/api/proxy/save', async (req, res) => {
+  // Fix memory issue: Kill any existing session browser before launching a test browser
+  await reset();
   const { type, raw } = req.body;
   if (!type || !raw) return res.json({ success:false, error:'Thiếu thông tin proxy' });
 
