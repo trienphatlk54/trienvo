@@ -1377,8 +1377,8 @@
             <button class="btn btn-primary" onclick="openPhoneModal()">+ Thêm Phone</button>
           </div>
         </div>
-        <div class="table-container" style="max-height: 700px; overflow:auto;">
-          <table class="data-table table-grouped compact-table" style="min-width: 1200px;">
+        <div class="table-container" style="max-height: 700px; overflow-y: auto; overflow-x: auto; width: 100%;">
+          <table class="data-table table-grouped compact-table" style="min-width: 1500px; width: 100%;">
             <thead>
               <tr id="phoneTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 13px; text-transform: uppercase;">
                 <th data-col="identifier" onclick="setPhoneSort('identifier')" style="padding: 12px 8px; width:80px; cursor:pointer;">Định danh ▲</th>
@@ -1409,6 +1409,44 @@
     </div>
 
     <!-- Tab 3: Data Management -->
+    <!-- TIKTOK TAB -->
+    <div id="tab-tiktok" class="tab-pane">
+    <div class="main-card">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h2>🎵 Tiktok Accounts</h2>
+          <p>Quản lý danh sách tài khoản Tiktok, phân loại trạng thái, mã giảm giá.</p>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <input type="text" id="tiktokSearch" class="proxy-input" placeholder="🔍 Tìm kiếm dữ liệu..." onkeyup="renderTiktokTable()" style="max-width: 200px; padding: 6px 12px; font-size: 12px; height: 32px; box-sizing: border-box;" />
+          <button class="btn btn-primary" onclick="openTiktokModal()" style="height: 32px; padding: 6px 12px; font-size: 12px;">➕ Thêm Mới</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div style="overflow-x: auto;">
+          <table class="compact-table" style="min-width: 1000px; width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                <th style="padding: 6px;">Thời gian add</th>
+                <th style="padding: 6px;">Định danh</th>
+                <th style="padding: 6px;">Mail</th>
+                <th style="padding: 6px;">Username</th>
+                <th style="padding: 6px;">Password</th>
+                <th style="padding: 6px;">Session ID</th>
+                <th style="padding: 6px;">Account Status</th>
+                <th style="padding: 6px;">Result</th>
+                <th style="padding: 6px;">Hành động</th>
+              </tr>
+            </thead>
+            <tbody id="tiktokTableBody">
+              <tr><td colspan="9" style="text-align:center; padding:10px;">Đang tải dữ liệu...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    </div>
+    
     <div id="tab-analytics" class="tab-pane">
     <div class="main-card">
       <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
@@ -1425,7 +1463,8 @@
         </div>
       </div>
       <div class="card-body" style="grid-template-columns: 1fr; padding: 8px;">
-        <table class="compact-table" style="width:100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+        <div class="table-container" style="max-height: 700px; overflow-y: auto; overflow-x: auto; width: 100%;">
+        <table class="compact-table" style="width:100%; min-width: 1500px; border-collapse: collapse; text-align: left; font-size: 13px;">
           <thead>
             <tr id="dataTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
               <th data-col="time" onclick="setDataSort('time')" style="padding: 10px 8px; cursor:pointer;">Thời gian ▼</th>
@@ -1447,6 +1486,7 @@
             <tr><td colspan="9" style="text-align:center; padding: 16px; color: var(--text-muted);">Đang tải dữ liệu...</td></tr>
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>
@@ -2149,6 +2189,163 @@ function copyComboSpcF(spcf, user, pass) {
 // ── Clone UI for Create Tab ────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   loadPhones();
+  loadTiktokData(); // Initial load for Tiktok
+
+// ── TIKTOK ACCOUNTS LOGIC ──────────────────────────────────────────────────────
+let tiktokData = {};
+
+function getTiktokStatusColor(status) {
+  if (status === 'Mã 50') return '#c8e6c9'; 
+  if (status === 'Mã 60') return '#81c784'; 
+  if (status === 'Mã 70') return '#4caf50'; 
+  if (status === 'Mã 50 ko freeship') return '#fff9c4'; 
+  if (status === 'Mã 60 ko freeship') return '#fff176'; 
+  if (status === 'Mã 70 ko freeship') return '#ffeb3b'; 
+  return '';
+}
+
+function getTiktokResultColor(result) {
+  if (result === 'Đặt thành công') return '#4caf50'; 
+  if (result === 'Bất thường') return '#ff9800'; 
+  if (result === 'Mất mã/Hủy') return '#d32f2f'; 
+  return '';
+}
+
+async function loadTiktokData() {
+  try {
+    const res = await fetch('/api/tiktok/all');
+    const data = await res.json();
+    tiktokData = data || {};
+    renderTiktokTable();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function renderTiktokTable() {
+  const tbody = $('tiktokTableBody');
+  if (!tbody) return;
+  const search = ($('tiktokSearch').value || '').toLowerCase();
+  
+  let htmlText = '';
+  let count = 0;
+  
+  const entries = Object.entries(tiktokData).sort((a, b) => {
+    return new Date(b[1].time || 0) - new Date(a[1].time || 0);
+  });
+
+  for (const [id, item] of entries) {
+    const txt = Object.values(item).join(' ').toLowerCase();
+    if (search && !txt.includes(search)) continue;
+    
+    const statusColor = getTiktokStatusColor(item.status);
+    const resultColor = getTiktokResultColor(item.result);
+    
+    htmlText += `<tr>
+      <td style="padding:6px;">${item.time || ''}</td>
+      <td style="padding:6px;">${escapeHtml(item.identifier || '')}</td>
+      <td style="padding:6px;">${escapeHtml(item.mail || '')}</td>
+      <td style="padding:6px;">${escapeHtml(item.username || '')}</td>
+      <td style="padding:6px;">${escapeHtml(item.password || '')}</td>
+      <td style="padding:6px;">${escapeHtml(item.session || '')}</td>
+      <td style="padding:6px; background-color:${statusColor}; color:${statusColor ? '#000' : 'inherit'}; font-weight:${statusColor ? 'bold' : 'normal'}; border-radius:4px;">${escapeHtml(item.status || '')}</td>
+      <td style="padding:6px; background-color:${resultColor}; color:${resultColor ? '#fff' : 'inherit'}; font-weight:${resultColor ? 'bold' : 'normal'}; border-radius:4px;">${escapeHtml(item.result || '')}</td>
+      <td style="padding:6px;">
+        <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px;" onclick="editTiktok('${id}')">✏️</button>
+        <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px; color:var(--error);" onclick="deleteTiktok('${id}')">❌</button>
+      </td>
+    </tr>`;
+    count++;
+  }
+  
+  if (count === 0) htmlText = `<tr><td colspan="9" style="text-align:center; padding:10px;">Không có dữ liệu Tiktok</td></tr>`;
+  tbody.innerHTML = htmlText;
+}
+
+function openTiktokModal() {
+  $('tiktokId').value = '';
+  $('tk_identifier').value = '';
+  $('tk_mail').value = '';
+  $('tk_username').value = '';
+  $('tk_password').value = '';
+  $('tk_session').value = '';
+  $('tk_status').value = '';
+  $('tk_result').value = '';
+  $('tiktokModalTitle').innerText = 'Thêm Tiktok Account';
+  $('tiktokModal').classList.add('active');
+}
+
+function closeTiktokModal() {
+  $('tiktokModal').classList.remove('active');
+}
+
+function editTiktok(id) {
+  const item = tiktokData[id];
+  if (!item) return;
+  $('tiktokId').value = id;
+  $('tk_identifier').value = item.identifier || '';
+  $('tk_mail').value = item.mail || '';
+  $('tk_username').value = item.username || '';
+  $('tk_password').value = item.password || '';
+  $('tk_session').value = item.session || '';
+  $('tk_status').value = item.status || '';
+  $('tk_result').value = item.result || '';
+  $('tiktokModalTitle').innerText = 'Sửa Tiktok Account';
+  $('tiktokModal').classList.add('active');
+}
+
+async function saveTiktok() {
+  const id = $('tiktokId').value;
+  const data = {
+    identifier: $('tk_identifier').value.trim(),
+    mail: $('tk_mail').value.trim(),
+    username: $('tk_username').value.trim(),
+    password: $('tk_password').value.trim(),
+    session: $('tk_session').value.trim(),
+    status: $('tk_status').value,
+    result: $('tk_result').value,
+  };
+  
+  if (id) data.id = id;
+  
+  try {
+    const res = await fetch('/api/tiktok/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const r = await res.json();
+    if (r.success) {
+      toast('Lưu Tiktok thành công!', 'success');
+      closeTiktokModal();
+      loadTiktokData();
+    } else {
+      toast('Lỗi: ' + r.error, 'error');
+    }
+  } catch (e) {
+    toast('Lỗi kết nối', 'error');
+  }
+}
+
+async function deleteTiktok(id) {
+  if (!confirm('Bạn có chắc muốn xóa tài khoản Tiktok này?')) return;
+  try {
+    const res = await fetch('/api/tiktok/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    const r = await res.json();
+    if (r.success) {
+      toast('Đã xóa Tiktok Account', 'success');
+      loadTiktokData();
+    } else {
+      toast('Lỗi: ' + r.error, 'error');
+    }
+  } catch (e) {
+    toast('Lỗi kết nối', 'error');
+  }
+}
   // Sao chép khối proxy-section và main-card
   const proxyClone = document.querySelector('#tab-shopee .proxy-section').cloneNode(true);
   const cardClone  = document.querySelector('#tab-shopee .main-card').cloneNode(true);
@@ -2181,6 +2378,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function switchTab(tabId) {
   activeTab = tabId;
   if (tabId === 'phone') loadPhones();
+  if (tabId === 'tiktok') loadTiktokData();
   // Update nav items
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.remove('active');
@@ -3746,6 +3944,50 @@ async function startVoucherCheck() {
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closePhoneModal()">Hủy</button>
       <button class="btn btn-primary" onclick="savePhoneModal()" id="btnSavePhoneModal">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tiktok Modal -->
+<div id="tiktokModal" class="modal">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3 id="tiktokModalTitle">Thêm Tiktok Account</h3>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:10px;">
+      <input type="hidden" id="tiktokId" />
+      <div class="form-group"><label>Định danh</label><input type="text" id="tk_identifier" class="proxy-input"></div>
+      <div class="form-group"><label>Mail</label><input type="text" id="tk_mail" class="proxy-input"></div>
+      <div class="form-group"><label>Username</label><input type="text" id="tk_username" class="proxy-input"></div>
+      <div class="form-group"><label>Password</label><input type="text" id="tk_password" class="proxy-input"></div>
+      <div class="form-group"><label>Session ID</label><input type="text" id="tk_session" class="proxy-input"></div>
+      
+      <div class="form-group">
+        <label>Account Status</label>
+        <select id="tk_status" class="proxy-input" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text);">
+          <option value="">-- Chọn Trạng Thái --</option>
+          <option value="Mã 50">Mã 50</option>
+          <option value="Mã 60">Mã 60</option>
+          <option value="Mã 70">Mã 70</option>
+          <option value="Mã 50 ko freeship">Mã 50 ko freeship</option>
+          <option value="Mã 60 ko freeship">Mã 60 ko freeship</option>
+          <option value="Mã 70 ko freeship">Mã 70 ko freeship</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Result</label>
+        <select id="tk_result" class="proxy-input" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text);">
+          <option value="">-- Chọn Result --</option>
+          <option value="Đặt thành công">Đặt thành công</option>
+          <option value="Bất thường">Bất thường</option>
+          <option value="Mất mã/Hủy">Mất mã/Hủy</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeTiktokModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveTiktok()">Lưu</button>
     </div>
   </div>
 </div>
