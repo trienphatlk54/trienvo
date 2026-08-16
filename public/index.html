@@ -1462,8 +1462,8 @@
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <input type="text" id="dataTableSearch" class="proxy-input" placeholder="🔍 Tìm kiếm dữ liệu..." onkeyup="renderFirebaseData()" style="max-width: 200px; padding: 6px 12px; font-size: 12px; height: 32px; box-sizing: border-box;" />
           <button class="btn btn-ghost" onclick="syncFirebaseData()" style="color:var(--shopee-light); border:1px solid var(--shopee-light); height: 32px; padding: 6px 12px; font-size: 12px;">🔄 Đồng bộ Phone -> Cloud</button>
-          <button class="btn btn-ghost" onclick="cleanupFirebaseData()" style="color:var(--warning); border:1px solid var(--warning); height: 32px; padding: 6px 12px; font-size: 12px;">🧹 Dọn trùng lặp</button>
-          <button class="btn btn-ghost" onclick="clearUsedIps()" style="color:var(--error); border:1px solid var(--error); height: 32px; padding: 6px 12px; font-size: 12px;">🗑 Xóa lịch sử IP</button>
+          
+          
           <button class="btn btn-ghost" onclick="loadFirebaseData(true)" style="height: 32px; padding: 6px 12px; font-size: 12px;">🔄 Làm mới</button>
           <button class="btn btn-secondary btn-sm" onclick="zoomDataTableView(0.1)" title="Phóng to">🔍 +</button>
           <button class="btn btn-secondary btn-sm" onclick="zoomDataTableView(-0.1)" title="Thu nhỏ">🔍 -</button>
@@ -2294,7 +2294,7 @@ function renderTiktokStatusDropdown(currentStatus, id) {
     optsHtml += `<option value="${opt}" ${currentStatus === opt ? 'selected' : ''} style="background:#fff; color:#000;">${opt}</option>`;
   });
   return `
-    <select class="status-dropdown" style="background-color: ${color}; color: ${color ? '#000' : 'inherit'}; border: 1px solid var(--border); border-radius: 4px; padding: 4px; font-size: 11px;" onchange="syncTiktokField(event, '${id}', 'status')" onclick="event.stopPropagation()">
+    <select class="status-dropdown" style="background-color: ${color || 'var(--surface)'}; color: ${color ? '#000' : 'var(--text)'}; border: 1px solid var(--border); border-radius: 4px; padding: 4px; font-size: 11px;" onchange="syncTiktokField(event, '${id}', 'status')" onclick="event.stopPropagation()">
       ${optsHtml}
     </select>
   `;
@@ -2308,7 +2308,7 @@ function renderTiktokResultDropdown(currentResult, id) {
     optsHtml += `<option value="${opt}" ${currentResult === opt ? 'selected' : ''} style="background:#fff; color:#000;">${opt}</option>`;
   });
   return `
-    <select class="status-dropdown" style="background-color: ${color}; color: ${color ? '#fff' : 'inherit'}; border: 1px solid var(--border); border-radius: 4px; padding: 4px; font-size: 11px;" onchange="syncTiktokField(event, '${id}', 'result')" onclick="event.stopPropagation()">
+    <select class="status-dropdown" style="background-color: ${color || 'var(--surface)'}; color: ${color ? '#fff' : 'var(--text)'}; border: 1px solid var(--border); border-radius: 4px; padding: 4px; font-size: 11px;" onchange="syncTiktokField(event, '${id}', 'result')" onclick="event.stopPropagation()">
       ${optsHtml}
     </select>
   `;
@@ -2317,11 +2317,11 @@ function renderTiktokResultDropdown(currentResult, id) {
 async function syncTiktokField(event, id, field) {
   const val = event.target.value;
   if (field === 'status') {
-    event.target.style.backgroundColor = getTiktokStatusColor(val);
-    event.target.style.color = getTiktokStatusColor(val) ? '#000' : 'inherit';
+    event.target.style.backgroundColor = getTiktokStatusColor(val) || 'var(--surface)';
+    event.target.style.color = getTiktokStatusColor(val) ? '#000' : 'var(--text)';
   } else {
-    event.target.style.backgroundColor = getTiktokResultColor(val);
-    event.target.style.color = getTiktokResultColor(val) ? '#fff' : 'inherit';
+    event.target.style.backgroundColor = getTiktokResultColor(val) || 'var(--surface)';
+    event.target.style.color = getTiktokResultColor(val) ? '#fff' : 'var(--text)';
   }
   
   if (!tiktokData[id]) return;
