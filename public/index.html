@@ -2232,8 +2232,8 @@ function getTiktokStatusColor(status) {
 
 function getTiktokResultColor(result) {
   if (result === 'Đặt thành công') return '#4caf50'; 
-  if (result === 'Bất thường') return '#ff9800'; 
-  if (result === 'Mất mã/Hủy') return '#d32f2f'; 
+  if (result === 'Bất thường') return '#fbc02d'; 
+  if (result === 'Rớt mã/Hủy') return '#b71c1c'; 
   return '';
 }
 
@@ -2302,7 +2302,7 @@ function renderTiktokStatusDropdown(currentStatus, id) {
 
 function renderTiktokResultDropdown(currentResult, id) {
   const color = getTiktokResultColor(currentResult);
-  const options = ['Đặt thành công 1 đơn', 'Đặt thành công 2 đơn', 'Đặt thành công 3 đơn', 'Đặt thành công 4 đơn', 'Lỗi thanh toán', 'Khóa tài khoản', 'Hủy bất thường'];
+  const options = ['Đặt thành công', 'Bất thường', 'Rớt mã/Hủy'];
   let optsHtml = '<option value="" style="background:#fff; color:#000;">-- Chọn --</option>';
   options.forEach(opt => {
     optsHtml += `<option value="${opt}" ${currentResult === opt ? 'selected' : ''} style="background:#fff; color:#000;">${opt}</option>`;
