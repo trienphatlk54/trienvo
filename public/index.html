@@ -2386,7 +2386,17 @@ function switchTab(tabId) {
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.remove('active');
   });
-  event.currentTarget.classList.add('active');
+  
+  if (typeof event !== 'undefined' && event && event.currentTarget) {
+    event.currentTarget.classList.add('active');
+  } else {
+    document.querySelectorAll('.nav-item').forEach(el => {
+      if (el.getAttribute('onclick') && el.getAttribute('onclick').includes("'" + tabId + "'")) {
+        el.classList.add('active');
+      }
+    });
+  }
+
 
   // Update tab panes
   document.querySelectorAll('.tab-pane').forEach(el => {
