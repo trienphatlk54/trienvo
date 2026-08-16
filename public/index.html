@@ -917,13 +917,13 @@
         <span class="nav-icon">🧰</span> Shopee Accounts
       </div>
       <div class="nav-item" onclick="switchTab('analytics')">
-        <span class="icon">📋</span> Accounts & Cookies
+        <span class="icon">🛒</span> Shopee Accounts
       </div>
       <div class="nav-item" onclick="switchTab('tiktok')">
         <span class="icon">🎵</span> Tiktok Accounts
       </div>
       <div class="nav-item" onclick="switchTab('phone')">
-        <span class="icon">📱</span> Phone Management & Sessions
+        <span class="icon">📱</span> Phone Sessions
       </div>
       <div class="nav-item" onclick="switchTab('settings')">
         <span class="nav-icon">⚙️</span> Cài đặt
@@ -1384,7 +1384,7 @@
           <table class="data-table table-grouped compact-table" style="min-width: 1500px; width: 100%;">
             <thead>
               <tr id="phoneTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 13px; text-transform: uppercase;">
-                <th data-col="identifier" onclick="setPhoneSort('identifier')" style="padding: 12px 8px; width:80px; cursor:pointer;">Định danh ▲</th>
+                <th data-col="identifier" onclick="setPhoneSort('identifier')" style="padding: 12px 8px; white-space: nowrap; width: 1%; cursor:pointer;">Định danh ▲</th>
                 <th data-col="type" onclick="setPhoneSort('type')" style="padding: 12px 8px; width:60px; cursor:pointer;">Loại ↕</th>
                 <th data-col="shopeePhone" onclick="setPhoneSort('shopeePhone')" style="padding: 12px 8px; cursor:pointer;">SĐT Shopee ↕</th>
                 <th data-col="shopeePassword" onclick="setPhoneSort('shopeePassword')" style="padding: 12px 8px; cursor:pointer;">Mật Khẩu ↕</th>
@@ -1422,6 +1422,8 @@
         </div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <input type="text" id="tiktokSearch" class="proxy-input" placeholder="🔍 Tìm kiếm dữ liệu..." onkeyup="renderTiktokTable()" style="max-width: 200px; padding: 6px 12px; font-size: 12px; height: 32px; box-sizing: border-box;" />
+          <button class="btn btn-secondary btn-sm" onclick="zoomTiktokTable(0.1)" title="Phóng to">🔍 +</button>
+          <button class="btn btn-secondary btn-sm" onclick="zoomTiktokTable(-0.1)" title="Thu nhỏ">🔍 -</button>
           <button class="btn btn-primary" onclick="openTiktokModal()" style="height: 32px; padding: 6px 12px; font-size: 12px;">➕ Thêm Mới</button>
         </div>
       </div>
@@ -1599,7 +1601,18 @@
 
 <script>
 // ── State ──────────────────────────────────────────────────────────────────────
-let phoneTableZoom = 1;
+let tiktokTableZoom = 1.0;
+function zoomTiktokTable(delta) {
+  tiktokTableZoom += delta;
+  if (tiktokTableZoom < 0.3) tiktokTableZoom = 0.3;
+  if (tiktokTableZoom > 2.0) tiktokTableZoom = 2.0;
+  const table = document.querySelector('#tab-tiktok table');
+  if (table) {
+    table.style.zoom = tiktokTableZoom;
+  }
+}
+
+let phoneTableZoom = 1.0;
 function zoomPhoneTable(delta) {
   phoneTableZoom += delta;
   if (phoneTableZoom < 0.3) phoneTableZoom = 0.3;
@@ -3128,26 +3141,27 @@ function renderPhoneTable() {
     }
     
     html += `
-      <tr onclick="openPhoneModal('${id}')" style="cursor: pointer; border-bottom: 1px solid rgba(0,0,0,0.05);" title="Bấm để chỉnh sửa dòng này">
-        <td style="padding: 12px 8px; font-weight:bold; font-size:13px;">${escapeHtml(p.identifier || '')}</td>
-        <td style="padding: 12px 8px;">
+      <tr style="border-bottom: 1px solid rgba(0,0,0,0.05);" title="Click các ô để copy">
+        <td style="padding: 12px 8px; font-weight:bold; font-size:13px; white-space:nowrap; width:1%; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.identifier || '')}</td>
+        <td style="padding: 12px 8px; cursor:pointer;" onclick="copyText(this.innerText)">
           <span style="background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 4px; font-size: 11px;">
             ${escapeHtml(p.type || '')}
           </span>
         </td>
-        <td style="padding: 12px 8px; font-family:monospace; font-weight:bold; font-size:13px; color:var(--shopee-dark);">${escapeHtml(p.shopeePhone || '')}</td>
-        <td style="padding: 12px 8px; font-family:monospace; font-size:12px; color:var(--warning);">${escapeHtml(p.shopeePassword || '')}</td>
-        <td title="${escapeHtml(p.shopeeSpcF || '')}" style="padding: 12px 8px; font-size:11px; font-family:monospace; color:var(--text-muted); max-width: 80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.shopeeSpcF || '')}</td>
-        <td title="${escapeHtml(p.shopeeSpcSt || '')}" style="padding: 12px 8px; font-size:11px; font-family:monospace; color:var(--text-muted); max-width: 80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.shopeeSpcSt || '')}</td>
-        <td title="${escapeHtml(p.shopeeUsername || '')}" style="padding: 12px 8px; font-size:12px; max-width: 80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.shopeeUsername || '')}</td>
-        <td title="${escapeHtml(p.shopeeEmail || '')}" style="padding: 12px 8px; font-size:12px; max-width: 100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.shopeeEmail || '')}</td>
-        <td style="padding: 12px 8px; font-size:12px;">${escapeHtml(p.shopeeCreatedAt || '')}</td>
-        <td title="${escapeHtml(p.note || '')}" style="padding: 12px 8px; font-size:12px; max-width: 100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.note || '')}</td>
-        <td style="padding: 12px 8px; font-size:11px; font-family:monospace;">${escapeHtml(p.ipProxy || '')}</td>
-        <td style="padding: 12px 8px; font-size:12px;">${escapeHtml(p.simSource || '')}</td>
-        <td style="padding: 12px 8px; font-size:12px;">${escapeHtml(p.simStatus || '')}</td>
-        <td style="padding: 12px 8px; font-size:12px;">${escapeHtml(p.shopeePhoneAlt || '')}</td>
-        <td style="padding: 12px 8px; font-size:11px;">${escapeHtml(p.shopeeSessionTime || '')}</td>
+        <td style="padding: 12px 8px; font-family:monospace; font-weight:bold; font-size:13px; color:var(--shopee-dark); cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.shopeePhone || '')}</td>
+        <td style="padding: 12px 8px; font-family:monospace; font-size:12px; color:var(--warning); cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.shopeePassword || '')}</td>
+        <td title="${escapeHtml(p.shopeeSpcF || '')}" style="padding: 12px 8px; font-size:11px; font-family:monospace; color:var(--text-muted); max-width: 80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.shopeeSpcF || '')}</td>
+        <td title="${escapeHtml(p.shopeeSpcSt || '')}" style="padding: 12px 8px; font-size:11px; font-family:monospace; color:var(--text-muted); max-width: 80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.shopeeSpcSt || '')}</td>
+        <td title="${escapeHtml(p.shopeeUsername || '')}" style="padding: 12px 8px; font-size:12px; max-width: 80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.shopeeUsername || '')}</td>
+        <td title="${escapeHtml(p.shopeeEmail || '')}" style="padding: 12px 8px; font-size:12px; max-width: 100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.shopeeEmail || '')}</td>
+        <td style="padding: 12px 8px; font-size:12px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.shopeeCreatedAt || '')}</td>
+        <td title="${escapeHtml(p.note || '')}" style="padding: 12px 8px; font-size:12px; max-width: 100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.note || '')}</td>
+        <td style="padding: 12px 8px; font-size:11px; font-family:monospace; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.ipProxy || '')}</td>
+        <td style="padding: 12px 8px; font-size:12px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.simSource || '')}</td>
+        <td style="padding: 12px 8px; font-size:12px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.simStatus || '')}</td>
+        <td style="padding: 12px 8px; font-size:12px;">${escapeHtml(p.orderStatus || '')}</td>
+        <td style="padding: 12px 8px; font-size:12px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.shopeePhoneAlt || '')}</td>
+        <td style="padding: 12px 8px; font-size:11px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.shopeeSessionTime || '')}</td>
         <td onclick="event.stopPropagation()" style="padding: 12px 8px; text-align:center; min-width:120px;">
           ${(p.shopeePhone || p.shopeeUsername || p.shopeeSpcSt) ? `<button class="action-btn" style="color:var(--success); border-color:var(--success);" onclick="completePhoneSession('${id}')" title="Hoàn thành phiên hiện tại và làm trống máy">✓ Xong</button>` : `<span style="color:var(--text-muted); font-size:12px; margin-right:5px;">(Trống)</span>`}
           <button class="action-btn action-edit" onclick="openPhoneModal('${id}')" title="Sửa">✏️</button>
