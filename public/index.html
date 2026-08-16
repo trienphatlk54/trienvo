@@ -1433,6 +1433,7 @@
             <thead>
               <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
                 <th style="padding: 6px;">Thời gian add</th>
+                <th style="padding: 6px;">Đã qua</th>
                 <th style="padding: 6px;">Định danh</th>
                 <th style="padding: 6px;">Mail</th>
                 <th style="padding: 6px;">Username</th>
@@ -1444,7 +1445,7 @@
               </tr>
             </thead>
             <tbody id="tiktokTableBody">
-              <tr><td colspan="9" style="text-align:center; padding:10px;">Đang tải dữ liệu...</td></tr>
+              <tr><td colspan="10" style="text-align:center; padding:10px;">Đang tải dữ liệu...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1475,6 +1476,7 @@
           <thead>
             <tr id="dataTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
               <th data-col="time" onclick="setDataSort('time')" style="padding: 10px 8px; cursor:pointer;">Thời gian ▼</th>
+              <th style="padding: 10px 8px;">Đã qua</th>
               <th data-col="identifier" onclick="setDataSort('identifier')" style="padding: 10px 8px; cursor:pointer;">Định danh ↕</th>
               <th data-col="provider" onclick="setDataSort('provider')" style="padding: 10px 8px; cursor:pointer;">Nguồn ↕</th>
               <th data-col="phone" onclick="setDataSort('phone')" style="padding: 10px 8px; cursor:pointer;">Số Điện Thoại ↕</th>
@@ -1603,6 +1605,38 @@
 
 <script>
 // ── State ──────────────────────────────────────────────────────────────────────
+function formatElapsed(timeStr) {
+  if (!timeStr) return '-';
+  const parseTime = (str) => {
+    const parts = str.trim().split(' ');
+    let t = parts[0], d = parts[1];
+    if (parts.length === 2 && parts[1].includes(':')) {
+       t = parts[1]; d = parts[0];
+    }
+    if (!t || !d) return new Date(str).getTime() || 0;
+    const hms = t.split(':').map(Number);
+    const dmy = d.split('/').map(Number);
+    return new Date(dmy[2] || 0, (dmy[1] || 1) - 1, dmy[0] || 1, hms[0] || 0, hms[1] || 0, hms[2] || 0).getTime();
+  };
+  
+  const timestamp = parseTime(timeStr);
+  if (!timestamp) return '-';
+  
+  const diffMs = Date.now() - timestamp;
+  if (diffMs < 0) return '0h';
+  
+  const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  
+  let result = '';
+  if (days > 0) result += `${days} ngày `;
+  result += `${hours}h`;
+  
+  const bgColor = totalHours >= 24 ? '#4caf50' : '#d32f2f';
+  return `<span style="background-color: ${bgColor}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px; white-space: nowrap;">${result}</span>`;
+}
+
 
 let dataTableZoom = 1.0;
 function zoomDataTableView(delta) {
@@ -1858,7 +1892,7 @@ function renderFirebaseData() {
   let keys = Object.keys(window.shopeeAccountsData);
   
   if (keys.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu</td></tr>';
     return;
   }
   
@@ -1903,6 +1937,7 @@ function renderFirebaseData() {
     html += `
       <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
         <td style="padding: 12px 8px; color:var(--text-muted); font-size:12px;">${item.time || '-'}</td>
+        <td style="padding: 12px 8px;">${formatElapsed(item.time)}</td>
         <td style="padding: 12px 8px; font-family:monospace; font-weight:bold;">${item.identifier || ''}</td>
         <td style="padding: 12px 8px;">
           <span style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; font-size: 11px;">
@@ -2266,6 +2301,7 @@ function renderTiktokTable() {
     
     htmlText += `<tr>
       <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${item.time || ''}</td>
+      <td style="padding:6px;">${formatElapsed(item.time)}</td>
       <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.identifier || '')}</td>
       <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.mail || '')}</td>
       <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.username || '')}</td>
@@ -2281,7 +2317,7 @@ function renderTiktokTable() {
     count++;
   }
   
-  if (count === 0) htmlText = `<tr><td colspan="9" style="text-align:center; padding:10px;">Không có dữ liệu Tiktok</td></tr>`;
+  if (count === 0) htmlText = `<tr><td colspan="10" style="text-align:center; padding:10px;">Không có dữ liệu Tiktok</td></tr>`;
   tbody.innerHTML = htmlText;
 }
 
