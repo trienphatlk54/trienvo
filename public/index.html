@@ -1414,7 +1414,7 @@
     <!-- Tab 3: Data Management -->
     <!-- TIKTOK TAB -->
     <div id="tab-tiktok" class="tab-pane">
-    <div class="main-card">
+    <div class="main-card" style="max-width: 100%;">
       <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
         <div>
           <h2>🎵 Tiktok Accounts</h2>
@@ -2237,18 +2237,15 @@ function renderTiktokTable() {
     const txt = Object.values(item).join(' ').toLowerCase();
     if (search && !txt.includes(search)) continue;
     
-    const statusColor = getTiktokStatusColor(item.status);
-    const resultColor = getTiktokResultColor(item.result);
-    
     htmlText += `<tr>
-      <td style="padding:6px;">${item.time || ''}</td>
-      <td style="padding:6px;">${escapeHtml(item.identifier || '')}</td>
-      <td style="padding:6px;">${escapeHtml(item.mail || '')}</td>
-      <td style="padding:6px;">${escapeHtml(item.username || '')}</td>
-      <td style="padding:6px;">${escapeHtml(item.password || '')}</td>
-      <td style="padding:6px;">${escapeHtml(item.session || '')}</td>
-      <td style="padding:6px; background-color:${statusColor}; color:${statusColor ? '#000' : 'inherit'}; font-weight:${statusColor ? 'bold' : 'normal'}; border-radius:4px;">${escapeHtml(item.status || '')}</td>
-      <td style="padding:6px; background-color:${resultColor}; color:${resultColor ? '#fff' : 'inherit'}; font-weight:${resultColor ? 'bold' : 'normal'}; border-radius:4px;">${escapeHtml(item.result || '')}</td>
+      <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${item.time || ''}</td>
+      <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.identifier || '')}</td>
+      <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.mail || '')}</td>
+      <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.username || '')}</td>
+      <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.password || '')}</td>
+      <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.session || '')}</td>
+      <td style="padding:6px;">${renderTiktokStatusDropdown(item.status || '', id)}</td>
+      <td style="padding:6px;">${renderTiktokResultDropdown(item.result || '', id)}</td>
       <td style="padding:6px;">
         <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px;" onclick="editTiktok('${id}')">✏️</button>
         <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px; color:var(--error);" onclick="deleteTiktok('${id}')">❌</button>
@@ -2260,6 +2257,63 @@ function renderTiktokTable() {
   if (count === 0) htmlText = `<tr><td colspan="9" style="text-align:center; padding:10px;">Không có dữ liệu Tiktok</td></tr>`;
   tbody.innerHTML = htmlText;
 }
+
+
+function renderTiktokStatusDropdown(currentStatus, id) {
+  const color = getTiktokStatusColor(currentStatus);
+  const options = ['Mã 50', 'Mã 60', 'Mã 70', 'Mã 50 ko freeship', 'Mã 60 ko freeship', 'Mã 70 ko freeship'];
+  let optsHtml = '<option value="" style="background:#fff; color:#000;">-- Chọn --</option>';
+  options.forEach(opt => {
+    optsHtml += `<option value="${opt}" ${currentStatus === opt ? 'selected' : ''} style="background:#fff; color:#000;">${opt}</option>`;
+  });
+  return `
+    <select class="status-dropdown" style="background-color: ${color}; color: ${color ? '#000' : 'inherit'}; border: 1px solid var(--border); border-radius: 4px; padding: 4px; font-size: 11px;" onchange="syncTiktokField(event, '${id}', 'status')" onclick="event.stopPropagation()">
+      ${optsHtml}
+    </select>
+  `;
+}
+
+function renderTiktokResultDropdown(currentResult, id) {
+  const color = getTiktokResultColor(currentResult);
+  const options = ['Đặt thành công 1 đơn', 'Đặt thành công 2 đơn', 'Đặt thành công 3 đơn', 'Đặt thành công 4 đơn', 'Lỗi thanh toán', 'Khóa tài khoản', 'Hủy bất thường'];
+  let optsHtml = '<option value="" style="background:#fff; color:#000;">-- Chọn --</option>';
+  options.forEach(opt => {
+    optsHtml += `<option value="${opt}" ${currentResult === opt ? 'selected' : ''} style="background:#fff; color:#000;">${opt}</option>`;
+  });
+  return `
+    <select class="status-dropdown" style="background-color: ${color}; color: ${color ? '#fff' : 'inherit'}; border: 1px solid var(--border); border-radius: 4px; padding: 4px; font-size: 11px;" onchange="syncTiktokField(event, '${id}', 'result')" onclick="event.stopPropagation()">
+      ${optsHtml}
+    </select>
+  `;
+}
+
+async function syncTiktokField(event, id, field) {
+  const val = event.target.value;
+  if (field === 'status') {
+    event.target.style.backgroundColor = getTiktokStatusColor(val);
+    event.target.style.color = getTiktokStatusColor(val) ? '#000' : 'inherit';
+  } else {
+    event.target.style.backgroundColor = getTiktokResultColor(val);
+    event.target.style.color = getTiktokResultColor(val) ? '#fff' : 'inherit';
+  }
+  
+  if (!tiktokData[id]) return;
+  const payload = { ...tiktokData[id], id };
+  payload[field] = val;
+  
+  try {
+    await fetch('/api/tiktok/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    toast('Đã lưu ' + field, 'success', 1500);
+    tiktokData[id][field] = val;
+  } catch (e) {
+    toast('Lỗi kết nối', 'error');
+  }
+}
+
 
 function openTiktokModal() {
   $('tiktokId').value = '';
