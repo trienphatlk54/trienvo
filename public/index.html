@@ -1465,6 +1465,8 @@
           <button class="btn btn-ghost" onclick="cleanupFirebaseData()" style="color:var(--warning); border:1px solid var(--warning); height: 32px; padding: 6px 12px; font-size: 12px;">🧹 Dọn trùng lặp</button>
           <button class="btn btn-ghost" onclick="clearUsedIps()" style="color:var(--error); border:1px solid var(--error); height: 32px; padding: 6px 12px; font-size: 12px;">🗑 Xóa lịch sử IP</button>
           <button class="btn btn-ghost" onclick="loadFirebaseData(true)" style="height: 32px; padding: 6px 12px; font-size: 12px;">🔄 Làm mới</button>
+          <button class="btn btn-secondary btn-sm" onclick="zoomDataTableView(0.1)" title="Phóng to">🔍 +</button>
+          <button class="btn btn-secondary btn-sm" onclick="zoomDataTableView(-0.1)" title="Thu nhỏ">🔍 -</button>
         </div>
       </div>
       <div class="card-body" style="grid-template-columns: 1fr; padding: 8px;">
@@ -1601,6 +1603,18 @@
 
 <script>
 // ── State ──────────────────────────────────────────────────────────────────────
+
+let dataTableZoom = 1.0;
+function zoomDataTableView(delta) {
+  dataTableZoom += delta;
+  if (dataTableZoom < 0.3) dataTableZoom = 0.3;
+  if (dataTableZoom > 2.0) dataTableZoom = 2.0;
+  const table = document.querySelector('#tab-analytics table');
+  if (table) {
+    table.style.zoom = dataTableZoom;
+  }
+}
+
 let tiktokTableZoom = 1.0;
 function zoomTiktokTable(delta) {
   tiktokTableZoom += delta;
