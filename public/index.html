@@ -3849,15 +3849,23 @@ async function syncOrderStatus(event, dataId, phoneId) {
     newResult = 'Không dùng được';
   }
 
+  // Cập nhật giao diện ngay lập tức
+  if (newResult !== undefined) {
+    if (window.shopeeAccountsData && window.shopeeAccountsData[dataId]) {
+      window.shopeeAccountsData[dataId].orderStatus = status;
+      window.shopeeAccountsData[dataId].result = newResult;
+    }
+    if (activeTab === 'analytics') {
+      renderFirebaseData();
+    }
+  }
+
   try {
     await fetch('/api/sync/status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phoneId, dataId, status, result: newResult })
     });
-    
-    if (activeTab === 'analytics') setTimeout(() => loadFirebaseData(true), 300);
-    if (activeTab === 'phone') setTimeout(() => loadPhones(), 300);
     
     toast('Đã lưu tình trạng', 'success', 1500);
   } catch (e) {
