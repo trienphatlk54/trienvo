@@ -1195,3 +1195,43 @@ process.on('SIGINT', async () => {
   await reset();
   process.exit(0);
 });
+
+// ─── TIKTOK ACCOUNTS API ──────────────────────────────────────────
+app.get('/api/tiktok/all', async (req, res) => {
+  try {
+    const ref = db.ref('tiktok_accounts');
+    const snap = await ref.once('value');
+    res.json(snap.val() || {});
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/tiktok/save', async (req, res) => {
+  const { id, identifier, mail, username, password, session, status, result } = req.body;
+  try {
+    const ref = db.ref('tiktok_accounts');
+    if (id) {
+      await ref.child(id).update({ identifier, mail, username, password, session, status, result });
+    } else {
+      const time = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+      await ref.push().set({ identifier, mail, username, password, session, status, result, time });
+    }
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/tiktok/delete', async (req, res) => {
+  const { id } = req.body;
+  try {
+    if (id) {
+      await db.ref('tiktok_accounts').child(id).remove();
+    }
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
