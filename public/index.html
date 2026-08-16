@@ -922,6 +922,9 @@
       <div class="nav-item" onclick="switchTab('tiktok')">
         <span class="icon">🎵</span> Tiktok Accounts
       </div>
+      <div class="nav-item" onclick="switchTab('tiktok')">
+        <span class="icon">🎵</span> Tiktok Accounts
+      </div>
       <div class="nav-item" onclick="switchTab('phone')">
         <span class="icon">📱</span> Phone Management & Sessions
       </div>
@@ -2190,10 +2193,6 @@ function copyComboSpcF(spcf, user, pass) {
 }
 
 // ── Clone UI for Create Tab ────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  loadPhones();
-  loadTiktokData(); // Initial load for Tiktok
-
 // ── TIKTOK ACCOUNTS LOGIC ──────────────────────────────────────────────────────
 let tiktokData = {};
 
@@ -2349,6 +2348,11 @@ async function deleteTiktok(id) {
     toast('Lỗi kết nối', 'error');
   }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadPhones();
+  loadTiktokData(); // Initial load for Tiktok
+
   // Sao chép khối proxy-section và main-card
   const proxyClone = document.querySelector('#tab-shopee .proxy-section').cloneNode(true);
   const cardClone  = document.querySelector('#tab-shopee .main-card').cloneNode(true);
@@ -2388,7 +2392,17 @@ function switchTab(tabId) {
   });
   
   if (typeof event !== 'undefined' && event && event.currentTarget) {
+    
+  if (typeof event !== 'undefined' && event && event.currentTarget) {
     event.currentTarget.classList.add('active');
+  } else {
+    document.querySelectorAll('.nav-item').forEach(el => {
+      if (el.getAttribute('onclick') && el.getAttribute('onclick').includes("'" + tabId + "'")) {
+        el.classList.add('active');
+      }
+    });
+  }
+
   } else {
     document.querySelectorAll('.nav-item').forEach(el => {
       if (el.getAttribute('onclick') && el.getAttribute('onclick').includes("'" + tabId + "'")) {
