@@ -825,11 +825,10 @@ app.post('/api/data/cleanup', async (req, res) => {
 });
 
 app.post('/api/sync/status', async (req, res) => {
-  const { phoneId, dataId, status } = req.body;
+  const { phoneId, dataId, status, result } = req.body;
   try {
     let targetPhoneId = phoneId;
 
-    // If only dataId is provided, find the associated phoneId
     if (!targetPhoneId && dataId) {
       const dataSnap = await db.ref(`shopee_accounts/${dataId}`).once('value');
       if (dataSnap.exists()) {
@@ -837,20 +836,22 @@ app.post('/api/sync/status', async (req, res) => {
       }
     }
 
-    // Always update the specific dataId if provided
-    if (dataId) {
-      await db.ref(`shopee_accounts/${dataId}`).update({ orderStatus: status });
+    const payload = {};
+    if (status !== undefined) payload.orderStatus = status;
+    if (result !== undefined) payload.result = result;
+
+    if (dataId && Object.keys(payload).length > 0) {
+      await db.ref(`shopee_accounts/${dataId}`).update(payload);
     }
 
-    if (targetPhoneId) {
-      // Update phone
-      await db.ref(`phones/${targetPhoneId}`).update({ orderStatus: status });
+    if (targetPhoneId && Object.keys(payload).length > 0) {
+      await db.ref(`phones/${targetPhoneId}`).update(payload);
       
-      // Sync to all data rows having this phoneId
       const dataRowsSnap = await db.ref('shopee_accounts').orderByChild('phoneId').equalTo(targetPhoneId).once('value');
       const updates = {};
       dataRowsSnap.forEach(child => {
-        updates[`${child.key}/orderStatus`] = status;
+        if (status !== undefined) updates[`${child.key}/orderStatus`] = status;
+        if (result !== undefined) updates[`${child.key}/result`] = result;
       });
       if (Object.keys(updates).length > 0) {
         await db.ref('shopee_accounts').update(updates);

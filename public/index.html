@@ -3810,14 +3810,20 @@ async function syncShopeeResult(event, dataId, phoneId) {
   event.target.style.backgroundColor = getShopeeResultColor(result) || 'var(--surface)';
   event.target.style.color = getShopeeResultColor(result) ? '#fff' : 'var(--text)';
   
+  if (window.shopeeAccountsData && window.shopeeAccountsData[dataId]) {
+    window.shopeeAccountsData[dataId].result = result;
+  }
+  
   try {
     await fetch('/api/sync/status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phoneId, dataId, result })
     });
+    toast('Đã lưu Result', 'success', 1500);
   } catch (e) {
     console.error(e);
+    toast('Lỗi lưu Result', 'error');
   }
 }
 
