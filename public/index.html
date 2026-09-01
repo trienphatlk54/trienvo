@@ -1465,6 +1465,9 @@
           <button class="btn btn-ghost" onclick="syncFirebaseData()" style="color:var(--shopee-light); border:1px solid var(--shopee-light); height: 32px; padding: 6px 12px; font-size: 12px;">🔄 Đồng bộ Phone -> Cloud</button>
           
           
+          <button class="btn btn-ghost btn-sm" onclick="selectAllShopeeRows()" style="height:32px; padding:6px 12px; font-size:12px; border: 1px solid var(--border);">☑️ Chọn tất cả</button>
+          <button class="btn btn-ghost btn-sm" onclick="selectSuccessShopeeRows()" style="height:32px; padding:6px 12px; font-size:12px; border: 1px solid var(--border);">✅ Chọn Đặt thành công</button>
+          <button class="btn btn-ghost btn-sm" onclick="deselectAllShopeeRows()" style="height:32px; padding:6px 12px; font-size:12px; border: 1px solid var(--border);">🔲 Bỏ chọn</button>
           <button id="btnCopyMultiCombo" class="btn btn-secondary btn-sm" onclick="copyMultiCombo()" style="display:none; color:#fff; background:var(--shopee-light); border:none; height:32px; padding:6px 12px; font-size:12px;">📋 Copy Combo SPC_F</button>
           <button id="btnCopyMultiSpcSt" class="btn btn-secondary btn-sm" onclick="copyMultiSpcSt()" style="display:none; color:#fff; background:var(--shopee-light); border:none; height:32px; padding:6px 12px; font-size:12px;">📋 Copy SPC_ST</button>
           <button class="btn btn-ghost" onclick="loadFirebaseData(true)" style="height: 32px; padding: 6px 12px; font-size: 12px;">🔄 Làm mới</button>
@@ -4273,6 +4276,40 @@ function copyMultiSpcSt() {
   } else {
     toast('Không có dữ liệu SPC_ST ở các dòng đã chọn', 'warning');
   }
+}
+
+function selectAllShopeeRows() {
+  const checkboxes = document.querySelectorAll('.shopee-row-checkbox');
+  checkboxes.forEach(cb => cb.checked = true);
+  const selectAllCb = document.getElementById('selectAllShopee');
+  if (selectAllCb) selectAllCb.checked = true;
+  updateShopeeSelection();
+}
+
+function deselectAllShopeeRows() {
+  const checkboxes = document.querySelectorAll('.shopee-row-checkbox');
+  checkboxes.forEach(cb => cb.checked = false);
+  const selectAllCb = document.getElementById('selectAllShopee');
+  if (selectAllCb) selectAllCb.checked = false;
+  updateShopeeSelection();
+}
+
+function selectSuccessShopeeRows() {
+  const checkboxes = document.querySelectorAll('.shopee-row-checkbox');
+  let count = 0;
+  checkboxes.forEach(cb => {
+    const item = window.shopeeAccountsData[cb.value];
+    if (item && item.orderStatus && item.orderStatus.includes('Đặt thành công')) {
+      cb.checked = true;
+      count++;
+    } else {
+      cb.checked = false;
+    }
+  });
+  const selectAllCb = document.getElementById('selectAllShopee');
+  if (selectAllCb) selectAllCb.checked = false;
+  updateShopeeSelection();
+  toast(`Đã chọn ${count} tài khoản Đặt thành công`, 'info');
 }
 </script>
 </body>
