@@ -4245,7 +4245,7 @@ function copyMultiCombo() {
     if (item && item.shopeeSpcF) {
       const u = item.shopeeUsername || item.phone || '';
       const p = item.password || '';
-      lines.push(`${item.shopeeSpcF}|${u}|${p}`);
+      lines.push(`SPC_F=${item.shopeeSpcF}|${u}|${p}`);
     }
   });
   
@@ -4264,7 +4264,7 @@ function copyMultiSpcSt() {
   checkboxes.forEach(cb => {
     const item = window.shopeeAccountsData[cb.value];
     if (item && item.shopeeSpcSt) {
-      lines.push(item.shopeeSpcSt);
+      lines.push(`SPC_F=${item.shopeeSpcSt}`);
     }
   });
   
