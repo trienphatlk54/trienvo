@@ -1404,7 +1404,7 @@
               </tr>
             </thead>
             <tbody id="phoneTableBody">
-              <tr><td colspan="16" style="text-align:center; padding:20px; color:var(--text-muted);">Đang tải dữ liệu...</td></tr>
+              <tr><td colspan="17" style="text-align:center; padding:20px; color:var(--text-muted);">Đang tải dữ liệu...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1461,6 +1461,15 @@
           <p>Danh sách các số điện thoại bạn đã chốt được lưu trữ vĩnh viễn trên máy chủ.</p>
         </div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <select id="dataTableStatusFilter" class="proxy-input" onchange="renderFirebaseData()" style="max-width: 150px; padding: 6px; font-size: 12px; height: 32px; box-sizing: border-box;">
+            <option value="">Lọc tình trạng</option>
+            <option value="Đặt thành công">Đặt thành công</option>
+            <option value="Chưa đặt">Chưa đặt</option>
+            <option value="Hủy bất thường">Hủy bất thường</option>
+            <option value="Khóa tài khoản">Khóa tài khoản</option>
+            <option value="Không mã voucher">Không mã voucher</option>
+            <option value="Lỗi Captcha">Lỗi Captcha</option>
+          </select>
           <input type="text" id="dataTableSearch" class="proxy-input" placeholder="🔍 Tìm kiếm dữ liệu..." onkeyup="renderFirebaseData()" style="max-width: 200px; padding: 6px 12px; font-size: 12px; height: 32px; box-sizing: border-box;" />
           <button class="btn btn-ghost" onclick="syncFirebaseData()" style="color:var(--shopee-light); border:1px solid var(--shopee-light); height: 32px; padding: 6px 12px; font-size: 12px;">🔄 Đồng bộ Phone -> Cloud</button>
           
@@ -1480,7 +1489,7 @@
         <table class="compact-table" style="width:100%; min-width: 1500px; border-collapse: collapse; text-align: left; font-size: 13px;">
           <thead>
             <tr id="dataTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
-              <th style="padding: 10px 8px; width: 30px;"><input type="checkbox" id="selectAllShopee" onchange="toggleSelectAllShopee(this)"></th>
+              <th style="padding: 10px 8px; width: 30px; position: sticky; left: 0; z-index: 2; background-color: var(--surface); box-shadow: 1px 0 0 var(--border);"><input type="checkbox" id="selectAllShopee" onchange="toggleSelectAllShopee(this)"></th>
               <th data-col="time" onclick="setDataSort('time')" style="padding: 10px 8px; cursor:pointer;">Thời gian ▼</th>
               <th style="padding: 10px 8px;">Đã qua</th>
               <th data-col="identifier" onclick="setDataSort('identifier')" style="padding: 10px 8px; cursor:pointer;">Định danh ↕</th>
@@ -1488,6 +1497,7 @@
               <th data-col="phone" onclick="setDataSort('phone')" style="padding: 10px 8px; cursor:pointer;">Số Điện Thoại ↕</th>
               <th data-col="password" onclick="setDataSort('password')" style="padding: 10px 8px; cursor:pointer;">Mật Khẩu ↕</th>
               <th data-col="note" onclick="setDataSort('note')" style="padding: 10px 8px; cursor:pointer;">Ghi chú ↕</th>
+              <th data-col="notes" onclick="setDataSort('notes')" style="padding: 10px 8px; cursor:pointer;">Notes ↕</th>
               <th data-col="ipProxy" onclick="setDataSort('ipProxy')" style="padding: 10px 8px; cursor:pointer;">IP Proxy ↕</th>
               <th data-col="simSource" onclick="setDataSort('simSource')" style="padding: 10px 8px; cursor:pointer;">Nguồn SIM ↕</th>
               <th data-col="simStatus" onclick="setDataSort('simStatus')" style="padding: 10px 8px; cursor:pointer;">Tình trạng SIM ↕</th>
@@ -1936,6 +1946,9 @@ function renderFirebaseData() {
   for (const key of keys) {
     const item = window.shopeeAccountsData[key];
     
+    const statusFilter = document.getElementById('dataTableStatusFilter')?.value;
+    if (statusFilter && (!item.orderStatus || !item.orderStatus.includes(statusFilter))) continue;
+
     if (searchInput) {
       const matchStr = Object.values(item).join(' ').toLowerCase();
       if (!matchStr.includes(searchInput)) continue;
@@ -1943,7 +1956,7 @@ function renderFirebaseData() {
     
     html += `
       <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-        <td style="padding: 12px 8px;"><input type="checkbox" class="shopee-row-checkbox" value="${key}" onchange="updateShopeeSelection()"></td>
+        <td style="padding: 12px 8px; position: sticky; left: 0; z-index: 1; background-color: var(--bg); box-shadow: 1px 0 0 var(--border);"><input type="checkbox" class="shopee-row-checkbox" value="${key}" onchange="updateShopeeSelection()"></td>
         <td style="padding: 12px 8px; color:var(--text-muted); font-size:12px;">${item.time || '-'}</td>
         <td style="padding: 12px 8px;">${formatElapsed(item.time)}</td>
         <td style="padding: 12px 8px; font-family:monospace; font-weight:bold;">${item.identifier || ''}</td>
@@ -1955,6 +1968,7 @@ function renderFirebaseData() {
         <td style="padding: 12px 8px; font-family:monospace; font-weight:bold; color:var(--shopee-light);">${item.phone}</td>
         <td style="padding: 12px 8px; font-family:monospace; color:var(--warning);">${item.password}</td>
         <td style="padding: 12px 8px; font-size:12px;">${item.note || ''}</td>
+        <td style="padding: 12px 8px;"><input type="text" class="proxy-input" style="width: 100px; padding: 4px; font-size: 12px; background: rgba(0,0,0,0.2);" value="${item.notes || ''}" onchange="updateShopeeNotes('${key}', this.value)" placeholder="Notes..."></td>
         <td style="padding: 12px 8px; font-size:12px; font-family:monospace;">${item.ipProxy || ''}</td>
         <td style="padding: 12px 8px; font-size:12px;">${item.simSource || ''}</td>
         <td style="padding: 12px 8px; font-size:12px;">${item.simStatus || ''}</td>
@@ -4310,6 +4324,25 @@ function selectSuccessShopeeRows() {
   if (selectAllCb) selectAllCb.checked = false;
   updateShopeeSelection();
   toast(`Đã chọn ${count} tài khoản Đặt thành công`, 'info');
+}
+
+function updateShopeeNotes(key, value) {
+  fetch('/api/sync/notes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key, notes: value, collection: 'shopee_accounts' })
+  }).then(res => res.json())
+    .then(data => {
+      if(data.success) {
+        if(window.shopeeAccountsData[key]) {
+          window.shopeeAccountsData[key].notes = value;
+        }
+        toast('Đã lưu Notes', 'success');
+      } else {
+        toast('Lỗi lưu Notes: ' + data.error, 'error');
+      }
+    })
+    .catch(err => toast('Lỗi kết nối: ' + err, 'error'));
 }
 </script>
 </body>

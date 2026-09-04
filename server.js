@@ -824,6 +824,20 @@ app.post('/api/data/cleanup', async (req, res) => {
   }
 });
 
+app.post('/api/sync/notes', async (req, res) => {
+  const { key, notes } = req.body;
+  try {
+    if (key && notes !== undefined) {
+      await db.ref(`shopee_accounts/${key}`).update({ notes });
+      res.json({ success: true });
+    } else {
+      res.json({ success: false, error: 'Missing key or notes' });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.post('/api/sync/status', async (req, res) => {
   const { phoneId, dataId, status, result } = req.body;
   try {
