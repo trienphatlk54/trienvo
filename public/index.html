@@ -1404,7 +1404,7 @@
               </tr>
             </thead>
             <tbody id="phoneTableBody">
-              <tr><td colspan="17" style="text-align:center; padding:20px; color:var(--text-muted);">Đang tải dữ liệu...</td></tr>
+              <tr><td colspan="18" style="text-align:center; padding:20px; color:var(--text-muted);">Đang tải dữ liệu...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1495,6 +1495,7 @@
               <th data-col="identifier" onclick="setDataSort('identifier')" style="padding: 10px 8px; cursor:pointer;">Định danh ↕</th>
               <th data-col="provider" onclick="setDataSort('provider')" style="padding: 10px 8px; cursor:pointer;">Nguồn ↕</th>
               <th data-col="phone" onclick="setDataSort('phone')" style="padding: 10px 8px; cursor:pointer;">Số Điện Thoại ↕</th>
+              <th data-col="shopeeUsername" onclick="setDataSort('shopeeUsername')" style="padding: 10px 8px; cursor:pointer;">Username ↕</th>
               <th data-col="password" onclick="setDataSort('password')" style="padding: 10px 8px; cursor:pointer;">Mật Khẩu ↕</th>
               <th data-col="note" onclick="setDataSort('note')" style="padding: 10px 8px; cursor:pointer;">Ghi chú ↕</th>
               <th data-col="notes" onclick="setDataSort('notes')" style="padding: 10px 8px; cursor:pointer;">Notes ↕</th>
@@ -1966,6 +1967,7 @@ function renderFirebaseData() {
           </span>
         </td>
         <td style="padding: 12px 8px; font-family:monospace; font-weight:bold; color:var(--shopee-light);">${item.phone}</td>
+        <td style="padding: 12px 8px; font-family:monospace;">${item.shopeeUsername || ''}</td>
         <td style="padding: 12px 8px; font-family:monospace; color:var(--warning);">${item.password}</td>
         <td style="padding: 12px 8px; font-size:12px;">${item.note || ''}</td>
         <td style="padding: 12px 8px;"><input type="text" class="proxy-input" style="width: 100px; padding: 4px; font-size: 12px; background: rgba(0,0,0,0.2);" value="${item.notes || ''}" onchange="updateShopeeNotes('${key}', this.value)" placeholder="Notes..."></td>
