@@ -324,27 +324,7 @@
       flex-shrink: 0;
     }
 
-    /* Corner brackets */
-    .qr-frame::before, .qr-frame::after,
-    .qr-frame > .br::before, .qr-frame > .br::after {
-      content: '';
-      position: absolute;
-      width: 24px; height: 24px;
-      border-color: var(--shopee);
-      border-style: solid;
-      z-index: 3;
-    }
 
-    .qr-frame::before  { top:     6px; left:  6px; border-width: 3px 0 0 3px; border-radius: 0; }
-    .qr-frame::after   { top:     6px; right: 6px; border-width: 3px 3px 0 0; border-radius: 0; }
-    .qr-frame > .br::before { bottom: 6px; left:  6px; border-width: 0 0 3px 3px; border-radius: 0; }
-    .qr-frame > .br::after  { bottom: 6px; right: 6px; border-width: 0 3px 3px 0; border-radius: 0; }
-
-    /* Hide corners when qr loaded */
-    .qr-frame.qr-loaded::before, .qr-frame.qr-loaded::after,
-    .qr-frame.qr-loaded > .br::before, .qr-frame.qr-loaded > .br::after {
-      display: none !important;
-    }
 
     .qr-img-wrap {
       position: absolute; inset: 0;
@@ -355,7 +335,9 @@
     #qrImage {
       width: 100%; height: 100%;
       object-fit: contain;
-      padding: 10px;
+      background: #ffffff;
+      padding: 16px;
+      box-sizing: border-box;
       transition: opacity 0.3s ease;
     }
 
@@ -633,24 +615,12 @@
     .toast.info    { background: rgba(59,130,246,0.9); color: #fff; }
     .toast.warning { background: rgba(245,158,11,0.9); color: #fff; }
 
-    /* ── Scan Animation ───────────────────────────── */
-    .scan-line {
-      position: absolute;
-      width: 100%; height: 2px;
-      background: linear-gradient(90deg, transparent, var(--shopee), transparent);
-      top: 0; left: 0;
-      z-index: 3;
-      animation: scanAnim 2.5s ease-in-out infinite;
-      opacity: 0;
-    }
+    /* Scan Animation Removed */
+    
 
-    .scan-line.active { opacity: 1; }
+    
 
-    @keyframes scanAnim {
-      0%   { top: 10%;  }
-      50%  { top: 90%;  }
-      100% { top: 10%;  }
-    }
+    
 
     /* ── Success Check Animation ──────────────────── */
     @keyframes checkPop {
@@ -1008,9 +978,7 @@
         <p class="qr-title">📱 Mã QR Shopee</p>
 
         <div class="qr-frame" id="qrFrame">
-          <!-- Corner brackets -->
-          <div class="br"></div>
-          <div class="scan-line" id="scanLine"></div>
+
 
           <!-- QR Image -->
           <div class="qr-img-wrap" style="position: relative;">
@@ -2627,7 +2595,7 @@ function startTimer(expiresAt) {
 
     if (left === 0) {
       clearInterval(state.timerInterval);
-      $('scanLine').classList.remove('active');
+      
     }
   }, 500);
 }
@@ -2903,7 +2871,7 @@ function startPolling() {
         case 'scanned':
           setStatus('scanned', 'Đã quét QR ✓');
           showOverlay('overlayScanned');
-          $('scanLine').classList.remove('active');
+          
           toast('📲 Đã quét QR! Đang xác thực...', 'info');
           break;
 
@@ -2912,7 +2880,7 @@ function startPolling() {
           setStatus('success', 'Đăng nhập OK ✓');
           showOverlay('overlaySuccess');
           stopTimer();
-          $('scanLine').classList.remove('active');
+          
           // Lưu dữ liệu vào state để updateSummaryUI() có thể đọc
           if (data.cookies) state.cookies = data.cookies;
           if (data.userInfo) state.userInfo = data.userInfo;
@@ -2925,7 +2893,7 @@ function startPolling() {
         case 'expired':
           setStatus('expired', 'QR hết hạn');
           showOverlay('overlayExpired');
-          $('scanLine').classList.remove('active');
+          
           $('btnRefresh').disabled = false;
           toast('⏰ Mã QR đã hết hạn, hãy làm mới', 'warning');
           break;
