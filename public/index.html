@@ -1014,19 +1014,19 @@
             🔄 Làm mới
           </button>
         </div>
-      </div>
-
-      <!-- Info Panel -->
-      <div class="info-panel">
 
         <!-- Success Banner -->
-        <div class="success-banner" id="successBanner">
+        <div class="success-banner" id="successBanner" style="margin-top: 16px; width: 100%;">
           <div class="icon">🎉</div>
           <div>
             <h4>Đăng nhập thành công!</h4>
             <p id="successTime">Cookie đã được trích xuất lúc —</p>
           </div>
         </div>
+      </div>
+
+      <!-- Info Panel -->
+      <div class="info-panel">
 
         <!-- User Info Card -->
         <div class="user-info-card" id="userInfoCard">
@@ -2442,11 +2442,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Tinh chỉnh nhẹ nội dung cho tab Tạo Account
-  const title = cardClone.querySelector('h2');
-  if (title) title.textContent = 'Đăng nhập để trích xuất Cookie';
-  const desc = cardClone.querySelector('h2 + p');
-  if (desc) desc.textContent = 'Sau khi tạo tài khoản thành công ở điện thoại, hãy quét mã này để hoàn tất quy trình lấy Cookie.';
+  // Xóa phần giới thiệu (header)
+  const header = cardClone.querySelector('.card-header');
+  if (header) header.remove();
 
   const container = document.getElementById('createQRContainer');
   container.appendChild(cardClone);
