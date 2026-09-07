@@ -318,7 +318,7 @@
     .qr-frame {
       width: 240px; height: 240px;
       position: relative;
-      border-radius: 20px;
+      border-radius: 0;
       background: var(--surface2);
       overflow: hidden;
       flex-shrink: 0;
@@ -335,10 +335,10 @@
       z-index: 3;
     }
 
-    .qr-frame::before  { top:     6px; left:  6px; border-width: 3px 0 0 3px; border-radius: 6px 0 0 0; }
-    .qr-frame::after   { top:     6px; right: 6px; border-width: 3px 3px 0 0; border-radius: 0 6px 0 0; }
-    .qr-frame > .br::before { bottom: 6px; left:  6px; border-width: 0 0 3px 3px; border-radius: 0 0 0 6px; }
-    .qr-frame > .br::after  { bottom: 6px; right: 6px; border-width: 0 3px 3px 0; border-radius: 0 0 6px 0; }
+    .qr-frame::before  { top:     6px; left:  6px; border-width: 3px 0 0 3px; border-radius: 0; }
+    .qr-frame::after   { top:     6px; right: 6px; border-width: 3px 3px 0 0; border-radius: 0; }
+    .qr-frame > .br::before { bottom: 6px; left:  6px; border-width: 0 0 3px 3px; border-radius: 0; }
+    .qr-frame > .br::after  { bottom: 6px; right: 6px; border-width: 0 3px 3px 0; border-radius: 0; }
 
     /* Hide corners when qr loaded */
     .qr-frame.qr-loaded::before, .qr-frame.qr-loaded::after,
@@ -367,7 +367,7 @@
       gap: 12px;
       background: rgba(10,10,15,0.88);
       backdrop-filter: blur(4px);
-      border-radius: 20px;
+      border-radius: 0;
       transition: opacity 0.3s ease;
     }
 
