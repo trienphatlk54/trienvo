@@ -3419,8 +3419,10 @@ function updateSummaryUI() {
 
   // Update Phone (Info 1)
   const manualPhoneText = $('currentConfirmedPhoneText')?.textContent;
-  if (manualPhoneText && manualPhoneText !== '—') {
+  if (manualPhoneText && manualPhoneText !== '-' && manualPhoneText !== '—' && manualPhoneText !== '(Chưa xác nhận)') {
     $('summaryPhoneConf').textContent = manualPhoneText;
+  } else if (state.userInfo && state.userInfo.phone) {
+    $('summaryPhoneConf').textContent = state.userInfo.phone;
   } else {
     $('summaryPhoneConf').textContent = '(Chưa xác nhận)';
   }
