@@ -340,6 +340,12 @@
     .qr-frame > .br::before { bottom: 6px; left:  6px; border-width: 0 0 3px 3px; border-radius: 0 0 0 6px; }
     .qr-frame > .br::after  { bottom: 6px; right: 6px; border-width: 0 3px 3px 0; border-radius: 0 0 6px 0; }
 
+    /* Hide corners when qr loaded */
+    .qr-frame.qr-loaded::before, .qr-frame.qr-loaded::after,
+    .qr-frame.qr-loaded > .br::before, .qr-frame.qr-loaded > .br::after {
+      display: none !important;
+    }
+
     .qr-img-wrap {
       position: absolute; inset: 0;
       display: flex; align-items: center; justify-content: center;
