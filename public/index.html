@@ -1556,6 +1556,13 @@
   <div id="tab-floppyproxy" class="tab-pane">
     <div style="width:100%; max-width: 900px;">
 
+      
+      <!-- API Key Section -->
+      <div style="margin-bottom: 16px; padding: 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <span style="font-size: 13px; color: var(--text-muted);">🔑 API Key:</span>
+        <input type="password" id="floppyApiKeyInput" class="proxy-input" style="flex: 1; min-width: 200px;" placeholder="Nhập API Key của Floppydata..." value="ccBVNhypyg83VswiDW6FTpy_QIwGDAJT">
+        <button class="btn btn-secondary btn-sm" onclick="saveFloppyApiKey()">💾 Lưu cấu hình</button>
+      </div>
       <!-- Balance -->
       <div style="text-align:right; margin-bottom: 12px;">
         <span style="font-size: 13px; color: var(--text-muted);">💰 Số dư Proxy: </span>
@@ -1630,7 +1637,7 @@
             </div>
             <div style="font-size: 11px; color: var(--text-muted); background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
               <div>Type: <strong>residential</strong> · Protocol: <strong>socks5</strong></div>
-              <div>Rotation: <strong>60 min</strong> · UDP: <strong>False</strong></div>
+              <div>Rotation: <strong>60 min</strong> · UDP: <strong>False</strong> · ASN: <strong>no</strong></div>
             </div>
             <button class="btn btn-primary" id="btnCreateUsProxy" onclick="createFloppyProxy('US')" style="width:100%;">
               🚀 Tạo Proxy US
@@ -2080,8 +2087,11 @@ const originalSwitchTab = switchTab;
 switchTab = function(tabId) {
   originalSwitchTab(tabId);
   if (tabId === 'analytics') {
-  if (tabId === 'floppyproxy') { loadFloppyProxies(); loadFloppyBalance(); }
     loadFirebaseData();
+  }
+  if (tabId === 'floppyproxy') {
+    loadFloppyProxies();
+    loadFloppyBalance();
   }
 }
 
@@ -4467,15 +4477,39 @@ function showProxyQR(connStr) {
 }
 
 // ─── FLOPPYDATA PROXY JS ──────────────────────────────────────────
+
+function getFloppyHeader() {
+  let key = localStorage.getItem('floppyApiKey');
+  if (!key) key = document.getElementById('floppyApiKeyInput').value;
+  return { 'X-Floppy-Api-Key': key || '' };
+}
+
+function saveFloppyApiKey() {
+  const key = document.getElementById('floppyApiKeyInput').value.trim();
+  if (!key) return toast('Vui lòng nhập API Key', 'error');
+  localStorage.setItem('floppyApiKey', key);
+  toast('✅ Đã lưu API Key vĩnh viễn', 'success');
+  loadFloppyBalance();
+}
+
+// Restore API Key on load
+window.addEventListener('DOMContentLoaded', () => {
+  const savedKey = localStorage.getItem('floppyApiKey');
+  if (savedKey) {
+    const input = document.getElementById('floppyApiKeyInput');
+    if (input) input.value = savedKey;
+  }
+});
+
 async function loadFloppyBalance() {
   const el = document.getElementById('floppyBalance');
   if (!el) return;
   el.textContent = 'Đang tải...';
   try {
-    const r = await fetch('/api/floppydata/balance');
+    const r = await fetch('/api/floppydata/balance', { headers: getFloppyHeader() });
     const d = await r.json();
-    if (d.balance !== undefined) {
-      el.textContent = d.balance.remaining + ' / ' + d.balance.total + ' GB';
+    if (d.total && d.total.traffic) {
+      el.textContent = d.total.traffic.availableGb.toFixed(2) + ' GB';
     } else {
       el.textContent = JSON.stringify(d);
     }
@@ -4499,7 +4533,7 @@ async function createFloppyProxy(country) {
 
     const r = await fetch('/api/floppydata/create-proxy', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...getFloppyHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
     const d = await r.json();
@@ -4529,7 +4563,7 @@ async function createFloppyProxy(country) {
     // Auto-save to Firebase
     await fetch('/api/floppydata/proxies/save', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...getFloppyHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify({
         country,
         state: body.state || '',
@@ -4596,7 +4630,7 @@ async function deleteFloppyProxy(id) {
   try {
     await fetch('/api/floppydata/proxies/delete', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...getFloppyHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ id })
     });
     toast('🗑️ Đã xóa proxy', 'info');

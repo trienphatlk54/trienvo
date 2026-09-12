@@ -1251,15 +1251,15 @@ app.post('/api/tiktok/delete', async (req, res) => {
 });
 
 // ─── FLOPPYDATA PROXY API ──────────────────────────────────────────
-const FLOPPY_API_KEY = 'ccBVNhypyg83VswiDW6FTpy_QIwGDAJT';
+
 const FLOPPY_BASE_URL = 'https://api.floppydata.net';
 let floppydataLocationsCache = null;
 
-app.get('/api/floppydata/locations', async (_req, res) => {
+app.get('/api/floppydata/locations', async (req, res) => {
   try {
     if (floppydataLocationsCache) return res.json(floppydataLocationsCache);
     const r = await fetch(FLOPPY_BASE_URL + '/v2/proxy/rotating/locations?type=residential', {
-      headers: { 'X-Api-Key': FLOPPY_API_KEY }
+      headers: { 'X-Api-Key': req.headers['x-floppy-api-key'] || '' }
     });
     const text = await r.text();
     try {
@@ -1292,7 +1292,7 @@ app.post('/api/floppydata/create-proxy', async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Api-Key': FLOPPY_API_KEY
+        'X-Api-Key': req.headers['x-floppy-api-key'] || ''
       },
       body: JSON.stringify(body)
     });
@@ -1342,10 +1342,10 @@ app.post('/api/floppydata/proxies/delete', async (req, res) => {
   }
 });
 
-app.get('/api/floppydata/balance', async (_req, res) => {
+app.get('/api/floppydata/balance', async (req, res) => {
   try {
     const r = await fetch(FLOPPY_BASE_URL + '/v2/proxy/rotating/balance', {
-      headers: { 'X-Api-Key': FLOPPY_API_KEY }
+      headers: { 'X-Api-Key': req.headers['x-floppy-api-key'] || '' }
     });
     const text = await r.text();
     try {
