@@ -4431,13 +4431,31 @@ function updateShopeeNotes(key, value) {
 }
 
 
+
+function getStandardProxyUrl(str) {
+  if (str.includes('@')) return str; // Already standard
+  const parts = str.split('://');
+  if (parts.length === 2) {
+    const protocol = parts[0];
+    const details = parts[1].split(':');
+    if (details.length >= 4) {
+      const host = details[0];
+      const port = details[1];
+      const user = details[2];
+      const pass = details.slice(3).join(':');
+      // Some apps prefer base64 for shadowsocks/socks5, but standard URL is user:pass@host:port
+      return protocol + '://' + user + ':' + pass + '@' + host + ':' + port;
+    }
+  }
+  return str;
+}
+
 function showProxyQR(connStr) {
   const modal = document.getElementById('qrProxyModal');
   const canvas = document.getElementById('qrProxyModalCanvas');
   const input = document.getElementById('qrProxyModalText');
   canvas.innerHTML = '';
-  new QRCode(canvas, {
-    text: connStr,
+  new QRCode(canvas, { text: getStandardProxyUrl(connStr),
     width: 200,
     height: 200,
     colorDark : "#000000",
@@ -4499,8 +4517,7 @@ async function createFloppyProxy(country) {
     resultDiv.style.display = 'block';
     
     setTimeout(() => {
-      new QRCode(document.getElementById('inlineQr_' + country), {
-        text: formattedConnString,
+      new QRCode(document.getElementById('inlineQr_' + country), { text: getStandardProxyUrl(formattedConnString),
         width: 120,
         height: 120,
         colorDark : "#000000",
