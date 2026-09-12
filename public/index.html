@@ -882,6 +882,7 @@
       }
     }
 </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <div class="app-layout">
@@ -4146,6 +4147,19 @@ async function startVoucherCheck() {
 </div><!-- /app-layout -->
 
 <!-- Toast Container -->
+
+<!-- QR Code Modal for Proxy -->
+<div class="modal-overlay" id="qrProxyModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+  <div class="modal-content" style="background:var(--bg); padding:24px; border-radius:12px; border:1px solid var(--border); width:300px; text-align:center;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:16px;">QR Code Proxy</h3>
+      <button onclick="document.getElementById('qrProxyModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:20px;">&times;</button>
+    </div>
+    <div id="qrProxyModalCanvas" style="display:flex; justify-content:center; background:white; padding:16px; border-radius:8px; margin-bottom:16px;"></div>
+    <input type="text" id="qrProxyModalText" readonly class="proxy-input" style="width:100%; font-size:11px; text-align:center;" onclick="this.select(); document.execCommand('copy'); toast('Đã copy', 'success');">
+  </div>
+</div>
+
 <div class="toast-container" id="toastContainer"></div>
 
 
@@ -4416,6 +4430,24 @@ function updateShopeeNotes(key, value) {
     .catch(err => toast('Lỗi kết nối: ' + err, 'error'));
 }
 
+
+function showProxyQR(connStr) {
+  const modal = document.getElementById('qrProxyModal');
+  const canvas = document.getElementById('qrProxyModalCanvas');
+  const input = document.getElementById('qrProxyModalText');
+  canvas.innerHTML = '';
+  new QRCode(canvas, {
+    text: connStr,
+    width: 200,
+    height: 200,
+    colorDark : "#000000",
+    colorLight : "#ffffff",
+    correctLevel : QRCode.CorrectLevel.L
+  });
+  input.value = connStr;
+  modal.style.display = 'flex';
+}
+
 // ─── FLOPPYDATA PROXY JS ──────────────────────────────────────────
 async function loadFloppyBalance() {
   const el = document.getElementById('floppyBalance');
@@ -4458,10 +4490,24 @@ async function createFloppyProxy(country) {
     const conn = d.connection;
     const formattedConnString = conn.protocol + '://' + conn.host + ':' + conn.port + ':' + conn.username + ':' + conn.password;
     
-    resultDiv.innerHTML = '<strong style="color:var(--success);">✅ Proxy đã tạo!</strong><br>' +
-      '<code style="font-size:11px; user-select:all;">' + formattedConnString + '</code><br>' +
-      '<button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="navigator.clipboard.writeText(\'' + formattedConnString.replace(/'/g, "\\'") + '\');toast(\'Đã copy!\',\'success\')">📋 Copy</button>';
+    resultDiv.innerHTML = '<div style="display:flex; flex-direction:column; align-items:center; gap:8px;">' +
+      '<strong style="color:var(--success);">✅ Proxy đã tạo!</strong>' +
+      '<div id="inlineQr_' + country + '" style="background:white; padding:8px; border-radius:4px; margin: 4px 0;"></div>' +
+      '<code style="font-size:11px; user-select:all; word-break:break-all; text-align:center;">' + formattedConnString + '</code>' +
+      '<button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(\'' + formattedConnString.replace(/'/g, "\\'") + '\');toast(\'Đã copy!\',\'success\')">📋 Copy Proxy</button>' +
+      '</div>';
     resultDiv.style.display = 'block';
+    
+    setTimeout(() => {
+      new QRCode(document.getElementById('inlineQr_' + country), {
+        text: formattedConnString,
+        width: 120,
+        height: 120,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.L
+      });
+    }, 50);
 
     // Auto-save to Firebase
     await fetch('/api/floppydata/proxies/save', {
@@ -4517,7 +4563,10 @@ async function loadFloppyProxies() {
         '<td style="padding:6px;">' + (p.state||'—') + '</td>' +
         '<td style="padding:6px;"><code style="font-size:11px; cursor:pointer;" title="' + connStr + '" onclick="navigator.clipboard.writeText(\'' + connStr.replace(/'/g, "\\'") + '\');toast(\'Đã copy!\',\'success\')">' + short + ' 📋</code></td>' +
         '<td style="padding:6px; font-size:11px; color:var(--text-muted);">' + (p.time||'') + '</td>' +
-        '<td style="padding:6px;"><button class="btn btn-danger btn-sm" onclick="deleteFloppyProxy(\'' + id + '\')">🗑️</button></td>' +
+        '<td style="padding:6px; display:flex; gap:6px;">' + 
+          '<button class="btn btn-ghost btn-sm" onclick="showProxyQR(\'' + connStr.replace(/'/g, "\\'") + '\')" title="Hiển thị mã QR">📱 QR</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="deleteFloppyProxy(\'' + id + '\')">🗑️</button>' +
+        '</td>' +
         '</tr>';
     }).join('');
   } catch(e) {
