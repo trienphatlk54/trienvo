@@ -1551,13 +1551,6 @@
       </div>
     </div>
 
-  </main><!-- /main-content -->
-</div><!-- /app-layout -->
-
-<!-- Toast Container -->
-<div class="toast-container" id="toastContainer"></div>
-
-
   <!-- Tab: Floppydata Proxy -->
   <div id="tab-floppyproxy" class="tab-pane">
     <div style="width:100%; max-width: 900px;">
@@ -4149,6 +4142,13 @@ async function startVoucherCheck() {
 
 </script>
 
+  </main><!-- /main-content -->
+</div><!-- /app-layout -->
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+
 <!-- Modal: Duplicate Warning -->
 <div class="modal-overlay" id="duplicateModal">
   <div class="modal-content" style="max-width: 400px;">
@@ -4456,9 +4456,11 @@ async function createFloppyProxy(country) {
     if (!d.success) throw new Error(d.error || 'Lỗi không xác định');
 
     const conn = d.connection;
+    const formattedConnString = conn.protocol + '://' + conn.host + ':' + conn.port + ':' + conn.username + ':' + conn.password;
+    
     resultDiv.innerHTML = '<strong style="color:var(--success);">✅ Proxy đã tạo!</strong><br>' +
-      '<code style="font-size:11px; user-select:all;">' + conn.connectionString + '</code><br>' +
-      '<button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="navigator.clipboard.writeText(\'' + conn.connectionString.replace(/'/g, "\\'") + '\');toast(\'Đã copy!\',\'success\')">📋 Copy</button>';
+      '<code style="font-size:11px; user-select:all;">' + formattedConnString + '</code><br>' +
+      '<button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="navigator.clipboard.writeText(\'' + formattedConnString.replace(/'/g, "\\'") + '\');toast(\'Đã copy!\',\'success\')">📋 Copy</button>';
     resultDiv.style.display = 'block';
 
     // Auto-save to Firebase
@@ -4468,7 +4470,7 @@ async function createFloppyProxy(country) {
       body: JSON.stringify({
         country,
         state: body.state || '',
-        connectionString: conn.connectionString,
+        connectionString: formattedConnString,
         protocol: conn.protocol,
         host: conn.host,
         port: conn.port,
