@@ -1252,7 +1252,7 @@ app.post('/api/tiktok/delete', async (req, res) => {
 
 // ─── FLOPPYDATA PROXY API ──────────────────────────────────────────
 const FLOPPY_API_KEY = 'ccBVNhypyg83VswiDW6FTpy_QIwGDAJT';
-const FLOPPY_BASE_URL = 'https://api.floppydata.com';
+const FLOPPY_BASE_URL = 'https://api.floppydata.net';
 let floppydataLocationsCache = null;
 
 app.get('/api/floppydata/locations', async (_req, res) => {
@@ -1261,9 +1261,15 @@ app.get('/api/floppydata/locations', async (_req, res) => {
     const r = await fetch(FLOPPY_BASE_URL + '/v2/proxy/rotating/locations?type=residential', {
       headers: { 'X-Api-Key': FLOPPY_API_KEY }
     });
-    const data = await r.json();
-    floppydataLocationsCache = data;
-    res.json(data);
+    const text = await r.text();
+    try {
+      const data = JSON.parse(text);
+      if (!r.ok) return res.status(r.status).json(data);
+      floppydataLocationsCache = data;
+      res.json(data);
+    } catch(e) {
+      res.status(r.status).json({ error: text });
+    }
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -1290,7 +1296,13 @@ app.post('/api/floppydata/create-proxy', async (req, res) => {
       },
       body: JSON.stringify(body)
     });
-    const data = await r.json();
+    const text = await r.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch(e) {
+      return res.status(r.status).json({ success: false, error: text || 'Lỗi không xác định từ API' });
+    }
     if (!r.ok) return res.status(r.status).json({ success: false, error: data.message || JSON.stringify(data) });
     res.json({ success: true, ...data });
   } catch(e) {
@@ -1335,8 +1347,12 @@ app.get('/api/floppydata/balance', async (_req, res) => {
     const r = await fetch(FLOPPY_BASE_URL + '/v2/proxy/rotating/balance', {
       headers: { 'X-Api-Key': FLOPPY_API_KEY }
     });
-    const data = await r.json();
-    res.json(data);
+    const text = await r.text();
+    try {
+      res.json(JSON.parse(text));
+    } catch(e) {
+      res.status(r.status).json({ error: text || 'Lỗi không xác định từ API' });
+    }
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
