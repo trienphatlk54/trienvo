@@ -874,7 +874,14 @@
 .action-btn:hover { opacity: 1; transform: scale(1.1); }
 .action-edit:hover { color: var(--warning); }
 .action-delete:hover { color: var(--error); }
-  </style>
+  
+    /* Floppydata Proxy responsive */
+    @media (max-width: 720px) {
+      #tab-floppyproxy [style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
+</style>
 </head>
 <body>
 <div class="app-layout">
@@ -906,6 +913,9 @@
       </div>
       <div class="nav-item" onclick="switchTab('vouchercheck')">
         <span class="nav-icon">🎫</span> Voucher Checking
+      </div>
+      <div class="nav-item" onclick="switchTab('floppyproxy')">
+        <span class="nav-icon">🌐</span> Floppydata Proxy
       </div>
     </nav>
   </aside>
@@ -1547,7 +1557,142 @@
 <!-- Toast Container -->
 <div class="toast-container" id="toastContainer"></div>
 
-<script>
+
+  <!-- Tab: Floppydata Proxy -->
+  <div id="tab-floppyproxy" class="tab-pane">
+    <div style="width:100%; max-width: 900px;">
+
+      <!-- Balance -->
+      <div style="text-align:right; margin-bottom: 12px;">
+        <span style="font-size: 13px; color: var(--text-muted);">💰 Số dư Proxy: </span>
+        <span id="floppyBalance" style="font-weight: bold; color: var(--success);">Đang tải...</span>
+        <button class="btn btn-ghost btn-sm" onclick="loadFloppyBalance()" style="margin-left: 8px;">🔄</button>
+      </div>
+
+      <!-- Create Proxy Grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+
+        <!-- US Proxy -->
+        <div class="main-card" style="border: 1px solid var(--border);">
+          <div class="card-header" style="padding: 12px 16px;">
+            <div><h2 style="font-size: 15px; margin:0;">🇺🇸 Tạo Proxy US</h2></div>
+          </div>
+          <div style="padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 12px; color: var(--text-muted);">Chọn Bang (State)</label>
+              <select id="floppyUsState" class="proxy-select" style="width:100%; font-size: 13px;">
+              <option value="Alabama">Alabama</option>
+              <option value="Alaska">Alaska</option>
+              <option value="Arizona">Arizona</option>
+              <option value="Arkansas">Arkansas</option>
+              <option value="California">California</option>
+              <option value="Colorado">Colorado</option>
+              <option value="Connecticut">Connecticut</option>
+              <option value="Delaware">Delaware</option>
+              <option value="Florida">Florida</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Hawaii">Hawaii</option>
+              <option value="Idaho">Idaho</option>
+              <option value="Illinois">Illinois</option>
+              <option value="Indiana">Indiana</option>
+              <option value="Iowa">Iowa</option>
+              <option value="Kansas">Kansas</option>
+              <option value="Kentucky">Kentucky</option>
+              <option value="Louisiana">Louisiana</option>
+              <option value="Maine">Maine</option>
+              <option value="Maryland">Maryland</option>
+              <option value="Massachusetts">Massachusetts</option>
+              <option value="Michigan">Michigan</option>
+              <option value="Minnesota">Minnesota</option>
+              <option value="Mississippi">Mississippi</option>
+              <option value="Missouri">Missouri</option>
+              <option value="Montana">Montana</option>
+              <option value="Nebraska">Nebraska</option>
+              <option value="Nevada">Nevada</option>
+              <option value="New Hampshire">New Hampshire</option>
+              <option value="New Jersey">New Jersey</option>
+              <option value="New Mexico">New Mexico</option>
+              <option value="New York">New York</option>
+              <option value="North Carolina">North Carolina</option>
+              <option value="North Dakota">North Dakota</option>
+              <option value="Ohio">Ohio</option>
+              <option value="Oklahoma">Oklahoma</option>
+              <option value="Oregon">Oregon</option>
+              <option value="Pennsylvania">Pennsylvania</option>
+              <option value="Rhode Island">Rhode Island</option>
+              <option value="South Carolina">South Carolina</option>
+              <option value="South Dakota">South Dakota</option>
+              <option value="Tennessee">Tennessee</option>
+              <option value="Texas">Texas</option>
+              <option value="Utah">Utah</option>
+              <option value="Vermont">Vermont</option>
+              <option value="Virginia">Virginia</option>
+              <option value="Washington">Washington</option>
+              <option value="West Virginia">West Virginia</option>
+              <option value="Wisconsin">Wisconsin</option>
+              <option value="Wyoming">Wyoming</option>
+              <option value="District of Columbia">District of Columbia</option>
+              </select>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+              <div>Type: <strong>residential</strong> · Protocol: <strong>socks5</strong></div>
+              <div>Rotation: <strong>60 min</strong> · UDP: <strong>False</strong></div>
+            </div>
+            <button class="btn btn-primary" id="btnCreateUsProxy" onclick="createFloppyProxy('US')" style="width:100%;">
+              🚀 Tạo Proxy US
+            </button>
+            <div id="floppyUsResult" style="display:none; padding: 10px; background: rgba(34,197,94,0.1); border: 1px solid var(--success); border-radius: 8px; font-size: 12px; word-break: break-all;">
+            </div>
+          </div>
+        </div>
+
+        <!-- VN Proxy -->
+        <div class="main-card" style="border: 1px solid var(--border);">
+          <div class="card-header" style="padding: 12px 16px;">
+            <div><h2 style="font-size: 15px; margin:0;">🇻🇳 Tạo Proxy Việt Nam</h2></div>
+          </div>
+          <div style="padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="font-size: 11px; color: var(--text-muted); background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+              <div>Country: <strong>VN</strong> · Type: <strong>residential</strong></div>
+              <div>Protocol: <strong>socks5</strong> · Rotation: <strong>60 min</strong> · UDP: <strong>False</strong></div>
+            </div>
+            <button class="btn btn-primary" id="btnCreateVnProxy" onclick="createFloppyProxy('VN')" style="width:100%;">
+              🚀 Tạo Proxy VN
+            </button>
+            <div id="floppyVnResult" style="display:none; padding: 10px; background: rgba(34,197,94,0.1); border: 1px solid var(--success); border-radius: 8px; font-size: 12px; word-break: break-all;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Proxy Management Table -->
+      <div class="main-card" style="border: 1px solid var(--border);">
+        <div class="card-header" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+          <div><h2 style="font-size: 15px; margin:0;">📋 Danh sách Proxy đã tạo</h2></div>
+          <button class="btn btn-ghost btn-sm" onclick="loadFloppyProxies()">🔄 Tải lại</button>
+        </div>
+        <div style="padding: 0 16px 16px; overflow-x: auto;">
+          <table id="floppyProxyTable" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead>
+              <tr style="border-bottom: 2px solid var(--border); text-align: left;">
+                <th style="padding: 8px 6px;">#</th>
+                <th style="padding: 8px 6px;">🌍</th>
+                <th style="padding: 8px 6px;">Bang</th>
+                <th style="padding: 8px 6px;">Connection String</th>
+                <th style="padding: 8px 6px;">Thời gian</th>
+                <th style="padding: 8px 6px;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="floppyProxyBody">
+              <tr><td colspan="6" style="text-align:center; padding: 20px; color: var(--text-muted);">Chưa có proxy nào</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <script>
 // ── State ──────────────────────────────────────────────────────────────────────
 function formatElapsed(timeStr) {
   if (!timeStr) return '-';
@@ -1941,6 +2086,7 @@ const originalSwitchTab = switchTab;
 switchTab = function(tabId) {
   originalSwitchTab(tabId);
   if (tabId === 'analytics') {
+  if (tabId === 'floppyproxy') { loadFloppyProxies(); loadFloppyBalance(); }
     loadFirebaseData();
   }
 }
@@ -4269,6 +4415,129 @@ function updateShopeeNotes(key, value) {
     })
     .catch(err => toast('Lỗi kết nối: ' + err, 'error'));
 }
+
+// ─── FLOPPYDATA PROXY JS ──────────────────────────────────────────
+async function loadFloppyBalance() {
+  const el = document.getElementById('floppyBalance');
+  if (!el) return;
+  el.textContent = 'Đang tải...';
+  try {
+    const r = await fetch('/api/floppydata/balance');
+    const d = await r.json();
+    if (d.balance !== undefined) {
+      el.textContent = d.balance.remaining + ' / ' + d.balance.total + ' GB';
+    } else {
+      el.textContent = JSON.stringify(d);
+    }
+  } catch(e) {
+    el.textContent = 'Lỗi: ' + e.message;
+  }
+}
+
+async function createFloppyProxy(country) {
+  const btn = document.getElementById(country === 'US' ? 'btnCreateUsProxy' : 'btnCreateVnProxy');
+  const resultDiv = document.getElementById(country === 'US' ? 'floppyUsResult' : 'floppyVnResult');
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang tạo...';
+  resultDiv.style.display = 'none';
+
+  try {
+    const body = { country };
+    if (country === 'US') {
+      body.state = document.getElementById('floppyUsState').value;
+    }
+
+    const r = await fetch('/api/floppydata/create-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.error || 'Lỗi không xác định');
+
+    const conn = d.connection;
+    resultDiv.innerHTML = '<strong style="color:var(--success);">✅ Proxy đã tạo!</strong><br>' +
+      '<code style="font-size:11px; user-select:all;">' + conn.connectionString + '</code><br>' +
+      '<button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="navigator.clipboard.writeText(\'' + conn.connectionString.replace(/'/g, "\\'") + '\');toast(\'Đã copy!\',\'success\')">📋 Copy</button>';
+    resultDiv.style.display = 'block';
+
+    // Auto-save to Firebase
+    await fetch('/api/floppydata/proxies/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        country,
+        state: body.state || '',
+        connectionString: conn.connectionString,
+        protocol: conn.protocol,
+        host: conn.host,
+        port: conn.port,
+        username: conn.username,
+        password: conn.password
+      })
+    });
+
+    toast('✅ Proxy ' + country + ' đã tạo thành công!', 'success');
+    loadFloppyProxies();
+    loadFloppyBalance();
+  } catch(e) {
+    resultDiv.innerHTML = '<strong style="color:var(--shopee);">❌ Lỗi:</strong> ' + e.message;
+    resultDiv.style.display = 'block';
+    toast('❌ ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🚀 Tạo Proxy ' + country;
+  }
+}
+
+async function loadFloppyProxies() {
+  const tbody = document.getElementById('floppyProxyBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">⏳ Đang tải...</td></tr>';
+
+  try {
+    const r = await fetch('/api/floppydata/proxies');
+    const data = await r.json();
+    const entries = Object.entries(data);
+
+    if (entries.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Chưa có proxy nào</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = entries.map(([id, p], i) => {
+      const flag = p.country === 'US' ? '🇺🇸' : p.country === 'VN' ? '🇻🇳' : '🌍';
+      const connStr = p.connectionString || '';
+      const short = connStr.length > 50 ? connStr.substring(0, 50) + '...' : connStr;
+      return '<tr style="border-bottom: 1px solid var(--border);">' +
+        '<td style="padding:6px;">' + (i+1) + '</td>' +
+        '<td style="padding:6px;">' + flag + ' ' + (p.country||'') + '</td>' +
+        '<td style="padding:6px;">' + (p.state||'—') + '</td>' +
+        '<td style="padding:6px;"><code style="font-size:11px; cursor:pointer;" title="' + connStr + '" onclick="navigator.clipboard.writeText(\'' + connStr.replace(/'/g, "\\'") + '\');toast(\'Đã copy!\',\'success\')">' + short + ' 📋</code></td>' +
+        '<td style="padding:6px; font-size:11px; color:var(--text-muted);">' + (p.time||'') + '</td>' +
+        '<td style="padding:6px;"><button class="btn btn-danger btn-sm" onclick="deleteFloppyProxy(\'' + id + '\')">🗑️</button></td>' +
+        '</tr>';
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--shopee);">❌ ' + e.message + '</td></tr>';
+  }
+}
+
+async function deleteFloppyProxy(id) {
+  if (!confirm('Xóa proxy này?')) return;
+  try {
+    await fetch('/api/floppydata/proxies/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    toast('🗑️ Đã xóa proxy', 'info');
+    loadFloppyProxies();
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+  }
+}
+
 </script>
 
 

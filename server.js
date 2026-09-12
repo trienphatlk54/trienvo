@@ -1250,3 +1250,94 @@ app.post('/api/tiktok/delete', async (req, res) => {
   }
 });
 
+// ─── FLOPPYDATA PROXY API ──────────────────────────────────────────
+const FLOPPY_API_KEY = 'ccBVNhypyg83VswiDW6FTpy_QIwGDAJT';
+const FLOPPY_BASE_URL = 'https://api.floppydata.com';
+let floppydataLocationsCache = null;
+
+app.get('/api/floppydata/locations', async (_req, res) => {
+  try {
+    if (floppydataLocationsCache) return res.json(floppydataLocationsCache);
+    const r = await fetch(FLOPPY_BASE_URL + '/v2/proxy/rotating/locations?type=residential', {
+      headers: { 'X-Api-Key': FLOPPY_API_KEY }
+    });
+    const data = await r.json();
+    floppydataLocationsCache = data;
+    res.json(data);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/floppydata/create-proxy', async (req, res) => {
+  const { country, state } = req.body;
+  if (!country) return res.status(400).json({ success: false, error: 'Thiếu country' });
+  try {
+    const body = {
+      type: 'residential',
+      country,
+      protocol: 'socks5',
+      rotation: 60,
+      udp: false
+    };
+    if (state) body.state = state;
+
+    const r = await fetch(FLOPPY_BASE_URL + '/v2/proxy/rotating/connections', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': FLOPPY_API_KEY
+      },
+      body: JSON.stringify(body)
+    });
+    const data = await r.json();
+    if (!r.ok) return res.status(r.status).json({ success: false, error: data.message || JSON.stringify(data) });
+    res.json({ success: true, ...data });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get('/api/floppydata/proxies', async (_req, res) => {
+  try {
+    const snap = await db.ref('floppydata-proxies').once('value');
+    res.json(snap.val() || {});
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/floppydata/proxies/save', async (req, res) => {
+  const { country, state, connectionString, protocol, host, port, username, password } = req.body;
+  try {
+    const time = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+    await db.ref('floppydata-proxies').push().set({
+      country, state: state || '', connectionString, protocol, host, port, username, password, time
+    });
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/floppydata/proxies/delete', async (req, res) => {
+  const { id } = req.body;
+  try {
+    if (id) await db.ref('floppydata-proxies').child(id).remove();
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get('/api/floppydata/balance', async (_req, res) => {
+  try {
+    const r = await fetch(FLOPPY_BASE_URL + '/v2/proxy/rotating/balance', {
+      headers: { 'X-Api-Key': FLOPPY_API_KEY }
+    });
+    const data = await r.json();
+    res.json(data);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
