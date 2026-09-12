@@ -4160,7 +4160,7 @@ async function startVoucherCheck() {
 
 <!-- QR Code Modal for Proxy -->
 <div class="modal-overlay" id="qrProxyModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
-  <div class="modal-content" style="background:var(--bg); padding:24px; border-radius:12px; border:1px solid var(--border); width:300px; text-align:center;">
+  <div class="modal-content" style="background:var(--bg); padding:24px; border-radius:12px; border:1px solid var(--border); width:360px; text-align:center;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
       <h3 style="margin:0; font-size:16px;">QR Code Proxy</h3>
       <button onclick="document.getElementById('qrProxyModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:20px;">&times;</button>
@@ -4466,8 +4466,8 @@ function showProxyQR(connStr) {
   const input = document.getElementById('qrProxyModalText');
   canvas.innerHTML = '';
   new QRCode(canvas, { text: getStandardProxyUrl(connStr),
-    width: 200,
-    height: 200,
+    width: 300,
+    height: 300,
     colorDark : "#000000",
     colorLight : "#ffffff",
     correctLevel : QRCode.CorrectLevel.L
@@ -4552,8 +4552,8 @@ async function createFloppyProxy(country) {
     
     setTimeout(() => {
       new QRCode(document.getElementById('inlineQr_' + country), { text: getStandardProxyUrl(formattedConnString),
-        width: 120,
-        height: 120,
+        width: 200,
+        height: 200,
         colorDark : "#000000",
         colorLight : "#ffffff",
         correctLevel : QRCode.CorrectLevel.L
