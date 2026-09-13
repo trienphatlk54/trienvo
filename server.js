@@ -56,8 +56,12 @@ let proxyConfig = null;
 
 function parseProxy(type, raw) {
   let cleanStr = raw.trim();
-  // Strip protocol prefixes if user accidentally pasted them
-  cleanStr = cleanStr.replace(/^(socks5|socks4|http|https):\/\//i, '');
+  // Auto-detect type from prefix, overriding dropdown
+  const prefixMatch = cleanStr.match(/^(socks5|socks4|http|https):\/\//i);
+  if (prefixMatch) {
+    type = prefixMatch[1].toLowerCase();
+    cleanStr = cleanStr.replace(/^(socks5|socks4|http|https):\/\//i, '');
+  }
   const parts = cleanStr.split(':');
   if (parts.length < 2) return null;
   return {
@@ -65,7 +69,7 @@ function parseProxy(type, raw) {
     host: parts[0],
     port: parts[1],
     user: parts[2] || '',
-    pass: parts.slice(3).join(':') || '', // password might contain ':'? Just in case.
+    pass: parts.slice(3).join(':') || '',
     verified: false,
   };
 }
