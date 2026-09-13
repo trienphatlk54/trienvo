@@ -2,6 +2,10 @@ const express = require('express');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
+const proxyChain = require('proxy-chain');
+const { SocksProxyAgent } = require('socks-proxy-agent');
+const { HttpsProxyAgent } = require('https-proxy-agent');
+
 
 // Simple log capturer
 const sysLogs = [];
@@ -436,8 +440,6 @@ app.post('/api/proxy/save', async (req, res) => {
 
   // ── Lightweight IP check using HTTP agent (no Puppeteer!) ──
   try {
-    const { SocksProxyAgent } = require('socks-proxy-agent');
-    const { HttpsProxyAgent } = require('https-proxy-agent');
     const http = require('http');
     const https = require('https');
 
