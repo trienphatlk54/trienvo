@@ -55,14 +55,17 @@ const delay = ms => new Promise(r => setTimeout(r, ms));
 let proxyConfig = null;
 
 function parseProxy(type, raw) {
-  const parts = raw.trim().split(':');
+  let cleanStr = raw.trim();
+  // Strip protocol prefixes if user accidentally pasted them
+  cleanStr = cleanStr.replace(/^(socks5|socks4|http|https):\/\//i, '');
+  const parts = cleanStr.split(':');
   if (parts.length < 2) return null;
   return {
     type,
     host: parts[0],
     port: parts[1],
     user: parts[2] || '',
-    pass: parts[3] || '',
+    pass: parts.slice(3).join(':') || '', // password might contain ':'? Just in case.
     verified: false,
   };
 }
@@ -106,8 +109,13 @@ async function launchBrowser(proxy) {
     '--disable-features=site-per-process',
   ];
   if (proxy) {
-    args.push(`--proxy-server=${proxyUrl(proxy)}`);
-    console.log(`  🌐 Chrome + proxy: ${proxyUrl(proxy)}`);
+    let purl = proxyUrl(proxy);
+    if (proxy.type.toLowerCase().includes('socks') && proxy.user) {
+      console.log('  ⚠️ Chromium không hỗ trợ auth SOCKS5. Đang tự động chuyển sang HTTP...');
+      purl = `http://${proxy.host}:${proxy.port}`;
+    }
+    args.push(`--proxy-server=${purl}`);
+    console.log(`  🌐 Chrome + proxy: ${purl}`);
   } else {
     console.log('  🌐 Chrome (không proxy)');
   }
