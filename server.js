@@ -96,7 +96,13 @@ async function reset() {
   S.poll = S.expire = null;
   if (S.page) { try { await S.page.close(); } catch(_){} S.page = null; }
   if (S.ctx)  { try { await S.ctx.close();  } catch(_){} S.ctx  = null; }
-  if (S.browser) { try { await S.browser.close(); } catch(_){} S.browser = null; }
+  if (S.browser) { 
+    if (S.browser.__anonymizedProxyUrl) {
+      proxyChain.closeAnonymizedProxy(S.browser.__anonymizedProxyUrl, true).catch(()=>{});
+    }
+    try { await S.browser.close(); } catch(_){} 
+    S.browser = null; 
+  }
   Object.assign(S, { status:'idle', qrImage:null, cookies:null, userInfo:null, error:null, expiresAt:null });
 }
 
@@ -108,24 +114,36 @@ async function launchBrowser(proxy) {
     '--disable-gpu', '--no-first-run',
     '--disable-features=site-per-process',
   ];
+  let anonymizedProxyUrl = null;
   if (proxy) {
     let purl = proxyUrl(proxy);
-    if (proxy.type.toLowerCase().includes('socks') && proxy.user) {
-      console.log('  ⚠️ Chromium không hỗ trợ auth SOCKS5. Đang tự động chuyển sang HTTP...');
-      purl = `http://${proxy.host}:${proxy.port}`;
+    if (proxy.user && proxy.pass) {
+      console.log('  🔄 Proxy auth detected. Using proxy-chain to anonymize...');
+      try {
+        anonymizedProxyUrl = await proxyChain.anonymizeProxy(`${proxy.type}://${proxy.user}:${proxy.pass}@${proxy.host}:${proxy.port}`);
+        purl = anonymizedProxyUrl;
+      } catch (err) {
+        console.log('  ❌ Error anonymizing proxy:', err.message);
+      }
     }
     args.push(`--proxy-server=${purl}`);
     console.log(`  🌐 Chrome + proxy: ${purl}`);
   } else {
     console.log('  🌐 Chrome (không proxy)');
   }
-  return await puppeteer.launch({
+  
+  const browser = await puppeteer.launch({
     headless: 'new',
     args,
     defaultViewport: { width: 1280, height: 900 },
     protocolTimeout: 180000,
     timeout: 60000,
   });
+  
+  if (anonymizedProxyUrl) {
+    browser.__anonymizedProxyUrl = anonymizedProxyUrl;
+  }
+  return browser;
 }
 
 async function newPage(browser, proxy) {
@@ -176,9 +194,7 @@ async function newPage(browser, proxy) {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
   );
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8' });
-  if (proxy && proxy.user) {
-    await page.authenticate({ username: proxy.user, password: proxy.pass });
-  }
+  // Auth handled by proxy-chain now
   return { ctx, page };
 }
 
@@ -445,6 +461,9 @@ app.post('/api/proxy/save', async (req, res) => {
 
     await page.close();
     await ctx.close();
+    if (testBrowser.__anonymizedProxyUrl) {
+      proxyChain.closeAnonymizedProxy(testBrowser.__anonymizedProxyUrl, true).catch(()=>{});
+    }
     await testBrowser.close();
     testBrowser = null;
 
@@ -460,7 +479,10 @@ app.post('/api/proxy/save', async (req, res) => {
     res.json({ success:true, ip, proxy: proxyUrl(p) });
 
   } catch(e) {
-    if (testBrowser) try { await testBrowser.close(); } catch(_){}
+    if (testBrowser) try { if (testBrowser.__anonymizedProxyUrl) {
+      proxyChain.closeAnonymizedProxy(testBrowser.__anonymizedProxyUrl, true).catch(()=>{});
+    }
+    await testBrowser.close(); } catch(_){}
     proxyConfig = null;
     const msg = e.message || '';
     let hint = '';
@@ -1039,9 +1061,7 @@ app.post('/api/voucher-check', async (req, res) => {
     browser = await launchBrowser(proxyConfig);
     ctx = await browser.createBrowserContext();
     const page = await ctx.newPage();
-    if (proxyConfig && proxyConfig.user && proxyConfig.pass) {
-      await page.authenticate({ username: proxyConfig.user, password: proxyConfig.pass });
-    }
+    // Auth handled by proxy-chain now
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     
 
