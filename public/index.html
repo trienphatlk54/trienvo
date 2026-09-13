@@ -2344,10 +2344,34 @@ async function pollActiveSims() {
   }
 }
 
-function copyText(text) {
-  navigator.clipboard.writeText(text);
-  toast('✅ Đã copy: ' + text, 'info');
+function safeCopy(text, successMsg = '✅ Đã copy!') {
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text)
+      .then(() => toast(successMsg, 'success'))
+      .catch(err => fallbackCopy(text, successMsg));
+  } else {
+    fallbackCopy(text, successMsg);
+  }
 }
+
+function fallbackCopy(text, successMsg) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand('copy');
+    toast(successMsg, 'success');
+  } catch (err) {
+    toast('❌ Trình duyệt chặn copy', 'error');
+  }
+  document.body.removeChild(ta);
+}
+
+function copyText(text) { safeCopy(text); }
 
 function copyComboSpcF(spcf, user, pass) {
   if (!spcf) return toast('Không có dữ liệu SPC_F', 'warning');
@@ -2756,18 +2780,7 @@ function copyValue(key) {
   if (!state.cookies) return toast('Chưa có cookie để sao chép', 'warning');
   const val = key === 'spc_st' ? state.cookies.SPC_ST : state.cookies.SPC_F;
   if (!val) return;
-  navigator.clipboard.writeText(val).then(() => {
-    toast(`Đã copy ${key.toUpperCase()}!`, 'success');
-  }).catch(() => {
-    // Fallback
-    const ta = document.createElement('textarea');
-    ta.value = val;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    toast(`Đã copy ${key.toUpperCase()}!`, 'success');
-  });
+  safeCopy(val, `Đã copy ${key.toUpperCase()}!`);
 }
 
 // ── Toggle All Cookies ─────────────────────────────────────────────────────────
@@ -4030,17 +4043,7 @@ async function convertGoAffiliateLink() {
 function copyToClipboard(elementId) {
   const el = $(elementId);
   if (!el || !el.value) return;
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(el.value).then(() => toast('Đã copy vào clipboard!', 'info')).catch(err => {
-      el.select();
-      document.execCommand('copy');
-      toast('Đã copy!', 'info');
-    });
-  } else {
-    el.select();
-    document.execCommand('copy');
-    toast('Đã copy!', 'info');
-  }
+  safeCopy(el.value);
 }
 
 
@@ -4546,7 +4549,7 @@ async function createFloppyProxy(country) {
       '<strong style="color:var(--success);">✅ Proxy đã tạo!</strong>' +
       '<div id="inlineQr_' + country + '" style="background:white; padding:8px; border-radius:4px; margin: 4px 0;"></div>' +
       '<code style="font-size:11px; user-select:all; word-break:break-all; text-align:center;">' + formattedConnString + '</code>' +
-      '<button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(\'' + formattedConnString.replace(/'/g, "\\'") + '\');toast(\'Đã copy!\',\'success\')">📋 Copy Proxy</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="safeCopy(\'' + formattedConnString.replace(/'/g, "\\'") + '\')">📋 Copy Proxy</button>' +
       '</div>';
     resultDiv.style.display = 'block';
     
@@ -4612,7 +4615,7 @@ async function loadFloppyProxies() {
         '<td style="padding:6px;">' + (i+1) + '</td>' +
         '<td style="padding:6px;">' + flag + ' ' + (p.country||'') + '</td>' +
         '<td style="padding:6px;">' + (p.state||'—') + '</td>' +
-        '<td style="padding:6px;"><code style="font-size:11px; cursor:pointer;" title="' + connStr + '" onclick="navigator.clipboard.writeText(\'' + connStr.replace(/'/g, "\\'") + '\');toast(\'Đã copy!\',\'success\')">' + short + ' 📋</code></td>' +
+        '<td style="padding:6px;"><code style="font-size:11px; cursor:pointer;" title="' + connStr + '" onclick="safeCopy(\'' + connStr.replace(/'/g, "\\'") + '\')">' + short + ' 📋</code></td>' +
         '<td style="padding:6px; font-size:11px; color:var(--text-muted);">' + (p.time||'') + '</td>' +
         '<td style="padding:6px; display:flex; gap:6px;">' + 
           '<button class="btn btn-ghost btn-sm" onclick="showProxyQR(\'' + connStr.replace(/'/g, "\\'") + '\')" title="Hiển thị mã QR">📱 QR</button>' +
