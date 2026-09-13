@@ -120,7 +120,9 @@ async function launchBrowser(proxy) {
     if (proxy.user && proxy.pass) {
       console.log('  🔄 Proxy auth detected. Using proxy-chain to anonymize...');
       try {
-        anonymizedProxyUrl = await proxyChain.anonymizeProxy(`${proxy.type}://${proxy.user}:${proxy.pass}@${proxy.host}:${proxy.port}`);
+        const encUser = encodeURIComponent(proxy.user);
+        const encPass = encodeURIComponent(proxy.pass);
+        anonymizedProxyUrl = await proxyChain.anonymizeProxy(`${proxy.type}://${encUser}:${encPass}@${proxy.host}:${proxy.port}`);
         purl = anonymizedProxyUrl;
       } catch (err) {
         console.log('  ❌ Error anonymizing proxy:', err.message);
