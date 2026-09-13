@@ -421,7 +421,6 @@ function startPoll(page) {
 
 // ─── POST /api/proxy/save ──────────────────────────────────────────
 app.post('/api/proxy/save', async (req, res) => {
-  // Fix memory issue: Kill any existing session browser before launching a test browser
   await reset();
   const { type, raw } = req.body;
   if (!type || !raw) return res.json({ success:false, error:'Thiếu thông tin proxy' });
@@ -431,43 +430,75 @@ app.post('/api/proxy/save', async (req, res) => {
 
   console.log(`\n🔒 Test proxy: ${proxyUrl(p)}${p.user ? ' (auth)' : ''}`);
 
-  let testBrowser = null;
+  // ── Lightweight IP check using HTTP agent (no Puppeteer!) ──
   try {
-    testBrowser = await launchBrowser(p);
-    const { ctx, page } = await newPage(testBrowser, p);
+    const { SocksProxyAgent } = require('socks-proxy-agent');
+    const { HttpsProxyAgent } = require('https-proxy-agent');
+    const http = require('http');
+    const https = require('https');
+
+    let agent;
+    if (p.type.toLowerCase().includes('socks')) {
+      const proxyUri = p.user
+        ? `socks5://${encodeURIComponent(p.user)}:${encodeURIComponent(p.pass)}@${p.host}:${p.port}`
+        : `socks5://${p.host}:${p.port}`;
+      agent = new SocksProxyAgent(proxyUri);
+      console.log(`  🔄 SOCKS5 agent created`);
+    } else {
+      const proxyUri = p.user
+        ? `http://${encodeURIComponent(p.user)}:${encodeURIComponent(p.pass)}@${p.host}:${p.port}`
+        : `http://${p.host}:${p.port}`;
+      agent = new HttpsProxyAgent(proxyUri);
+      console.log(`  🔄 HTTP agent created`);
+    }
 
     const ipServices = [
-      { url: 'https://api.ipify.org?format=json', parse: b => { try { return JSON.parse(b).ip; } catch(_) { return null; } } },
-      { url: 'https://icanhazip.com',              parse: b => b.trim() },
-      { url: 'https://checkip.amazonaws.com',       parse: b => b.trim() },
-      { url: 'https://api.myip.com',                parse: b => { try { return JSON.parse(b).ip; } catch(_) { return null; } } },
+      'https://api.ipify.org?format=text',
+      'https://icanhazip.com',
+      'https://checkip.amazonaws.com',
+      'http://ip-api.com/line/?fields=query',
+      'https://ifconfig.me/ip',
     ];
 
     let ip = '';
-    for (const svc of ipServices) {
+    for (const url of ipServices) {
       try {
-        console.log(`  🔍 Thử ${svc.url}...`);
-        await page.goto(svc.url, { waitUntil: 'domcontentloaded', timeout: 20000 });
-        const body = await page.evaluate(() => document.body.innerText);
-        const parsed = svc.parse(body);
-        if (parsed && /^[\d.:a-fA-F]+$/.test(parsed) && parsed.length >= 7 && parsed.length <= 45) {
-          ip = parsed;
+        console.log(`  🔍 Thử ${url}...`);
+        const result = await new Promise((resolve, reject) => {
+          const mod = url.startsWith('https') ? https : http;
+          const reqOpt = new URL(url);
+          const options = {
+            hostname: reqOpt.hostname,
+            port: reqOpt.port || (url.startsWith('https') ? 443 : 80),
+            path: reqOpt.pathname + reqOpt.search,
+            method: 'GET',
+            agent: agent,
+            timeout: 10000,
+            headers: {
+              'User-Agent': 'curl/7.88.0',
+              'Accept': 'text/plain',
+            },
+          };
+          const r = mod.request(options, (response) => {
+            let body = '';
+            response.on('data', chunk => body += chunk);
+            response.on('end', () => resolve(body.trim()));
+          });
+          r.on('error', reject);
+          r.on('timeout', () => { r.destroy(); reject(new Error('timeout')); });
+          r.end();
+        });
+
+        if (result && /^[\d.:a-fA-F]+$/.test(result) && result.length >= 7 && result.length <= 45) {
+          ip = result;
           console.log(`  ✅ IP: ${ip}`);
           break;
         }
-        console.log(`  ⚠️ Response không hợp lệ: "${(body || '').substring(0, 60)}"`);
+        console.log(`  ⚠️ Response không hợp lệ: "${result.substring(0, 60)}"`);
       } catch(e2) {
-        console.log(`  ⚠️ ${svc.url} lỗi: ${e2.message.substring(0, 50)}`);
+        console.log(`  ⚠️ ${url} lỗi: ${e2.message.substring(0, 80)}`);
       }
     }
-
-    await page.close();
-    await ctx.close();
-    if (testBrowser.__anonymizedProxyUrl) {
-      proxyChain.closeAnonymizedProxy(testBrowser.__anonymizedProxyUrl, true).catch(()=>{});
-    }
-    await testBrowser.close();
-    testBrowser = null;
 
     if (!ip) {
       proxyConfig = null;
@@ -481,20 +512,16 @@ app.post('/api/proxy/save', async (req, res) => {
     res.json({ success:true, ip, proxy: proxyUrl(p) });
 
   } catch(e) {
-    if (testBrowser) try { if (testBrowser.__anonymizedProxyUrl) {
-      proxyChain.closeAnonymizedProxy(testBrowser.__anonymizedProxyUrl, true).catch(()=>{});
-    }
-    await testBrowser.close(); } catch(_){}
     proxyConfig = null;
     const msg = e.message || '';
     let hint = '';
-    if (msg.includes('ERR_SOCKS_CONNECTION_FAILED'))
+    if (msg.includes('SOCKS'))
       hint = ' — Proxy không hỗ trợ SOCKS5, thử chọn HTTP';
-    else if (msg.includes('ERR_PROXY_CONNECTION_FAILED'))
+    else if (msg.includes('ECONNREFUSED'))
       hint = ' — Proxy từ chối kết nối, kiểm tra IP/port';
-    else if (msg.includes('ERR_TUNNEL_CONNECTION_FAILED'))
-      hint = ' — Proxy không cho phép CONNECT tunnel';
-    else if (msg.includes('ERR_PROXY_AUTH'))
+    else if (msg.includes('ETIMEDOUT'))
+      hint = ' — Proxy không phản hồi (timeout)';
+    else if (msg.includes('auth'))
       hint = ' — Sai username/password proxy';
     console.log(`  ❌ Proxy lỗi: ${msg}`);
     res.json({ success:false, error: `Không kết nối được${hint}: ${msg.substring(0,80)}` });

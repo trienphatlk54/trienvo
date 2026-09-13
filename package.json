@@ -10,10 +10,14 @@
   "dependencies": {
     "express": "^4.18.2",
     "firebase-admin": "^14.2.0",
+    "https-proxy-agent": "^9.1.0",
+    "jsdom": "^30.0.1",
     "proxy-chain": "^3.0.0",
     "puppeteer": "^25.5.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "socks": "^2.8.9"
+    "socks": "^2.8.9",
+    "socks-proxy-agent": "^10.1.0",
+    "ssh2": "^1.17.0"
   }
 }
