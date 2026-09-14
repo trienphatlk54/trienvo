@@ -1089,7 +1089,6 @@
         <button class="btn btn-secondary btn-sm" id="btnAutoVnProxy" onclick="autoSetVnProxy()" style="font-weight: bold; background: rgba(34,197,94,0.15); border: 1px solid var(--success); color: var(--success);">🇻🇳 Lấy Proxy VN</button>
         <button class="btn btn-danger btn-sm" id="btnClearProxy" onclick="clearProxy()" style="display:none;">✕</button>
       </div>
-      <span class="proxy-status-msg" id="proxyStatusMsg" style="display:none;"></span>
     </div>
     <div class="proxy-info" id="proxyInfo" style="display:none;">
       <span>🌍 IP qua proxy:</span>
@@ -2894,11 +2893,7 @@ async function saveProxy() {
   const raw  = $('proxyInput' + suf).value.trim();
   if (!raw) return toast('Nhập chuỗi proxy: ip:port:user:pass', 'warning');
 
-  const msg = $('proxyStatusMsg' + suf);
   const badge = $('proxyBadge' + suf);
-  msg.style.display = 'inline-flex';
-  msg.className = 'proxy-status-msg loading';
-  msg.textContent = '⏳ Đang kiểm tra proxy...';
   $('btnSaveProxy' + suf).disabled = true;
 
   try {
@@ -2911,8 +2906,6 @@ async function saveProxy() {
 
     if (data.success) {
       const displayIp = data.displayIp || data.ip;
-      msg.className = 'proxy-status-msg ok';
-      msg.innerHTML = `✅ Kết nối OK - IP: <strong>${displayIp}</strong>`;
       badge.className = 'badge badge-ok';
       badge.textContent = 'Đang dùng';
       $('proxyInfo' + suf).style.display = 'flex';
@@ -2929,16 +2922,12 @@ async function saveProxy() {
       });
       if (window.usedIpsSet) window.usedIpsSet.add(data.ip);
     } else {
-      msg.className = 'proxy-status-msg err';
-      msg.textContent = '❌ ' + (data.error || 'Proxy không hoạt động');
       badge.className = 'badge badge-err';
       badge.textContent = 'Lỗi';
       $('proxyInfo' + suf).style.display = 'none';
       toast('❌ Proxy lỗi: ' + (data.error || ''), 'error', 5000);
     }
   } catch(e) {
-    msg.className = 'proxy-status-msg err';
-    msg.textContent = '❌ Lỗi kết nối server';
     toast('❌ Lỗi: ' + e.message, 'error');
   }
   $('btnSaveProxy' + suf).disabled = false;
@@ -2997,7 +2986,6 @@ function clearProxy() {
   const suf = isCreate ? '_create' : '';
 
   fetch('/api/proxy', { method: 'DELETE' });
-  $('proxyStatusMsg' + suf).style.display = 'none';
   $('proxyBadge' + suf).className = 'badge badge-off';
   $('proxyBadge' + suf).textContent = 'Chưa cấu hình';
   $('proxyInfo' + suf).style.display = 'none';
