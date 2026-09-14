@@ -193,6 +193,12 @@ function shopeeRequest(method, url, data, cookieStr = '') {
         'X-API-SOURCE': 'pc',
         'X-Shopee-Language': 'vi',
         'X-Requested-With': 'XMLHttpRequest',
+        'Sec-Ch-Ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
         ...(cookieStr ? { 'Cookie': cookieStr } : {}),
         ...(data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) } : {}),
       },
@@ -223,9 +229,16 @@ function jarToString(jar) {
 
 // ─── Fast QR Generation via Shopee API ──────────────────────────────
 async function generateQRCode() {
+  console.log('  🌐 Lấy initial cookies...');
+  const jar = {};
+  try {
+    const res0 = await shopeeRequest('GET', 'https://shopee.vn/buyer/login');
+    mergeCookies(jar, res0.setCookies);
+  } catch(e) { console.warn('  ⚠️ fetch initial cookies failed:', e.message); }
+
   console.log('  🚀 Gọi API gen_qrcode...');
   const t0 = Date.now();
-  const res = await shopeeRequest('GET', 'https://shopee.vn/api/v2/authentication/gen_qrcode');
+  const res = await shopeeRequest('GET', 'https://shopee.vn/api/v2/authentication/gen_qrcode', null, jarToString(jar));
   
   if (res.status !== 200) throw new Error(`gen_qrcode HTTP ${res.status}`);
   
@@ -236,7 +249,6 @@ async function generateQRCode() {
   const qrBase64 = json.data.qrcode_base64;
   
   // Collect cookies from response
-  const jar = {};
   mergeCookies(jar, res.setCookies);
   
   console.log(`  ✅ QR tạo xong trong ${Date.now() - t0}ms`);
@@ -315,13 +327,13 @@ function startApiPoll(qrId, jar, attemptId) {
         } else {
            console.log('  🔑 Gọi qrcode_login...');
            try {
-             const fakeFp = jar['SPC_F'] || Array.from({length:32}, () => Math.floor(Math.random()*16).toString(16)).join('');
              const loginRes = await shopeeRequest('POST',
                'https://shopee.vn/api/v2/authentication/qrcode_login',
                { 
                  qrcode_token: qrToken,
-                 device_sz_fingerprint: fakeFp,
-                 client_identifier: { security_device_fingerprint: fakeFp }
+                 device_sz_fingerprint: "",
+                 support_ivs: true,
+                 client_identifier: { security_device_fingerprint: "" }
                },
                jarToString(jar));
              
