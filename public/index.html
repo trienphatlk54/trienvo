@@ -3771,10 +3771,12 @@ function closeDuplicateModal() {
   window._bypassDuplicateCheck = false;
 }
 function proceedSaveAccount() {
-  closeDuplicateModal();
-  if (window._pendingSavePayload && window._pendingSaveFields) {
+  const payload = window._pendingSavePayload;
+  const fields = window._pendingSaveFields;
+  closeDuplicateModal(); // This clears the window._pending* variables
+  if (payload && fields) {
     window._bypassDuplicateCheck = true;
-    executeSaveRequest(window._pendingSavePayload, window._pendingSaveFields);
+    executeSaveRequest(payload, fields);
   }
 }
 
