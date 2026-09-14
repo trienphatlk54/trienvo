@@ -376,9 +376,10 @@ function startApiPoll(qrId, jar, attemptId) {
                  all: keep.filter(k => jar[k]).map(k => ({ name: k, value: jar[k] })),
                };
                S.status = 'success';
-             }
-           }
-        }
+              }
+            }
+         }
+      }
     } catch (e) {
       if (!['success', 'idle'].includes(S.status)) console.warn('  ⚠️ poll:', e.message.substring(0, 80));
     }
