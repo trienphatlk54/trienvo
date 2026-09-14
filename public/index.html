@@ -2679,8 +2679,8 @@ function showOverlay(id) {
     const el = $(o);
     if (el) el.classList.toggle('hidden', o !== id);
   });
-  if (id && document.getElementById('btnZoomQR')) {
-    document.getElementById('btnZoomQR').style.display = 'none';
+  if (id && $('btnZoomQR')) {
+    $('btnZoomQR').style.display = 'none';
   }
 }
 
@@ -2736,8 +2736,8 @@ function setQRImage(src) {
     if (el) el.classList.add('hidden');
   });
   
-  if (document.getElementById('btnZoomQR')) {
-    document.getElementById('btnZoomQR').style.display = 'block';
+  if ($('btnZoomQR')) {
+    $('btnZoomQR').style.display = 'block';
   }
   console.log('[setQRImage] Done, img displayed');
 }
@@ -4316,7 +4316,8 @@ async function startVoucherCheck() {
 
 <script>
 function openQrModal() {
-  const qrSrc = document.getElementById('qrImage').src;
+  const imgEl = $('qrImage') || document.getElementById('qrImage');
+  const qrSrc = imgEl ? imgEl.src : '';
   if (qrSrc) {
     document.getElementById('qrFullscreenImage').src = qrSrc;
     document.getElementById('qrFullscreenModal').style.display = 'flex';
