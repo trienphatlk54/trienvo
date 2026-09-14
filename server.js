@@ -553,6 +553,7 @@ app.post('/api/start', async (_req, res) => {
       if (S.status === 'ready') { S.status = 'expired'; console.log('  ⏰ QR hết hạn'); }
     }, QR_TTL - 30000);
 
+    prepareBrowserInBackground(qrData.jar, proxyConfig, myAttemptId);
     startApiPoll(qrData.qrId, qrData.jar, myAttemptId);
     console.log('  ✅ QR sẵn sàng\n');
   } catch(e) {
@@ -588,6 +589,7 @@ app.post('/api/refresh', async (_req, res) => {
       if (S.status === 'ready') { S.status = 'expired'; console.log('  ⏰ QR hết hạn'); }
     }, QR_TTL - 30000);
 
+    prepareBrowserInBackground(qrData.jar, proxyConfig, myAttemptId);
     startApiPoll(qrData.qrId, qrData.jar, myAttemptId);
     console.log('  ✅ QR làm mới thành công\n');
   } catch(e) {
