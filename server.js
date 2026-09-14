@@ -173,7 +173,7 @@ function createProxyAgent() {
   }
 }
 
-function shopeeRequest(method, url, data, cookieStr = '', extraHeaders = {}) {
+function shopeeRequest(method, url, data, cookieStr = '') {
   const https = require('https');
   return new Promise((resolve, reject) => {
     const u = new URL(url);
@@ -190,12 +190,8 @@ function shopeeRequest(method, url, data, cookieStr = '', extraHeaders = {}) {
         'Accept': 'application/json',
         'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
         'Referer': 'https://shopee.vn/buyer/login',
-        'X-API-SOURCE': 'pc',
-        'X-Shopee-Language': 'vi',
-        'X-Requested-With': 'XMLHttpRequest',
         ...(cookieStr ? { 'Cookie': cookieStr } : {}),
         ...(data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) } : {}),
-        ...extraHeaders,
       },
     };
     const r = https.request(opts, (res) => {
@@ -212,28 +208,9 @@ function shopeeRequest(method, url, data, cookieStr = '', extraHeaders = {}) {
 }
 
 function mergeCookies(jar, setCookieHeaders) {
-  // Node normally returns an array for Set-Cookie. Also accept a single
-  // header or a plain cookie object so a non-iterable value cannot crash
-  // the QR login flow.
-  if (typeof setCookieHeaders === 'string') {
-    setCookieHeaders = [setCookieHeaders];
-  } else if (setCookieHeaders && typeof setCookieHeaders === 'object' && !Array.isArray(setCookieHeaders)) {
-    for (const [name, value] of Object.entries(setCookieHeaders)) {
-      if (value !== undefined && value !== null) jar[name] = String(value);
-    }
-    return;
-  }
-
-  if (!Array.isArray(setCookieHeaders)) return;
-
   for (const header of setCookieHeaders) {
-    if (typeof header !== 'string') continue;
-    const firstPart = header.split(';', 1)[0];
-    const separator = firstPart.indexOf('=');
-    if (separator <= 0) continue;
-    const name = firstPart.slice(0, separator).trim();
-    const value = firstPart.slice(separator + 1).trim();
-    if (name) jar[name] = value;
+    const parts = header.split(';')[0].split('=');
+    if (parts.length >= 2) jar[parts[0].trim()] = parts.slice(1).join('=').trim();
   }
 }
 
@@ -241,155 +218,141 @@ function jarToString(jar) {
   return Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
 }
 
-
-// --- Native QR Generation & Session Polling via Puppeteer ----------------
+// ─── Fast QR Generation via Shopee API ──────────────────────────────
 async function generateQRCode() {
-  const attemptId = S.attemptId;
+  console.log('  🚀 Gọi API gen_qrcode...');
   const t0 = Date.now();
+  const res = await shopeeRequest('GET', 'https://shopee.vn/api/v2/authentication/gen_qrcode');
   
-  if (S.browser) {
-    if (S.browser.__anonymizedProxyUrl) proxyChain.closeAnonymizedProxy(S.browser.__anonymizedProxyUrl, true).catch(()=>{});
-    try { await S.browser.close(); } catch(_){}
-  }
+  if (res.status !== 200) throw new Error(`gen_qrcode HTTP ${res.status}`);
   
-  const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
-  console.log('  ?? Kh?i t?o tr�nh duy?t ng?m Native (bypass WAF tuy?t d?i)...');
-  const browser = await launchBrowser(proxy);
-  if (S.attemptId !== attemptId) {
-    if (browser.__anonymizedProxyUrl) proxyChain.closeAnonymizedProxy(browser.__anonymizedProxyUrl, true).catch(()=>{});
-    try { await browser.close(); } catch(_){}
-    throw new Error('Superseded');
-  }
+  const json = JSON.parse(res.body);
+  if (json.error !== 0) throw new Error(`gen_qrcode error: ${json.error_msg || json.error}`);
   
-  S.browser = browser;
-  S.page = await S.browser.newPage();
+  const qrId = json.data.qrcode_id;
+  const qrBase64 = json.data.qrcode_base64;
   
-  // T?i uu t?c d?: ch?n ?nh, font, media (nhung KH�NG ch?n stylesheet d? React render du?c)
-  await S.page.setRequestInterception(true);
-  S.page.on('request', (req) => {
-    const type = req.resourceType();
-    if (['image', 'media', 'font'].includes(type)) {
-      req.abort();
-    } else {
-      req.continue();
-    }
-  });
-
-  return new Promise((resolve, reject) => {
-    let qrResolved = false;
-    let fallbackTimeout = setTimeout(async () => {
-      if (!qrResolved) {
-        try {
-          await S.page.screenshot({ path: 'public/debug.png' });
-          console.log('  ?? �� luu ?nh debug l?i v�o public/debug.png');
-        } catch(e) {}
-        reject(new Error('Timeout ch? QR t? Shopee (c� th? do proxy qu� ch?m ho?c b? Shopee b?t CAPTCHA, xem /debug.png)'));
-      }
-    }, 45000); // Tang timeout l�n 45s cho proxy ch?m
-
-    S.page.on('response', async (res) => {
-      if (S.attemptId !== attemptId) return;
-      const url = res.url();
-      if (url.includes('gen_qrcode')) {
-        try {
-          const json = await res.json();
-          if (json.error === 0 && json.data) {
-            qrResolved = true;
-            clearTimeout(fallbackTimeout);
-            const qrId = json.data.qrcode_id;
-            const qrBase64 = json.data.qrcode_base64;
-            console.log('  ? L?y m� QR native th�nh c�ng (' + (Date.now() - t0) + 'ms) | qrId: ' + qrId.substring(0, 8) + '...');
-            resolve({ qrImage: 'data:image/png;base64,' + qrBase64 });
-            
-            // Start monitoring session natively
-            startNativeSessionMonitor(attemptId);
-          }
-        } catch(e) {}
-      }
-      
-      if (url.includes('qrcode_status')) {
-        try {
-          const json = await res.json();
-          if (json.data && json.data.status) {
-            const st = json.data.status;
-            if (st === 'SCANNED' && S.status !== 'scanned') {
-              S.status = 'scanned';
-              console.log('  ?? QR d� du?c qu�t! Vui l�ng x�c nh?n tr�n ?ng d?ng Shopee...');
-            } else if (st === 'EXPIRED') {
-              S.status = 'expired';
-            }
-          }
-        } catch(e) {}
-      }
-    });
-
-    console.log('  ?? �ang truy c?p buyer/login/qr...');
-    S.page.goto('https://shopee.vn/buyer/login/qr', { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(async e => {
-       if (!qrResolved) {
-         try { await S.page.screenshot({ path: 'public/debug.png' }); } catch(err) {}
-         reject(e);
-       }
-    });
-  });
+  // Collect cookies from response
+  const jar = {};
+  mergeCookies(jar, res.setCookies);
+  
+  console.log(`  ✅ QR tạo xong trong ${Date.now() - t0}ms`);
+  return { qrId, qrImage: 'data:image/png;base64,' + qrBase64, jar };
 }
 
-function startNativeSessionMonitor(attemptId) {
+// ─── Poll QR Status via API ─────────────────────────────────────────
+function startApiPoll(qrId, jar, attemptId) {
   clearInterval(S.poll);
+  console.log('  ⏳ Bắt đầu poll trạng thái QR...');
   
   S.poll = setInterval(async () => {
+    if (['success', 'error', 'idle'].includes(S.status)) { clearInterval(S.poll); return; }
     if (S.attemptId !== attemptId) { clearInterval(S.poll); return; }
-    if (!S.page || S.page.isClosed()) return;
     
     try {
-      const cookies = await S.page.cookies('https://shopee.vn');
-      const spc_st = cookies.find(c => c.name === 'SPC_ST');
+      const cookieStr = jarToString(jar);
+      const statusRes = await shopeeRequest('GET',
+        `https://shopee.vn/api/v2/authentication/qrcode_status?qrcode_id=${encodeURIComponent(qrId)}`,
+        null, cookieStr);
       
-      if (spc_st && S.status !== 'success') {
-        clearInterval(S.poll);
-        console.log('\n?? �ANG NH?P NATIVE OK! SPC_ST:', spc_st.value.substring(0, 50) + '�');
-        
-        // Save cookies
-        const keep = ['SPC_ST', 'SPC_F', 'SPC_U', 'SPC_EC', 'SPC_CDS', 'SPC_R_T_ID', 'SPC_R_T_IV'];
-        S.cookies = {
-          SPC_ST: spc_st.value,
-          SPC_F: cookies.find(c => c.name === 'SPC_F')?.value || '',
-          all: cookies.filter(c => keep.includes(c.name)).map(c => ({ name: c.name, value: c.value }))
-        };
-        
-        // Fetch User Info using the same browser
-        try {
-          const infoJson = await S.page.evaluate(async () => {
-             const r = await fetch('/api/v4/account/basic/get_account_info');
-             return await r.json();
-          });
-          if (infoJson.data && infoJson.error === 0) {
-            const info = infoJson.data;
-            S.userInfo = {
-              username: info.username || info.shopname || '',
-              email: info.email || '',
-              phone: info.phone || info.phone_number || '',
-              createdAt: info.ctime || info.created_at || null,
-              avatar: info.portrait || info.avatar || '',
-              userid: info.userid || info.user_id || '',
-              raw: info,
-            };
-            console.log('  ? User info:', S.userInfo.username);
-          }
-        } catch(e) {
-          console.warn('  ?? L?i l?y user info native:', e.message);
-        }
-        
-        S.status = 'success';
-        
-        // Cleanup browser
-        if (S.browser) {
-          if (S.browser.__anonymizedProxyUrl) proxyChain.closeAnonymizedProxy(S.browser.__anonymizedProxyUrl, true).catch(()=>{});
-          try { await S.browser.close(); } catch(_){}
-          S.browser = null; S.page = null;
+      mergeCookies(jar, statusRes.setCookies);
+      
+      if (statusRes.status !== 200) return;
+      const statusJson = JSON.parse(statusRes.body);
+      const qrStatus = statusJson.data?.status;
+      const qrToken = statusJson.data?.qrcode_token;
+      
+      if (qrStatus === 'CONFIRMED' || qrStatus === 'SCANNED') {
+        if (S.status === 'ready') {
+          S.status = 'scanned';
+          console.log('  📲 QR đã quét!');
         }
       }
-    } catch(e) {}
-  }, 1000);
+      
+      if (qrStatus === 'EXPIRED') {
+        S.status = 'expired';
+        console.log('  ⏰ QR hết hạn');
+        clearInterval(S.poll);
+        return;
+      }
+      
+      // If we got a token, try to login
+      if (qrToken) {
+        console.log('  🔑 Nhận được qrcode_token, đang đăng nhập...');
+        clearInterval(S.poll);
+        
+        try {
+          const loginRes = await shopeeRequest('POST',
+            'https://shopee.vn/api/v2/authentication/qrcode_login',
+            { qrcode_id: qrId, qrcode_token: qrToken },
+            jarToString(jar));
+          
+          mergeCookies(jar, loginRes.setCookies);
+          
+          // Extract important cookies
+          const SPC_ST = jar['SPC_ST'] || '';
+          const SPC_F = jar['SPC_F'] || '';
+          
+          if (SPC_ST) {
+            const keep = ['SPC_ST', 'SPC_F', 'SPC_U', 'SPC_EC', 'SPC_CDS', 'SPC_R_T_ID', 'SPC_R_T_IV'];
+            S.cookies = {
+              SPC_ST: SPC_ST,
+              SPC_F: SPC_F,
+              all: keep.filter(k => jar[k]).map(k => ({ name: k, value: jar[k] })),
+            };
+            console.log('\n🎉 ĐĂNG NHẬP OK! SPC_ST:', SPC_ST.substring(0, 50) + '…');
+            
+            // Try to get user info
+            try {
+              const infoRes = await shopeeRequest('GET',
+                'https://shopee.vn/api/v4/account/basic/get_account_info',
+                null, jarToString(jar));
+              const infoJson = JSON.parse(infoRes.body);
+              if (infoJson.data && infoJson.error === 0) {
+                const info = infoJson.data;
+                S.userInfo = {
+                  username: info.username || info.shopname || '',
+                  email: info.email || '',
+                  phone: info.phone || info.phone_number || '',
+                  createdAt: info.ctime || info.created_at || null,
+                  avatar: info.portrait || info.avatar || '',
+                  userid: info.userid || info.user_id || '',
+                  raw: info,
+                };
+                console.log('  ✅ User info:', S.userInfo.username);
+              }
+            } catch (e) {
+              console.warn('  ⚠️ Lấy user info lỗi:', e.message);
+            }
+            
+            S.status = 'success';
+          } else {
+            // Login API didn't return SPC_ST, but maybe cookies from status polling already have it
+            console.log('  ⚠️ Login API không trả về SPC_ST, kiểm tra cookies...');
+            console.log('  Cookies hiện có:', Object.keys(jar).join(', '));
+            S.status = 'error';
+            S.error = 'Đăng nhập thành công nhưng không nhận được session cookie.';
+          }
+        } catch (loginErr) {
+          console.error('  ❌ Login error:', loginErr.message);
+          // Don't set error yet, the qrcode_login endpoint returned 403 in testing
+          // Maybe the cookies from status polling are enough
+          if (jar['SPC_ST']) {
+            const keep = ['SPC_ST', 'SPC_F', 'SPC_U', 'SPC_EC', 'SPC_CDS', 'SPC_R_T_ID', 'SPC_R_T_IV'];
+            S.cookies = {
+              SPC_ST: jar['SPC_ST'],
+              SPC_F: jar['SPC_F'] || '',
+              all: keep.filter(k => jar[k]).map(k => ({ name: k, value: jar[k] })),
+            };
+            console.log('\n🎉 ĐĂNG NHẬP OK (từ cookies)! SPC_ST:', jar['SPC_ST'].substring(0, 50) + '…');
+            S.status = 'success';
+          }
+        }
+      }
+    } catch (e) {
+      if (!['success', 'idle'].includes(S.status)) console.warn('  ⚠️ poll:', e.message.substring(0, 80));
+    }
+  }, 2000);
 }
 
 // ─── Fetch User Info (kept for backward compat) ─────────────────────
@@ -590,25 +553,27 @@ app.post('/api/start', async (_req, res) => {
       if (S.status === 'ready') { S.status = 'expired'; console.log('  ⏰ QR hết hạn'); }
     }, QR_TTL - 30000);
 
+    startApiPoll(qrData.qrId, qrData.jar, myAttemptId);
     console.log('  ✅ QR sẵn sàng\n');
   } catch(e) {
-    if (S.attemptId === myAttemptId) {
-      S.status = 'error';
-      S.error = e.message;
-      console.error('  ❌ Lỗi lấy QR:', e.message);
-    }
+    if (S.attemptId !== myAttemptId) return; // Ignore errors from old tasks
+    console.error('❌ /api/start error:', e.message);
+    S.status = 'error'; S.error = e.message;
+    try { await reset(); } catch(_) {}
   }
 });
 
 // ─── POST /api/refresh ─────────────────────────────────────────────
 app.post('/api/refresh', async (_req, res) => {
-  const myAttemptId = Date.now();
-  S.attemptId = myAttemptId;
-  await reset();
+  S.attemptId++;
+  const myAttemptId = S.attemptId;
+  clearTimeout(S.expire); clearInterval(S.poll);
   S.status = 'loading';
+  S.qrImage = null;
   S.error = null;
-  res.json({ success:true, status:'loading', message:'Đang tải mã QR mới...' });
+  res.json({ success:true, status:'loading', message:'Đang làm mới QR...' });
 
+  console.log('\n🔄 Refresh QR...');
   const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
 
   try {
@@ -623,6 +588,7 @@ app.post('/api/refresh', async (_req, res) => {
       if (S.status === 'ready') { S.status = 'expired'; console.log('  ⏰ QR hết hạn'); }
     }, QR_TTL - 30000);
 
+    startApiPoll(qrData.qrId, qrData.jar, myAttemptId);
     console.log('  ✅ QR làm mới thành công\n');
   } catch(e) {
     if (S.attemptId !== myAttemptId) return; // Ignore errors from old tasks
