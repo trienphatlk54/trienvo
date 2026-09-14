@@ -472,9 +472,25 @@ app.post('/api/proxy/save', async (req, res) => {
 
     p.verified = true;
     p.ip = ip;
+    
+    // Lookup IP location
+    let location = '';
+    let displayIp = ip;
+    try {
+      const locRes = await fetch(`http://ip-api.com/json/${ip}?fields=country,city`);
+      const locData = await locRes.json();
+      if (locData && locData.country) {
+        location = `${locData.country} - ${locData.city || 'Unknown'}`;
+        displayIp = `${ip} (${location})`;
+        p.location = location;
+      }
+    } catch(e) {
+      console.log('  ⚠️ Lỗi lấy vị trí IP:', e.message);
+    }
+
     proxyConfig = p;
-    console.log(`  ✅ Proxy OK! IP: ${ip}`);
-    res.json({ success:true, ip, proxy: proxyUrl(p) });
+    console.log(`  ✅ Proxy OK! IP: ${displayIp}`);
+    res.json({ success:true, ip, displayIp, proxy: proxyUrl(p) });
 
   } catch(e) {
     proxyConfig = null;

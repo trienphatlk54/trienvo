@@ -2910,17 +2910,18 @@ async function saveProxy() {
     const data = await res.json();
 
     if (data.success) {
+      const displayIp = data.displayIp || data.ip;
       msg.className = 'proxy-status-msg ok';
-      msg.innerHTML = `✅ Kết nối OK - IP: <strong>${data.ip}</strong>`;
+      msg.innerHTML = `✅ Kết nối OK - IP: <strong>${displayIp}</strong>`;
       badge.className = 'badge badge-ok';
       badge.textContent = 'Đang dùng';
       $('proxyInfo' + suf).style.display = 'flex';
-      $('proxyIp' + suf).textContent = data.ip;
+      $('proxyIp' + suf).textContent = displayIp;
       $('btnClearProxy' + suf).style.display = 'inline-flex';
       $('proxyInput' + suf).disabled = true;
       $('proxyType' + suf).disabled = true;
       
-      toast('✅ Proxy hoạt động! IP: ' + data.ip, 'success');
+      toast('✅ Proxy hoạt động! IP: ' + displayIp, 'success');
       fetch('/api/ips/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
