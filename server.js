@@ -264,12 +264,28 @@ async function generateQRCode() {
   S.browser = browser;
   S.page = await S.browser.newPage();
   
+  // T?i uu t?c d?: ch?n ?nh, font, media (nhung KH�NG ch?n stylesheet d? React render du?c)
+  await S.page.setRequestInterception(true);
+  S.page.on('request', (req) => {
+    const type = req.resourceType();
+    if (['image', 'media', 'font'].includes(type)) {
+      req.abort();
+    } else {
+      req.continue();
+    }
+  });
 
   return new Promise((resolve, reject) => {
     let qrResolved = false;
-    let fallbackTimeout = setTimeout(() => {
-      if (!qrResolved) reject(new Error('Timeout ch? QR t? Shopee (c� th? do proxy ch?m ho?c b? Shopee ch?n)'));
-    }, 20000);
+    let fallbackTimeout = setTimeout(async () => {
+      if (!qrResolved) {
+        try {
+          await S.page.screenshot({ path: 'public/debug.png' });
+          console.log('  ?? �� luu ?nh debug l?i v�o public/debug.png');
+        } catch(e) {}
+        reject(new Error('Timeout ch? QR t? Shopee (c� th? do proxy qu� ch?m ho?c b? Shopee b?t CAPTCHA, xem /debug.png)'));
+      }
+    }, 45000); // Tang timeout l�n 45s cho proxy ch?m
 
     S.page.on('response', async (res) => {
       if (S.attemptId !== attemptId) return;
@@ -308,8 +324,11 @@ async function generateQRCode() {
     });
 
     console.log('  ?? �ang truy c?p buyer/login/qr...');
-    S.page.goto('https://shopee.vn/buyer/login/qr').catch(e => {
-       if (!qrResolved) reject(e);
+    S.page.goto('https://shopee.vn/buyer/login/qr', { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(async e => {
+       if (!qrResolved) {
+         try { await S.page.screenshot({ path: 'public/debug.png' }); } catch(err) {}
+         reject(e);
+       }
     });
   });
 }
