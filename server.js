@@ -224,9 +224,18 @@ function jarToString(jar) {
 
 // ─── Fast QR Generation via Shopee API ──────────────────────────────
 async function generateQRCode() {
-  console.log('  🚀 Gọi API gen_qrcode...');
   const t0 = Date.now();
-  const res = await shopeeRequest('GET', 'https://shopee.vn/api/v2/authentication/gen_qrcode');
+  
+  // Step 1: Visit login page to collect csrftoken + initial cookies
+  console.log('  🚀 Lấy csrftoken từ shopee.vn...');
+  const initRes = await shopeeRequest('GET', 'https://shopee.vn/buyer/login');
+  const jar = {};
+  mergeCookies(jar, initRes.setCookies);
+  console.log(`  🍪 Initial cookies: ${Object.keys(jar).join(', ')} (${Date.now() - t0}ms)`);
+  
+  // Step 2: Generate QR code WITH those cookies (so session is linked)
+  console.log('  🚀 Gọi API gen_qrcode...');
+  const res = await shopeeRequest('GET', 'https://shopee.vn/api/v2/authentication/gen_qrcode', null, jarToString(jar));
   
   if (res.status !== 200) throw new Error(`gen_qrcode HTTP ${res.status}`);
   
@@ -236,11 +245,10 @@ async function generateQRCode() {
   const qrId = json.data.qrcode_id;
   const qrBase64 = json.data.qrcode_base64;
   
-  // Collect cookies from response
-  const jar = {};
+  // Merge QR response cookies into jar (keeps csrftoken + adds new ones)
   mergeCookies(jar, res.setCookies);
   
-  console.log(`  ✅ QR tạo xong trong ${Date.now() - t0}ms`);
+  console.log(`  ✅ QR tạo xong trong ${Date.now() - t0}ms | csrftoken: ${jar['csrftoken'] ? 'CÓ' : 'KHÔNG'}`);
   return { qrId, qrImage: 'data:image/png;base64,' + qrBase64, jar };
 }
 
@@ -314,101 +322,38 @@ function startApiPoll(qrId, jar, attemptId) {
               }
            } catch(e) {}
         } else {
-           console.log('  🌐 Dùng Puppeteer để gọi qrcode_login (bypass anti-bot)...');
-           console.log('  📦 Jar cookies:', Object.keys(jar).join(', '));
-           let browser = null;
+           // Fast API-based login (csrftoken đã có sẵn trong jar từ generateQRCode)
+           const csrfToken = jar['csrftoken'] || '';
+           console.log(`  🔑 Gọi qrcode_login (API) | csrftoken: ${csrfToken ? 'CÓ' : 'KHÔNG'} | cookies: ${Object.keys(jar).join(', ')}`);
+           
            try {
-             const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
-             browser = await launchBrowser(proxy);
-             const page = await browser.newPage();
+             const loginRes = await shopeeRequest('POST',
+               'https://shopee.vn/api/v2/authentication/qrcode_login',
+               { qrcode_id: qrId, qrcode_token: qrToken },
+               jarToString(jar),
+               { 'X-CSRFToken': csrfToken, 'Origin': 'https://shopee.vn' }
+             );
              
-             // Step 1: Navigate to lightweight page to get Shopee's own cookies (csrftoken etc.)
-             console.log('  📌 Step 1: Navigate to shopee.vn...');
-             await page.goto('https://shopee.vn/robots.txt', { waitUntil: 'networkidle2', timeout: 30000 });
-             await new Promise(r => setTimeout(r, 1000));
+             console.log(`  📋 Login HTTP ${loginRes.status} | Set-Cookie count: ${loginRes.setCookies.length}`);
+             mergeCookies(jar, loginRes.setCookies);
              
-             // Log what Shopee gave us
-             const shopeeCookies1 = await page.cookies('https://shopee.vn');
-             console.log('  🍪 Shopee cookies sau navigate:', shopeeCookies1.map(c => c.name).join(', '));
-             
-             // Step 2: Inject our QR session cookies ON TOP of Shopee's cookies
-             console.log('  📌 Step 2: Inject jar cookies...');
-             const cookieEntries = Object.entries(jar).map(([name, value]) => ({
-               name, value, domain: '.shopee.vn', path: '/', secure: true, sameSite: 'None',
-             }));
-             if (cookieEntries.length) await page.setCookie(...cookieEntries);
-             
-             // Log merged cookies
-             const mergedCookies = await page.cookies('https://shopee.vn');
-             console.log('  🍪 Merged cookies:', mergedCookies.map(c => c.name).join(', '));
-             
-             // Step 3: Navigate to login page (needed for same-origin fetch)
-             console.log('  📌 Step 3: Navigate to login page...');
-             await page.goto('https://shopee.vn/buyer/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
-             await new Promise(r => setTimeout(r, 2000));
-             
-             // Step 4: Re-inject our jar cookies (page navigation may have overwritten some)
-             console.log('  📌 Step 4: Re-inject jar cookies after page load...');
-             if (cookieEntries.length) await page.setCookie(...cookieEntries);
-             
-             // Step 5: Execute qrcode_login from browser context
-             console.log('  📌 Step 5: Call qrcode_login from browser...');
-             const loginResult = await page.evaluate(async (qrId, qrToken) => {
-               try {
-                 // Get csrftoken from browser cookies
-                 const csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
-                 const csrf = csrfMatch ? csrfMatch[1] : '';
-                 
-                 const res = await fetch('/api/v2/authentication/qrcode_login', {
-                   method: 'POST',
-                   credentials: 'include',
-                   headers: {
-                     'Content-Type': 'application/json',
-                     'X-API-SOURCE': 'pc',
-                     'X-Shopee-Language': 'vi',
-                     'X-Requested-With': 'XMLHttpRequest',
-                     'X-CSRFToken': csrf,
-                   },
-                   body: JSON.stringify({ qrcode_id: qrId, qrcode_token: qrToken }),
-                 });
-                 const text = await res.text();
-                 return { status: res.status, body: text, csrf: csrf };
-               } catch (e) {
-                 return { ok: false, error: e.message };
-               }
-             }, qrId, qrToken);
-             
-             console.log('  📋 Login result:', JSON.stringify(loginResult).substring(0, 300));
-             
-             // Step 6: Wait for cookies to settle after login
-             await new Promise(r => setTimeout(r, 3000));
-             
-             // Step 7: Extract all cookies from browser
-             const browserCookies = await page.cookies('https://shopee.vn');
-             const newJar = {};
-             for (const c of browserCookies) newJar[c.name] = c.value;
-             
-             console.log('  🍪 Final cookies:', Object.keys(newJar).join(', '));
-             console.log('  🔑 SPC_ST exists:', !!newJar['SPC_ST']);
-             
-             const SPC_ST = newJar['SPC_ST'] || '';
+             const SPC_ST = jar['SPC_ST'] || '';
              if (SPC_ST) {
                const keep = ['SPC_ST', 'SPC_F', 'SPC_U', 'SPC_EC', 'SPC_CDS', 'SPC_R_T_ID', 'SPC_R_T_IV'];
                S.cookies = {
-                 SPC_ST: SPC_ST,
-                 SPC_F: newJar['SPC_F'] || '',
-                 all: keep.filter(k => newJar[k]).map(k => ({ name: k, value: newJar[k] })),
+                 SPC_ST, SPC_F: jar['SPC_F'] || '',
+                 all: keep.filter(k => jar[k]).map(k => ({ name: k, value: jar[k] })),
                };
-               console.log('\n🎉 ĐĂNG NHẬP OK (Puppeteer)! SPC_ST:', SPC_ST.substring(0, 50) + '…');
+               console.log('\n🎉 ĐĂNG NHẬP OK! SPC_ST:', SPC_ST.substring(0, 50) + '…');
                
-               // Get user info
+               // Fetch user info (API, fast)
                try {
-                 const info = await page.evaluate(async () => {
-                   const r = await fetch('/api/v4/account/basic/get_account_info', { credentials: 'include' });
-                   const j = await r.json();
-                   return (j.data && j.error === 0) ? j.data : null;
-                 });
-                 if (info) {
+                 const infoRes = await shopeeRequest('GET',
+                   'https://shopee.vn/api/v4/account/basic/get_account_info',
+                   null, jarToString(jar));
+                 const infoJson = JSON.parse(infoRes.body);
+                 if (infoJson.data && infoJson.error === 0) {
+                   const info = infoJson.data;
                    S.userInfo = {
                      username: info.username || info.shopname || '',
                      email: info.email || '',
@@ -426,23 +371,17 @@ function startApiPoll(qrId, jar, attemptId) {
                
                S.status = 'success';
              } else {
-               console.log('  ⚠️ Puppeteer login không trả về SPC_ST');
-               // Show login response for debugging
-               const errMsg = loginResult.body ? loginResult.body.substring(0, 200) : 'no response';
+               // Login API thất bại - log chi tiết
+               console.log('  ⚠️ Không nhận được SPC_ST');
+               console.log('  Response:', loginRes.body.substring(0, 300));
+               console.log('  Set-Cookie:', JSON.stringify(loginRes.setCookies).substring(0, 500));
                S.status = 'error';
-               S.error = 'Puppeteer login (HTTP ' + (loginResult.status||'?') + '): ' + errMsg;
+               S.error = 'Shopee login (HTTP ' + loginRes.status + '): ' + loginRes.body.substring(0, 150);
              }
-           } catch (puppeteerErr) {
-             console.error('  ❌ Puppeteer login error:', puppeteerErr.message);
+           } catch (loginErr) {
+             console.error('  ❌ Login error:', loginErr.message);
              S.status = 'error';
-             S.error = 'Lỗi trình duyệt: ' + puppeteerErr.message;
-           } finally {
-             if (browser) {
-               if (browser.__anonymizedProxyUrl) {
-                 proxyChain.closeAnonymizedProxy(browser.__anonymizedProxyUrl, true).catch(()=>{});
-               }
-               try { await browser.close(); } catch(_){}
-             }
+             S.error = 'Lỗi kết nối: ' + loginErr.message;
            }
         }
       }
