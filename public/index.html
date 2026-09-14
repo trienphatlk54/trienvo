@@ -4405,6 +4405,8 @@ function updateShopeeNotes(key, value) {
 
 
 function getStandardProxyUrl(str) {
+  if (!str) return '';
+  str = str.trim();
   if (str.includes('@')) return str; // Already standard
   const parts = str.split('://');
   if (parts.length === 2) {
@@ -4413,9 +4415,8 @@ function getStandardProxyUrl(str) {
     if (details.length >= 4) {
       const host = details[0];
       const port = details[1];
-      const user = details[2];
-      const pass = details.slice(3).join(':');
-      // Some apps prefer base64 for shadowsocks/socks5, but standard URL is user:pass@host:port
+      const user = encodeURIComponent(details[2]);
+      const pass = encodeURIComponent(details.slice(3).join(':'));
       return protocol + '://' + user + ':' + pass + '@' + host + ':' + port;
     }
   }
@@ -4432,7 +4433,7 @@ function showProxyQR(connStr) {
     height: 300,
     colorDark : "#000000",
     colorLight : "#ffffff",
-    correctLevel : QRCode.CorrectLevel.L
+    correctLevel : QRCode.CorrectLevel.M
   });
   input.value = connStr;
   modal.style.display = 'flex';
@@ -4518,9 +4519,9 @@ async function createFloppyProxy(country) {
         height: 200,
         colorDark : "#000000",
         colorLight : "#ffffff",
-        correctLevel : QRCode.CorrectLevel.L
+        correctLevel : QRCode.CorrectLevel.M
       });
-    }, 50);
+    }, 100);
 
     // Auto-save to Firebase
     await fetch('/api/floppydata/proxies/save', {
