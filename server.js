@@ -345,8 +345,8 @@ function startApiPoll(qrId, jar, attemptId) {
            console.log('  🌐 Dùng Fast Puppeteer để bypass WAF...');
            let browser = null;
            try {
-             // Không dùng proxy ở bước này để đạt tốc độ tối đa (Shopee không check IP ở bước login token)
-             browser = await launchBrowser(null);
+             const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
+             browser = await launchBrowser(proxy);
              const page = await browser.newPage();
              
              // Optimize speed by blocking heavy assets (images, css, fonts)
@@ -374,36 +374,44 @@ function startApiPoll(qrId, jar, attemptId) {
              // Short delay to let Akamai scripts patch window.fetch
              await new Promise(r => setTimeout(r, 1000));
              
-             console.log('  📌 Executing patched fetch...');
+             console.log('  📌 Executing patched XHR...');
              const fakeFp = jar['SPC_F'] || Array.from({length:32}, () => Math.floor(Math.random()*16).toString(16)).join('');
              
              const loginResult = await page.evaluate(async (qrId, qrToken, fFp) => {
-               try {
-                 const csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
-                 const csrf = csrfMatch ? csrfMatch[1] : '';
-                 
-                 const res = await fetch('/api/v2/authentication/qrcode_login', {
-                   method: 'POST',
-                   credentials: 'include',
-                   headers: {
-                     'Content-Type': 'application/json',
-                     'X-API-SOURCE': 'pc',
-                     'X-Shopee-Language': 'vi',
-                     'X-Requested-With': 'XMLHttpRequest',
-                     'X-CSRFToken': csrf,
-                   },
-                   body: JSON.stringify({
+               return new Promise((resolve) => {
+                 try {
+                   const csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
+                   const csrf = csrfMatch ? csrfMatch[1] : '';
+                   
+                   const xhr = new XMLHttpRequest();
+                   xhr.open('POST', '/api/v2/authentication/qrcode_login', true);
+                   xhr.withCredentials = true;
+                   xhr.setRequestHeader('Content-Type', 'application/json');
+                   xhr.setRequestHeader('X-API-SOURCE', 'pc');
+                   xhr.setRequestHeader('X-Shopee-Language', 'vi');
+                   xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                   if (csrf) xhr.setRequestHeader('X-CSRFToken', csrf);
+                   
+                   xhr.onreadystatechange = function() {
+                     if (xhr.readyState === 4) {
+                       resolve({ status: xhr.status, body: xhr.responseText, ok: xhr.status === 200 });
+                     }
+                   };
+                   
+                   xhr.onerror = function() {
+                     resolve({ ok: false, error: 'XHR Network Error' });
+                   };
+                   
+                   xhr.send(JSON.stringify({
                      qrcode_id: qrId,
                      qrcode_token: qrToken,
                      device_sz_fingerprint: fFp,
                      client_identifier: { security_device_fingerprint: fFp }
-                   }),
-                 });
-                 const body = await res.text();
-                 return { status: res.status, body, ok: res.ok };
-               } catch (e) {
-                 return { ok: false, error: e.message };
-               }
+                   }));
+                 } catch (e) {
+                   resolve({ ok: false, error: e.message });
+                 }
+               });
              }, qrId, qrToken, fakeFp);
              
              console.log(`  📋 Result HTTP ${loginResult.status}: ${loginResult.body ? loginResult.body.substring(0, 150) : loginResult.error}`);
