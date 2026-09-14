@@ -315,26 +315,51 @@ function startApiPoll(qrId, jar, attemptId) {
            } catch(e) {}
         } else {
            console.log('  🌐 Dùng Puppeteer để gọi qrcode_login (bypass anti-bot)...');
+           console.log('  📦 Jar cookies:', Object.keys(jar).join(', '));
            let browser = null;
            try {
              const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
              browser = await launchBrowser(proxy);
              const page = await browser.newPage();
              
-             // Set cookies from jar into browser
+             // Step 1: Navigate to lightweight page to get Shopee's own cookies (csrftoken etc.)
+             console.log('  📌 Step 1: Navigate to shopee.vn...');
+             await page.goto('https://shopee.vn/robots.txt', { waitUntil: 'networkidle2', timeout: 30000 });
+             await new Promise(r => setTimeout(r, 1000));
+             
+             // Log what Shopee gave us
+             const shopeeCookies1 = await page.cookies('https://shopee.vn');
+             console.log('  🍪 Shopee cookies sau navigate:', shopeeCookies1.map(c => c.name).join(', '));
+             
+             // Step 2: Inject our QR session cookies ON TOP of Shopee's cookies
+             console.log('  📌 Step 2: Inject jar cookies...');
              const cookieEntries = Object.entries(jar).map(([name, value]) => ({
-               name, value, domain: '.shopee.vn', path: '/',
+               name, value, domain: '.shopee.vn', path: '/', secure: true, sameSite: 'None',
              }));
              if (cookieEntries.length) await page.setCookie(...cookieEntries);
              
-             // Navigate to login page first to establish context
+             // Log merged cookies
+             const mergedCookies = await page.cookies('https://shopee.vn');
+             console.log('  🍪 Merged cookies:', mergedCookies.map(c => c.name).join(', '));
+             
+             // Step 3: Navigate to login page (needed for same-origin fetch)
+             console.log('  📌 Step 3: Navigate to login page...');
              await page.goto('https://shopee.vn/buyer/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
              await new Promise(r => setTimeout(r, 2000));
              
-             // Execute qrcode_login from within browser context
+             // Step 4: Re-inject our jar cookies (page navigation may have overwritten some)
+             console.log('  📌 Step 4: Re-inject jar cookies after page load...');
+             if (cookieEntries.length) await page.setCookie(...cookieEntries);
+             
+             // Step 5: Execute qrcode_login from browser context
+             console.log('  📌 Step 5: Call qrcode_login from browser...');
              const loginResult = await page.evaluate(async (qrId, qrToken) => {
                try {
-                 const res = await fetch('https://shopee.vn/api/v2/authentication/qrcode_login', {
+                 // Get csrftoken from browser cookies
+                 const csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
+                 const csrf = csrfMatch ? csrfMatch[1] : '';
+                 
+                 const res = await fetch('/api/v2/authentication/qrcode_login', {
                    method: 'POST',
                    credentials: 'include',
                    headers: {
@@ -342,27 +367,29 @@ function startApiPoll(qrId, jar, attemptId) {
                      'X-API-SOURCE': 'pc',
                      'X-Shopee-Language': 'vi',
                      'X-Requested-With': 'XMLHttpRequest',
+                     'X-CSRFToken': csrf,
                    },
                    body: JSON.stringify({ qrcode_id: qrId, qrcode_token: qrToken }),
                  });
-                 const data = await res.json();
-                 return { status: res.status, data, ok: true };
+                 const text = await res.text();
+                 return { status: res.status, body: text, csrf: csrf };
                } catch (e) {
                  return { ok: false, error: e.message };
                }
              }, qrId, qrToken);
              
-             console.log('  📋 Login result:', JSON.stringify(loginResult).substring(0, 200));
+             console.log('  📋 Login result:', JSON.stringify(loginResult).substring(0, 300));
              
-             // Wait for cookies to settle
-             await new Promise(r => setTimeout(r, 2000));
+             // Step 6: Wait for cookies to settle after login
+             await new Promise(r => setTimeout(r, 3000));
              
-             // Extract all cookies from browser
+             // Step 7: Extract all cookies from browser
              const browserCookies = await page.cookies('https://shopee.vn');
              const newJar = {};
              for (const c of browserCookies) newJar[c.name] = c.value;
              
-             console.log('  🍪 Browser cookies:', Object.keys(newJar).join(', '));
+             console.log('  🍪 Final cookies:', Object.keys(newJar).join(', '));
+             console.log('  🔑 SPC_ST exists:', !!newJar['SPC_ST']);
              
              const SPC_ST = newJar['SPC_ST'] || '';
              if (SPC_ST) {
@@ -377,7 +404,7 @@ function startApiPoll(qrId, jar, attemptId) {
                // Get user info
                try {
                  const info = await page.evaluate(async () => {
-                   const r = await fetch('https://shopee.vn/api/v4/account/basic/get_account_info', { credentials: 'include' });
+                   const r = await fetch('/api/v4/account/basic/get_account_info', { credentials: 'include' });
                    const j = await r.json();
                    return (j.data && j.error === 0) ? j.data : null;
                  });
@@ -400,8 +427,10 @@ function startApiPoll(qrId, jar, attemptId) {
                S.status = 'success';
              } else {
                console.log('  ⚠️ Puppeteer login không trả về SPC_ST');
+               // Show login response for debugging
+               const errMsg = loginResult.body ? loginResult.body.substring(0, 200) : 'no response';
                S.status = 'error';
-               S.error = 'Đăng nhập qua trình duyệt nhưng không nhận được session cookie.';
+               S.error = 'Puppeteer login (HTTP ' + (loginResult.status||'?') + '): ' + errMsg;
              }
            } catch (puppeteerErr) {
              console.error('  ❌ Puppeteer login error:', puppeteerErr.message);
