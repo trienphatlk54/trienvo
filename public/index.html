@@ -1090,6 +1090,9 @@
       </div>
       <span class="proxy-status-msg" id="proxyStatusMsg" style="display:none;"></span>
     </div>
+    <div style="margin-top: 10px; display: flex; gap: 10px;">
+      <button class="btn btn-secondary btn-sm" id="btnAutoVnProxy" onclick="autoSetVnProxy()" style="font-weight: bold; font-size: 13px; padding: 6px 12px; background: rgba(34,197,94,0.15); border: 1px solid var(--success); color: var(--success);">🇻🇳 Lấy Proxy VN (Tự động)</button>
+    </div>
     <div class="proxy-info" id="proxyInfo" style="display:none;">
       <span>🌍 IP qua proxy:</span>
       <span class="proxy-ip" id="proxyIp"></span>
@@ -2944,6 +2947,49 @@ async function saveProxy() {
     toast('❌ Lỗi: ' + e.message, 'error');
   }
   $('btnSaveProxy' + suf).disabled = false;
+}
+
+async function autoSetVnProxy() {
+  clearProxy();
+  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
+  const suf = isCreate ? '_create' : '';
+  const btnId = 'btnAutoVnProxy' + suf;
+  const btn = document.getElementById(btnId) || $(btnId) || document.getElementById('btnAutoVnProxy');
+  
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang lấy VN Proxy...';
+  }
+
+  try {
+    const r = await fetch('/api/floppydata/create-proxy', {
+      method: 'POST',
+      headers: { ...getFloppyHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ country: 'VN' })
+    });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.error || 'Lỗi tạo proxy Floppydata');
+
+    // Paste into the box
+    const input = $('proxyInput' + suf) || $('proxyInput');
+    // For auto-detect in saveProxy, just paste the SOCKS5 string
+    input.value = d.proxy.connectionString;
+    
+    // Trigger save Proxy
+    await saveProxy();
+    
+    if (typeof loadFloppyProxies === 'function') {
+      loadFloppyProxies();
+      loadFloppyBalance();
+    }
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🇻🇳 Lấy Proxy VN (Tự động)';
+    }
+  }
 }
 
 function clearProxy() {
