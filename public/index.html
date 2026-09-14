@@ -1020,6 +1020,9 @@
             🔄 Làm mới
           </button>
         </div>
+        <button class="btn btn-secondary" id="btnZoomQR" onclick="openQrModal()" style="display:none; width: 100%; margin-top: 10px; font-weight: bold; background: rgba(255,255,255,0.1); border: 1px solid var(--border);">
+          🔍 Phóng to QR
+        </button>
 
         <!-- Success Banner -->
         <div class="success-banner" id="successBanner" style="margin-top: 16px; width: 100%;">
@@ -2676,6 +2679,9 @@ function showOverlay(id) {
     const el = $(o);
     if (el) el.classList.toggle('hidden', o !== id);
   });
+  if (id && document.getElementById('btnZoomQR')) {
+    document.getElementById('btnZoomQR').style.display = 'none';
+  }
 }
 
 // ── Timer ──────────────────────────────────────────────────────────────────────
@@ -2724,10 +2730,15 @@ function setQRImage(src) {
   img.src = src;
   img.style.display = 'block';
   showOverlay(null);
+  
   ['overlayIdle','overlayLoading','overlayExpired','overlayScanned','overlaySuccess'].forEach(o => {
     const el = $(o);
     if (el) el.classList.add('hidden');
   });
+  
+  if (document.getElementById('btnZoomQR')) {
+    document.getElementById('btnZoomQR').style.display = 'block';
+  }
   console.log('[setQRImage] Done, img displayed');
 }
 
@@ -4299,8 +4310,8 @@ async function startVoucherCheck() {
 
 <!-- Fullscreen QR Modal -->
 <div id="qrFullscreenModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; flex-direction:column; justify-content:center; align-items:center;">
-  <button onclick="closeQrModal()" style="position:absolute; top:20px; right:20px; background:var(--error); color:white; border:none; border-radius:8px; padding:10px 20px; font-size:16px; font-weight:bold; cursor: pointer; z-index:10000;">✕ Đóng</button>
-  <img id="qrFullscreenImage" src="" style="max-width:90%; max-height:80%; object-fit:contain; background:white; padding:20px; border-radius:12px;">
+  <button onclick="closeQrModal()" style="position:absolute; top:20px; right:20px; background:var(--error); color:white; border:none; border-radius:8px; padding:10px 20px; font-size:16px; font-weight:bold; cursor: pointer; z-index:10000;">❌ Đóng</button>
+  <img id="qrFullscreenImage" src="" style="height:95vh; max-height:95vh; width:auto; max-width:95vw; object-fit:contain; background:white; padding:20px; border-radius:12px; box-sizing: border-box;">
 </div>
 
 <script>
