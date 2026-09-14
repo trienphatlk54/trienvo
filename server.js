@@ -264,16 +264,6 @@ async function generateQRCode() {
   S.browser = browser;
   S.page = await S.browser.newPage();
   
-  // Optimize speed
-  await S.page.setRequestInterception(true);
-  S.page.on('request', (req) => {
-    const type = req.resourceType();
-    if (['image', 'media', 'font', 'stylesheet'].includes(type)) {
-      req.abort();
-    } else {
-      req.continue();
-    }
-  });
 
   return new Promise((resolve, reject) => {
     let qrResolved = false;
