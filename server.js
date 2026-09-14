@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
@@ -320,138 +320,22 @@ function startApiPoll(qrId, jar, attemptId) {
                     raw: info,
                  };
               }
-           } catch(e) {}
         } else {
-           // Fast Puppeteer approach with WAF bypass (Load time ~500ms)
-           console.log('  🌐 Dùng Fast Puppeteer để bypass WAF...');
-           let browser = null;
-           try {
-             // Không dùng proxy ở bước này để đạt tốc độ tối đa (Shopee không check IP ở bước login token)
-             browser = await launchBrowser(null);
-             const page = await browser.newPage();
-             
-             // Optimize speed by blocking heavy assets (images, css, fonts)
-             await page.setRequestInterception(true);
-             page.on('request', (req) => {
-               const type = req.resourceType();
-               if (['document', 'script', 'xhr', 'fetch'].includes(type)) {
-                 req.continue();
-               } else {
-                 req.abort();
-               }
-             });
-             
-             // Inject jar cookies first
-             const cookieEntries = Object.entries(jar).map(([name, value]) => ({
-               name, value, domain: '.shopee.vn', path: '/', secure: true, sameSite: 'None',
-             }));
-             if (cookieEntries.length) await page.setCookie(...cookieEntries);
-             
-             console.log('  📌 Navigating to buyer/login...');
-             const tLoad = Date.now();
-             await page.goto('https://shopee.vn/buyer/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
-             console.log(`  ⚡ Page loaded in ${Date.now() - tLoad}ms`);
-             
-             // Short delay to let Akamai scripts patch window.fetch
-             await new Promise(r => setTimeout(r, 1000));
-             
-             console.log('  📌 Executing patched fetch...');
-             const fakeFp = jar['SPC_F'] || Array.from({length:32}, () => Math.floor(Math.random()*16).toString(16)).join('');
-             
-             const loginResult = await page.evaluate(async (qrId, qrToken, fFp) => {
-               try {
-                 const csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
-                 const csrf = csrfMatch ? csrfMatch[1] : '';
-                 
-                 const res = await fetch('/api/v2/authentication/qrcode_login', {
-                   method: 'POST',
-                   credentials: 'include',
-                   headers: {
-                     'Content-Type': 'application/json',
-                     'X-API-SOURCE': 'pc',
-                     'X-Shopee-Language': 'vi',
-                     'X-Requested-With': 'XMLHttpRequest',
-                     'X-CSRFToken': csrf,
-                   },
-                   body: JSON.stringify({
-                     qrcode_id: qrId,
-                     qrcode_token: qrToken,
-                     device_sz_fingerprint: fFp,
-                     client_identifier: { security_device_fingerprint: fFp }
-                   }),
-                 });
-                 const body = await res.text();
-                 return { status: res.status, body, ok: res.ok };
-               } catch (e) {
-                 return { ok: false, error: e.message };
-               }
-             }, qrId, qrToken, fakeFp);
-             
-             console.log(`  📋 Result HTTP ${loginResult.status}: ${loginResult.body ? loginResult.body.substring(0, 150) : loginResult.error}`);
-             
-             // Wait briefly for Set-Cookie to apply
-             await new Promise(r => setTimeout(r, 1000));
-             
-             const browserCookies = await page.cookies('https://shopee.vn');
-             const newJar = {};
-             for (const c of browserCookies) newJar[c.name] = c.value;
-             mergeCookies(jar, newJar);
-             
-             const SPC_ST = jar['SPC_ST'] || '';
-             if (SPC_ST) {
-               const keep = ['SPC_ST', 'SPC_F', 'SPC_U', 'SPC_EC', 'SPC_CDS', 'SPC_R_T_ID', 'SPC_R_T_IV'];
-               S.cookies = {
-                 SPC_ST: SPC_ST,
-                 SPC_F: jar['SPC_F'] || '',
-                 all: keep.filter(k => jar[k]).map(k => ({ name: k, value: jar[k] })),
-               };
-               console.log('\n🎉 ĐĂNG NHẬP OK (Fast Puppeteer)! SPC_ST:', SPC_ST.substring(0, 50) + '…');
-               
-               try {
-                 const infoRes = await shopeeRequest('GET', 'https://shopee.vn/api/v4/account/basic/get_account_info', null, jarToString(jar));
-                 const infoJson = JSON.parse(infoRes.body);
-                 if (infoJson.data && infoJson.error === 0) {
-                   const info = infoJson.data;
-                   S.userInfo = {
-                     username: info.username || info.shopname || '',
-                     email: info.email || '',
-                     phone: info.phone || info.phone_number || '',
-                     createdAt: info.ctime || info.created_at || null,
-                     avatar: info.portrait || info.avatar || '',
-                     userid: info.userid || info.user_id || '',
-                     raw: info,
-                   };
-                   console.log('  ✅ User info:', S.userInfo.username);
-                 }
-               } catch (e) {
-                 console.warn('  ⚠️ Lấy user info lỗi:', e.message);
-               }
-               
-               S.status = 'success';
-             } else {
-               console.log('  ⚠️ Không nhận được SPC_ST');
-               S.status = 'error';
-               S.error = 'Puppeteer login (HTTP ' + loginResult.status + '): ' + (loginResult.body ? loginResult.body.substring(0,100) : 'No session');
-             }
-           } catch (err) {
-             console.error('  ❌ Fast Puppeteer error:', err.message);
-             S.status = 'error';
-             S.error = 'Lỗi kết nối Fast Puppeteer: ' + err.message;
-           } finally {
-             if (browser) {
-               if (browser.__anonymizedProxyUrl) {
-                 proxyChain.closeAnonymizedProxy(browser.__anonymizedProxyUrl, true).catch(()=>{});
-               }
-               try { await browser.close(); } catch(_){}
-             }
-           }
+           // Shopee có thể trả 403 cho API nội bộ qrcode_login.
+           // Không cố vượt cơ chế chống bot; yêu cầu người dùng dùng luồng chính thức.
+           console.warn('  ⚠️ Shopee yêu cầu hoàn tất đăng nhập bằng luồng chính thức (HTTP 403).');
+           S.status = 'error';
+           S.error = 'Shopee từ chối yêu cầu đăng nhập QR. Vui lòng dùng luồng đăng nhập/API chính thức hoặc thử lại sau.';
         }
+           }
+         }
       }
     } catch (e) {
       if (!['success', 'idle'].includes(S.status)) console.warn('  ⚠️ poll:', e.message.substring(0, 80));
     }
   }, 2000);
 }
+
 
 // ─── Fetch User Info (kept for backward compat) ─────────────────────
 async function fetchUserInfo(page) {
