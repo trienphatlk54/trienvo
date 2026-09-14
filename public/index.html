@@ -1086,12 +1086,10 @@
       <input class="proxy-input" id="proxyInput" placeholder="ip:port:username:password" spellcheck="false">
       <div class="proxy-btns">
         <button class="btn btn-primary btn-sm" id="btnSaveProxy" onclick="saveProxy()">💾 Lưu Proxy</button>
+        <button class="btn btn-secondary btn-sm" id="btnAutoVnProxy" onclick="autoSetVnProxy()" style="font-weight: bold; background: rgba(34,197,94,0.15); border: 1px solid var(--success); color: var(--success);">🇻🇳 Lấy Proxy VN</button>
         <button class="btn btn-danger btn-sm" id="btnClearProxy" onclick="clearProxy()" style="display:none;">✕</button>
       </div>
       <span class="proxy-status-msg" id="proxyStatusMsg" style="display:none;"></span>
-    </div>
-    <div style="margin-top: 10px; display: flex; gap: 10px;">
-      <button class="btn btn-secondary btn-sm" id="btnAutoVnProxy" onclick="autoSetVnProxy()" style="font-weight: bold; font-size: 13px; padding: 6px 12px; background: rgba(34,197,94,0.15); border: 1px solid var(--success); color: var(--success);">🇻🇳 Lấy Proxy VN (Tự động)</button>
     </div>
     <div class="proxy-info" id="proxyInfo" style="display:none;">
       <span>🌍 IP qua proxy:</span>
@@ -2922,17 +2920,13 @@ async function saveProxy() {
       $('proxyInput' + suf).disabled = true;
       $('proxyType' + suf).disabled = true;
       
-      if (window.usedIpsSet && window.usedIpsSet.has(data.ip)) {
-        toast('⚠️ Cảnh báo: IP ' + data.ip + ' đã được trích xuất/sử dụng trước đó!', 'error', 6000);
-      } else {
-        toast('✅ Proxy hoạt động! IP: ' + data.ip, 'success');
-        fetch('/api/ips/add', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ip: data.ip })
-        });
-        if (window.usedIpsSet) window.usedIpsSet.add(data.ip);
-      }
+      toast('✅ Proxy hoạt động! IP: ' + data.ip, 'success');
+      fetch('/api/ips/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip: data.ip })
+      });
+      if (window.usedIpsSet) window.usedIpsSet.add(data.ip);
     } else {
       msg.className = 'proxy-status-msg err';
       msg.textContent = '❌ ' + (data.error || 'Proxy không hoạt động');
