@@ -906,12 +906,7 @@
       <div class="nav-item" onclick="switchTab('phone')">
         <span class="icon">📱</span> Phone Sessions
       </div>
-      <div class="nav-item" onclick="switchTab('settings')">
-        <span class="nav-icon">⚙️</span> Cài đặt
-      </div>
-      <div class="nav-item" onclick="switchTab('goaffiliate')">
-        <span class="nav-icon">🔗</span> GoAffiliate
-      </div>
+
       <div class="nav-item" onclick="switchTab('vouchercheck')">
         <span class="nav-icon">🎫</span> Voucher Checking
       </div>
@@ -1456,50 +1451,7 @@
   </div>
 
   <!-- Tab 4: Settings Placeholder -->
-  <div id="tab-settings" class="tab-pane">
-    <div class="placeholder-content">
-      <div class="placeholder-icon">⚙️</div>
-      <h3>Cài đặt hệ thống</h3>
-      <p>Cấu hình Webhook, thời gian lưu trữ cookie, quản lý proxy nâng cao và thông báo Telegram.</p>
-    </div>
-  </div>
 
-    <!-- Tab 5: GoAffiliate Converter -->
-    <div id="tab-goaffiliate" class="tab-pane">
-      <div class="main-card" style="max-width: 800px; margin: 0 auto;">
-        <div class="card-header">
-          <h2>🔗 Chuyển đổi GoAffiliate</h2>
-          <p style="color:var(--text-muted); font-size:13px; margin-top:8px;">Tự động chuyển đổi link Shopee sang link tiếp thị liên kết (Affiliate).</p>
-        </div>
-        <div class="card-body" style="padding: 24px; display:flex; flex-direction:column; gap:20px;">
-          <div class="input-group">
-            <label>Link Shopee Gốc:</label>
-            <textarea id="goAffiliateOriginalLink" class="proxy-input" style="height: 100px; resize:vertical; font-family:monospace;" placeholder="Nhập link Shopee vào đây... (VD: https://shopee.vn/...)"></textarea>
-          </div>
-          
-          <button id="btnConvertGoAffiliate" class="btn btn-primary" onclick="convertGoAffiliateLink()" style="align-self:flex-start;">
-            Chuyển Đổi Link
-          </button>
-          
-          <div id="goAffiliateResultArea" style="display:none; flex-direction:column; gap:16px; margin-top: 20px; padding-top:20px; border-top:1px solid var(--border);">
-            <div class="input-group">
-              <label>Link Rút Gọn (Short Link):</label>
-              <div style="display:flex; gap:10px;">
-                <input type="text" id="goAffiliateShortLink" class="proxy-input" readonly="" style="font-family:monospace; color:var(--shopee-dark);">
-                <button class="btn btn-secondary" onclick="copyToClipboard('goAffiliateShortLink')">Copy</button>
-              </div>
-            </div>
-            <div class="input-group">
-              <label>Link Đầy Đủ (Full Link):</label>
-              <div style="display:flex; gap:10px;">
-                <textarea id="goAffiliateFullLink" class="proxy-input" readonly="" style="height:80px; font-family:monospace;"></textarea>
-                <button class="btn btn-secondary" onclick="copyToClipboard('goAffiliateFullLink')">Copy</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
 
     <!-- Tab 6: Voucher Checking -->
@@ -1688,6 +1640,13 @@
               <tr><td colspan="6" style="text-align:center; padding: 20px; color: var(--text-muted);">Chưa có proxy nào</td></tr>
             </tbody>
           </table>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-bottom:4px;">
+            <div id="floppyProxyPageInfo" style="font-size:12px; color:var(--text-muted);">Trang 1 / 1</div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-secondary btn-sm" id="btnPrevFloppyProxy" onclick="changeFloppyProxyPage(-1)" disabled>Trang trước</button>
+              <button class="btn btn-secondary btn-sm" id="btnNextFloppyProxy" onclick="changeFloppyProxyPage(1)" disabled>Trang sau</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -4592,6 +4551,10 @@ async function createFloppyProxy(country) {
   }
 }
 
+let floppyProxyCurrentPage = 1;
+let floppyProxyEntries = [];
+const FLOPPY_PROXY_PAGE_SIZE = 10;
+
 async function loadFloppyProxies() {
   const tbody = document.getElementById('floppyProxyBody');
   if (!tbody) return;
@@ -4600,32 +4563,62 @@ async function loadFloppyProxies() {
   try {
     const r = await fetch('/api/floppydata/proxies');
     const data = await r.json();
-    const entries = Object.entries(data);
+    // Reverse to show newest proxies first
+    floppyProxyEntries = Object.entries(data || {}).reverse(); 
 
-    if (entries.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Chưa có proxy nào</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = entries.map(([id, p], i) => {
-      const flag = p.country === 'US' ? '🇺🇸' : p.country === 'VN' ? '🇻🇳' : '🌍';
-      const connStr = p.connectionString || '';
-      const short = connStr.length > 50 ? connStr.substring(0, 50) + '...' : connStr;
-      return '<tr style="border-bottom: 1px solid var(--border);">' +
-        '<td style="padding:6px;">' + (i+1) + '</td>' +
-        '<td style="padding:6px;">' + flag + ' ' + (p.country||'') + '</td>' +
-        '<td style="padding:6px;">' + (p.state||'—') + '</td>' +
-        '<td style="padding:6px;"><code style="font-size:11px; cursor:pointer;" title="' + connStr + '" onclick="safeCopy(\'' + connStr.replace(/'/g, "\\'") + '\')">' + short + ' 📋</code></td>' +
-        '<td style="padding:6px; font-size:11px; color:var(--text-muted);">' + (p.time||'') + '</td>' +
-        '<td style="padding:6px; display:flex; gap:6px;">' + 
-          '<button class="btn btn-ghost btn-sm" onclick="showProxyQR(\'' + connStr.replace(/'/g, "\\'") + '\')" title="Hiển thị mã QR">📱 QR</button>' +
-          '<button class="btn btn-danger btn-sm" onclick="deleteFloppyProxy(\'' + id + '\')">🗑️</button>' +
-        '</td>' +
-        '</tr>';
-    }).join('');
+    floppyProxyCurrentPage = 1;
+    renderFloppyProxyTable();
   } catch(e) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--shopee);">❌ ' + e.message + '</td></tr>';
   }
+}
+
+function renderFloppyProxyTable() {
+  const tbody = document.getElementById('floppyProxyBody');
+  if (!tbody) return;
+
+  if (floppyProxyEntries.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Chưa có proxy nào</td></tr>';
+    document.getElementById('floppyProxyPageInfo').textContent = 'Trang 1 / 1';
+    document.getElementById('btnPrevFloppyProxy').disabled = true;
+    document.getElementById('btnNextFloppyProxy').disabled = true;
+    return;
+  }
+
+  const totalPages = Math.ceil(floppyProxyEntries.length / FLOPPY_PROXY_PAGE_SIZE);
+  if (floppyProxyCurrentPage > totalPages) floppyProxyCurrentPage = totalPages;
+  if (floppyProxyCurrentPage < 1) floppyProxyCurrentPage = 1;
+
+  const start = (floppyProxyCurrentPage - 1) * FLOPPY_PROXY_PAGE_SIZE;
+  const end = start + FLOPPY_PROXY_PAGE_SIZE;
+  const pageEntries = floppyProxyEntries.slice(start, end);
+
+  tbody.innerHTML = pageEntries.map(([id, p], i) => {
+    const flag = p.country === 'US' ? '🇺🇸' : p.country === 'VN' ? '🇻🇳' : '🌍';
+    const connStr = p.connectionString || '';
+    const short = connStr.length > 50 ? connStr.substring(0, 50) + '...' : connStr;
+    const absIndex = start + i + 1;
+    return '<tr style="border-bottom: 1px solid var(--border);">' +
+      '<td style="padding:6px;">' + absIndex + '</td>' +
+      '<td style="padding:6px;">' + flag + ' ' + (p.country||'') + '</td>' +
+      '<td style="padding:6px;">' + (p.state||'—') + '</td>' +
+      '<td style="padding:6px;"><code style="font-size:11px; cursor:pointer;" title="' + connStr + '" onclick="safeCopy(\'' + connStr.replace(/'/g, "\\'") + '\')">' + short + ' 📋</code></td>' +
+      '<td style="padding:6px; font-size:11px; color:var(--text-muted);">' + (p.time||'') + '</td>' +
+      '<td style="padding:6px; display:flex; gap:6px;">' + 
+        '<button class="btn btn-ghost btn-sm" onclick="showProxyQR(\'' + connStr.replace(/'/g, "\\'") + '\')" title="Hiển thị mã QR">📱 QR</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="deleteFloppyProxy(\'' + id + '\')">🗑️</button>' +
+      '</td>' +
+      '</tr>';
+  }).join('');
+
+  document.getElementById('floppyProxyPageInfo').textContent = `Trang ${floppyProxyCurrentPage} / ${totalPages}`;
+  document.getElementById('btnPrevFloppyProxy').disabled = floppyProxyCurrentPage <= 1;
+  document.getElementById('btnNextFloppyProxy').disabled = floppyProxyCurrentPage >= totalPages;
+}
+
+function changeFloppyProxyPage(delta) {
+  floppyProxyCurrentPage += delta;
+  renderFloppyProxyTable();
 }
 
 async function deleteFloppyProxy(id) {
