@@ -1151,35 +1151,33 @@
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
         
         <!-- Cột 1: Chọn máy lưu tài khoản -->
-        <div style="padding: 12px 16px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);">
-          <div style="font-size: 13px; font-weight: 600; color: var(--shopee-light); margin-bottom: 8px;">① Chọn máy lưu tài khoản</div>
-          <div class="card-body" style="display: flex; flex-direction: column; gap: 8px; padding: 0;">
-            <input type="text" id="phoneSelectSearch" class="proxy-input" placeholder="🔍 Lọc theo Số định danh hoặc Loại..." onkeyup="renderPhoneSelect()" style="max-width: 100%; border: 1px solid var(--border);">
-            <div id="phoneSelectList" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; padding-right: 5px; margin-top: 10px;">
+        <div style="padding: 16px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+          <div style="font-size: 13px; font-weight: 600; color: var(--shopee-light); margin-bottom: 12px;">① Chọn máy lưu tài khoản</div>
+          <div class="card-body" style="display: flex; flex-direction: column; padding: 0;">
+            <input type="text" id="phoneSelectSearch" class="proxy-input" placeholder="🔍 Lọc theo Số định danh hoặc Loại..." onkeyup="renderPhoneSelect()" style="width: 100%; border: 1px solid var(--border); margin-bottom: 8px;">
+            <div id="phoneSelectList" style="display: flex; flex-direction: column; gap: 6px; height: 125px; overflow-y: auto; padding-right: 4px;">
               <div style="color:var(--text-muted); text-align: center; padding: 10px;">Đang tải danh sách...</div>
             </div>
-            <div id="selectedPhoneDisplay" style="margin-top: 10px; padding: 12px; background: rgba(238,77,45,0.1); border-radius: 8px; border: 1px solid var(--shopee-light); display: none; align-items: center; justify-content: space-between;">
-              <div><strong style="color:var(--shopee-light);">Đã chọn máy:</strong> <span id="selectedPhoneText" style="font-weight:bold; font-size: 16px;"></span></div>
+            <div id="selectedPhoneDisplay" style="margin-top: 8px; padding: 10px 12px; background: rgba(238,77,45,0.05); border-radius: 6px; border: 1px dashed var(--shopee-light); display: none; align-items: center; justify-content: space-between;">
+              <div><strong style="color:var(--shopee-light);">Đã chọn máy:</strong> <span id="selectedPhoneText" style="font-weight:bold; font-size: 15px;"></span></div>
               <button class="btn btn-ghost btn-sm" onclick="clearSelectedPhone()">❌ Bỏ chọn</button>
             </div>
           </div>
         </div>
 
         <!-- Cột 2: Tạo mật khẩu -->
-        <div style="padding: 12px 16px; border-bottom: 1px solid var(--border);">
-          <div style="font-size: 13px; font-weight: 600; color: var(--shopee-light); margin-bottom: 8px;">② Tạo mật khẩu</div>
-          <div class="card-body" style="padding: 0px;">
-            <div class="pwd-generator" style="gap: 10px; flex-direction: column; align-items: stretch;">
-              <div class="pwd-input-group" style="display:flex; flex-direction:column; align-items:center;">
-                <input type="text" class="pwd-display" id="generatedPassword" placeholder="Nhập hoặc tạo mật khẩu" style="width: 100%; border: 1px solid var(--border); background: var(--bg); color: var(--shopee-light); text-align: center; font-size: 18px; padding: 8px; border-radius: 8px; margin-bottom: 10px; font-weight: bold;" oninput="updatePasswordQR()">
-                <div style="display:flex; gap:10px; justify-content:center; margin-bottom: 10px;">
-                  <button class="btn btn-primary" onclick="generatePassword(true)">
-                    🎲 Tạo Mật Khẩu Khác
-                  </button>
-                </div>
+        <div style="padding: 16px; border-bottom: 1px solid var(--border);">
+          <div style="font-size: 13px; font-weight: 600; color: var(--shopee-light); margin-bottom: 12px;">② Tạo mật khẩu</div>
+          <div class="card-body" style="padding: 0px; height: 100%; display: flex; align-items: center;">
+            <div class="pwd-generator" style="gap: 16px; margin-bottom: 0; width: 100%; align-items: center;">
+              <div class="pwd-input-group" style="gap: 12px;">
+                <input type="text" class="pwd-display" id="generatedPassword" placeholder="Nhập hoặc tạo mật khẩu" style="width: 100%; border: 1px solid var(--border); background: var(--bg); color: var(--shopee-light); text-align: center; font-size: 20px; padding: 12px; border-radius: 8px; font-weight: bold; margin: 0;" oninput="updatePasswordQR()">
+                <button class="btn btn-primary" onclick="generatePassword(true)" style="width: 100%; padding: 10px;">
+                  🎲 Tạo Mật Khẩu Khác
+                </button>
               </div>
-              <div class="qr-preview-box" style="width: 100px; height: 100px; margin: 0 auto;">
-                <img id="pwdQrImage" src="" alt="Mật khẩu QR">
+              <div class="qr-preview-box" style="width: 110px; height: 110px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #fff; padding: 5px; border-radius: 8px; border: 1px solid var(--border);">
+                <img id="pwdQrImage" src="" alt="Mật khẩu QR" style="max-width: 100%; max-height: 100%;">
               </div>
             </div>
           </div>
@@ -1191,13 +1189,15 @@
       <div style="padding: 12px 16px;">
         <div style="font-size: 13px; font-weight: 600; color: var(--shopee-light); margin-bottom: 8px;">③ Lấy số điện thoại</div>
         <div style="padding: 8px 0px; border-bottom: 1px solid var(--border);">
-          <select id="phoneMethodSelect" class="proxy-select" style="width:100%; font-size:14px; font-weight:500; cursor:pointer;" onchange="togglePhoneMethod()">
+        <select id="phoneMethodSelect" class="proxy-select" style="width:100%; font-size:14px; font-weight:500; cursor:pointer;" onchange="togglePhoneMethod()">
+          <option value="" selected disabled>Chọn phương thức thuê SIM</option>
           <option value="365otp">Thuê SIM Nhận OTP (365otp)</option>
           <option value="funotp">Thuê SIM Nhận OTP (FunOTP)</option>
           <option value="otisx">Thuê SIM Nhận OTP (Otisx)</option>
           <option value="manual">Nhập số điện thoại thủ công</option>
         </select>
-      </div><div id="methodApiBlock" class="card-body" style="grid-template-columns: 1fr; padding: 12px 16px; display: block;">
+      </div>
+      <div id="methodApiBlock" class="card-body" style="grid-template-columns: 1fr; padding: 12px 16px; display: none;">
         <div style="display:flex; justify-content:space-between; margin-bottom: 16px;">
           <h3 style="font-size:14px; margin:0; color:var(--text-muted);">Tự động chờ lấy mã xác nhận từ API</h3>
           <div style="text-align:right;">
@@ -1764,6 +1764,11 @@ const $ = id => {
 // ── Toggling Phone Method ──────────────────────────────────────────────────────
 function togglePhoneMethod() {
   const method = document.getElementById('phoneMethodSelect').value;
+  if (!method) {
+    document.getElementById('methodApiBlock').style.display = 'none';
+    document.getElementById('methodManualBlock').style.display = 'none';
+    return;
+  }
   if (method === '365otp' || method === 'funotp' || method === 'otisx') {
     document.getElementById('methodApiBlock').style.display = 'block';
     document.getElementById('methodManualBlock').style.display = 'none';
