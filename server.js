@@ -330,8 +330,9 @@ function startApiPoll(qrId, jar, attemptId) {
             // Login API didn't return SPC_ST, but maybe cookies from status polling already have it
             console.log('  ⚠️ Login API không trả về SPC_ST, kiểm tra cookies...');
             console.log('  Cookies hiện có:', Object.keys(jar).join(', '));
+            console.log('  Login API Response Body:', loginRes.body);
             S.status = 'error';
-            S.error = 'Đăng nhập thành công nhưng không nhận được session cookie.';
+            S.error = 'Lỗi Shopee: ' + (loginRes.body ? loginRes.body.substring(0, 150) : 'Không có phản hồi');
           }
         } catch (loginErr) {
           console.error('  ❌ Login error:', loginErr.message);
