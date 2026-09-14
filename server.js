@@ -241,266 +241,146 @@ function jarToString(jar) {
   return Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
 }
 
-// ─── Background Browser ──────────────────────────────────────────────
-async function prepareBrowserInBackground(jar, proxyConfig, attemptId) {
-  try {
-    const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
-    console.log('  🌐 [Background] Đang tải trước trình duyệt ngầm để lấy chữ ký WAF...');
-    
-    const browser = await launchBrowser(proxy);
-    if (S.attemptId !== attemptId) {
-      if (browser.__anonymizedProxyUrl) proxyChain.closeAnonymizedProxy(browser.__anonymizedProxyUrl, true).catch(()=>{});
-      try { await browser.close(); } catch(_){}
-      return;
-    }
-    
-    S.browser = browser;
-    S.page = await S.browser.newPage();
-    
-    // Inject initial cookies
-    const cookieEntries = Object.entries(jar).map(([name, value]) => ({
-      name, value, domain: '.shopee.vn', path: '/', secure: true, sameSite: 'None',
-    }));
-    if (cookieEntries.length) await S.page.setCookie(...cookieEntries);
-    
-    if (S.attemptId !== attemptId) return;
-    
-    console.log('  🌐 [Background] Đang truy cập buyer/login chờ WAF script...');
-    await S.page.goto('https://shopee.vn/buyer/login', { waitUntil: 'networkidle2', timeout: 45000 });
-    
-    console.log('  🌐 [Background] Trình duyệt đã sẵn sàng chờ điện thoại quét QR!');
-  } catch (err) {
-    console.error('  ❌ [Background] Lỗi tải trình duyệt ngầm:', err.message);
-  }
-}
 
-// ─── Fast QR Generation via Shopee API ──────────────────────────────
+// --- Native QR Generation & Session Polling via Puppeteer ----------------
 async function generateQRCode() {
+  const attemptId = S.attemptId;
   const t0 = Date.now();
   
-  // Step 1: Visit login page to collect csrftoken + initial cookies
-  console.log('  🚀 Lấy csrftoken từ shopee.vn...');
-  const initRes = await shopeeRequest('GET', 'https://shopee.vn/buyer/login');
-  const jar = {};
-  mergeCookies(jar, initRes.setCookies);
-  console.log(`  🍪 Initial cookies: ${Object.keys(jar).join(', ')} (${Date.now() - t0}ms)`);
+  if (S.browser) {
+    if (S.browser.__anonymizedProxyUrl) proxyChain.closeAnonymizedProxy(S.browser.__anonymizedProxyUrl, true).catch(()=>{});
+    try { await S.browser.close(); } catch(_){}
+  }
   
-  // Step 2: Generate QR code WITH those cookies (so session is linked)
-  console.log('  🚀 Gọi API gen_qrcode...');
-  const res = await shopeeRequest('GET', 'https://shopee.vn/api/v2/authentication/gen_qrcode', null, jarToString(jar));
+  const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
+  console.log('  ?? Kh?i t?o tr�nh duy?t ng?m Native (bypass WAF tuy?t d?i)...');
+  const browser = await launchBrowser(proxy);
+  if (S.attemptId !== attemptId) {
+    if (browser.__anonymizedProxyUrl) proxyChain.closeAnonymizedProxy(browser.__anonymizedProxyUrl, true).catch(()=>{});
+    try { await browser.close(); } catch(_){}
+    throw new Error('Superseded');
+  }
   
-  if (res.status !== 200) throw new Error(`gen_qrcode HTTP ${res.status}`);
+  S.browser = browser;
+  S.page = await S.browser.newPage();
   
-  const json = JSON.parse(res.body);
-  if (json.error !== 0) throw new Error(`gen_qrcode error: ${json.error_msg || json.error}`);
-  
-  const qrId = json.data.qrcode_id;
-  const qrBase64 = json.data.qrcode_base64;
-  
-  // Merge QR response cookies into jar (keeps csrftoken + adds new ones)
-  mergeCookies(jar, res.setCookies);
-  
-  console.log(`  ✅ QR tạo xong trong ${Date.now() - t0}ms | csrftoken: ${jar['csrftoken'] ? 'CÓ' : 'KHÔNG'}`);
-  return { qrId, qrImage: 'data:image/png;base64,' + qrBase64, jar };
+  // Optimize speed
+  await S.page.setRequestInterception(true);
+  S.page.on('request', (req) => {
+    const type = req.resourceType();
+    if (['image', 'media', 'font', 'stylesheet'].includes(type)) {
+      req.abort();
+    } else {
+      req.continue();
+    }
+  });
+
+  return new Promise((resolve, reject) => {
+    let qrResolved = false;
+    let fallbackTimeout = setTimeout(() => {
+      if (!qrResolved) reject(new Error('Timeout ch? QR t? Shopee (c� th? do proxy ch?m ho?c b? Shopee ch?n)'));
+    }, 20000);
+
+    S.page.on('response', async (res) => {
+      if (S.attemptId !== attemptId) return;
+      const url = res.url();
+      if (url.includes('gen_qrcode')) {
+        try {
+          const json = await res.json();
+          if (json.error === 0 && json.data) {
+            qrResolved = true;
+            clearTimeout(fallbackTimeout);
+            const qrId = json.data.qrcode_id;
+            const qrBase64 = json.data.qrcode_base64;
+            console.log('  ? L?y m� QR native th�nh c�ng (' + (Date.now() - t0) + 'ms) | qrId: ' + qrId.substring(0, 8) + '...');
+            resolve({ qrImage: 'data:image/png;base64,' + qrBase64 });
+            
+            // Start monitoring session natively
+            startNativeSessionMonitor(attemptId);
+          }
+        } catch(e) {}
+      }
+      
+      if (url.includes('qrcode_status')) {
+        try {
+          const json = await res.json();
+          if (json.data && json.data.status) {
+            const st = json.data.status;
+            if (st === 'SCANNED' && S.status !== 'scanned') {
+              S.status = 'scanned';
+              console.log('  ?? QR d� du?c qu�t! Vui l�ng x�c nh?n tr�n ?ng d?ng Shopee...');
+            } else if (st === 'EXPIRED') {
+              S.status = 'expired';
+            }
+          }
+        } catch(e) {}
+      }
+    });
+
+    console.log('  ?? �ang truy c?p buyer/login/qr...');
+    S.page.goto('https://shopee.vn/buyer/login/qr').catch(e => {
+       if (!qrResolved) reject(e);
+    });
+  });
 }
 
-// ─── Poll QR Status via API ─────────────────────────────────────────
-function startApiPoll(qrId, jar, attemptId) {
+function startNativeSessionMonitor(attemptId) {
   clearInterval(S.poll);
-  console.log('  ⏳ Bắt đầu poll trạng thái QR...');
   
   S.poll = setInterval(async () => {
-    if (['success', 'error', 'idle'].includes(S.status)) { clearInterval(S.poll); return; }
     if (S.attemptId !== attemptId) { clearInterval(S.poll); return; }
+    if (!S.page || S.page.isClosed()) return;
     
     try {
-      const cookieStr = jarToString(jar);
-      const statusRes = await shopeeRequest('GET',
-        `https://shopee.vn/api/v2/authentication/qrcode_status?qrcode_id=${encodeURIComponent(qrId)}`,
-        null, cookieStr);
+      const cookies = await S.page.cookies('https://shopee.vn');
+      const spc_st = cookies.find(c => c.name === 'SPC_ST');
       
-      mergeCookies(jar, statusRes.setCookies);
-      
-      if (statusRes.status !== 200) return;
-      const statusJson = JSON.parse(statusRes.body);
-      const qrStatus = statusJson.data?.status;
-      const qrToken = statusJson.data?.qrcode_token;
-      
-      if (qrStatus === 'CONFIRMED' || qrStatus === 'SCANNED') {
-        if (S.status === 'ready') {
-          S.status = 'scanned';
-          console.log('  📲 QR đã quét!');
-        }
-      }
-      
-      if (qrStatus === 'EXPIRED') {
-        S.status = 'expired';
-        console.log('  ⏰ QR hết hạn');
+      if (spc_st && S.status !== 'success') {
         clearInterval(S.poll);
-        return;
-      }
-      
-      // If we got a token, try to login or skip if we already have the cookie
-      if (qrToken || jar['SPC_ST']) {
-        console.log('  🔑 QR đã CONFIRMED...');
-        clearInterval(S.poll);
+        console.log('\n?? �ANG NH?P NATIVE OK! SPC_ST:', spc_st.value.substring(0, 50) + '�');
         
-        // Sometimes qrcode_status already sets the cookies!
-        if (jar['SPC_ST']) {
-           console.log('  ✅ Đã nhận được SPC_ST từ qrcode_status, bỏ qua qrcode_login');
-           const keep = ['SPC_ST', 'SPC_F', 'SPC_U', 'SPC_EC', 'SPC_CDS', 'SPC_R_T_ID', 'SPC_R_T_IV'];
-           S.cookies = {
-             SPC_ST: jar['SPC_ST'],
-             SPC_F: jar['SPC_F'] || '',
-             all: keep.filter(k => jar[k]).map(k => ({ name: k, value: jar[k] })),
-           };
-           S.status = 'success';
-           
-           // Fetch user info
-           try {
-              const infoRes = await shopeeRequest('GET', 'https://shopee.vn/api/v4/account/basic/get_account_info', null, jarToString(jar));
-              const infoJson = JSON.parse(infoRes.body);
-              if (infoJson.data && infoJson.error === 0) {
-                 const info = infoJson.data;
-                 S.userInfo = {
-                    username: info.username || info.shopname || '',
-                    email: info.email || '',
-                    phone: info.phone || info.phone_number || '',
-                    createdAt: info.ctime || info.created_at || null,
-                    avatar: info.portrait || info.avatar || '',
-                    userid: info.userid || info.user_id || '',
-                    raw: info,
-                 };
-              }
-           } catch(e) {}
-        } else {
-           // Dùng trình duyệt ngầm đã được tải sẵn từ lúc tạo QR
-           console.log('  ⚡ Gọi qrcode_login qua Trình duyệt ngầm (bypass WAF)...');
-           const t0 = Date.now();
-           try {
-             let waitLimit = 40; // Wait up to 20s for S.page
-             while (!S.page && waitLimit > 0) {
-               await new Promise(r => setTimeout(r, 500));
-               waitLimit--;
-             }
-             
-             if (!S.page) {
-               throw new Error('Trình duyệt ngầm chưa sẵn sàng, vui lòng tạo lại mã QR hoặc chờ tải xong!');
-             }
-             
-             // Inject the latest jar cookies
-             const cookieEntries = Object.entries(jar).map(([name, value]) => ({
-               name, value, domain: '.shopee.vn', path: '/', secure: true, sameSite: 'None',
-             }));
-             if (cookieEntries.length) await S.page.setCookie(...cookieEntries);
-             
-             // Wait briefly to ensure cookies apply
-             await new Promise(r => setTimeout(r, 500));
-             
-             const fakeFp = jar['SPC_F'] || Array.from({length:32}, () => Math.floor(Math.random()*16).toString(16)).join('');
-             
-             const loginResult = await S.page.evaluate(async (qrId, qrToken, fFp) => {
-               return new Promise((resolve) => {
-                 try {
-                   const csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
-                   const csrf = csrfMatch ? csrfMatch[1] : '';
-                   
-                   const xhr = new XMLHttpRequest();
-                   xhr.open('POST', '/api/v2/authentication/qrcode_login', true);
-                   xhr.withCredentials = true;
-                   xhr.setRequestHeader('Content-Type', 'application/json');
-                   xhr.setRequestHeader('X-API-SOURCE', 'pc');
-                   xhr.setRequestHeader('X-Shopee-Language', 'vi');
-                   xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-                   if (csrf) xhr.setRequestHeader('X-CSRFToken', csrf);
-                   
-                   xhr.onreadystatechange = function() {
-                     if (xhr.readyState === 4) {
-                       resolve({ status: xhr.status, body: xhr.responseText, ok: xhr.status === 200 });
-                     }
-                   };
-                   
-                   xhr.onerror = function() {
-                     resolve({ ok: false, error: 'XHR Network Error' });
-                   };
-                   
-                   xhr.send(JSON.stringify({
-                     qrcode_id: qrId,
-                     qrcode_token: qrToken,
-                     device_sz_fingerprint: fFp,
-                     client_identifier: { security_device_fingerprint: fFp }
-                   }));
-                 } catch (e) {
-                   resolve({ ok: false, error: e.message });
-                 }
-               });
-             }, qrId, qrToken, fakeFp);
-             
-             console.log(`  📋 Result HTTP ${loginResult.status} (sau ${Date.now() - t0}ms): ${loginResult.body ? loginResult.body.substring(0, 150) : loginResult.error}`);
-             
-             await new Promise(r => setTimeout(r, 500));
-             
-             const browserCookies = await S.page.cookies('https://shopee.vn');
-             const newJar = {};
-             for (const c of browserCookies) newJar[c.name] = c.value;
-             Object.assign(jar, newJar);
-             
-             const SPC_ST = jar['SPC_ST'] || '';
-             if (SPC_ST) {
-               const keep = ['SPC_ST', 'SPC_F', 'SPC_U', 'SPC_EC', 'SPC_CDS', 'SPC_R_T_ID', 'SPC_R_T_IV'];
-               S.cookies = {
-                 SPC_ST: SPC_ST,
-                 SPC_F: jar['SPC_F'] || '',
-                 all: keep.filter(k => jar[k]).map(k => ({ name: k, value: jar[k] })),
-               };
-               console.log('\n🎉 ĐĂNG NHẬP OK (Fast Puppeteer)! SPC_ST:', SPC_ST.substring(0, 50) + '…');
-               
-               try {
-                 const infoRes = await shopeeRequest('GET', 'https://shopee.vn/api/v4/account/basic/get_account_info', null, jarToString(jar));
-                 const infoJson = JSON.parse(infoRes.body);
-                 if (infoJson.data && infoJson.error === 0) {
-                   const info = infoJson.data;
-                   S.userInfo = {
-                     username: info.username || info.shopname || '',
-                     email: info.email || '',
-                     phone: info.phone || info.phone_number || '',
-                     createdAt: info.ctime || info.created_at || null,
-                     avatar: info.portrait || info.avatar || '',
-                     userid: info.userid || info.user_id || '',
-                     raw: info,
-                   };
-                   console.log('  ✅ User info:', S.userInfo.username);
-                 }
-               } catch (e) {
-                 console.warn('  ⚠️ Lấy user info lỗi:', e.message);
-               }
-               
-               S.status = 'success';
-             } else {
-               console.log('  ⚠️ Không nhận được SPC_ST');
-               S.status = 'error';
-               S.error = 'Puppeteer login (HTTP ' + loginResult.status + '): ' + (loginResult.body ? loginResult.body.substring(0,100) : 'No session');
-             }
-           } catch (err) {
-             console.error('  ❌ Fast Puppeteer error:', err.message);
-             S.status = 'error';
-             S.error = 'Lỗi kết nối Fast Puppeteer: ' + err.message;
-           } finally {
-             if (S.browser) {
-               if (S.browser.__anonymizedProxyUrl) {
-                 proxyChain.closeAnonymizedProxy(S.browser.__anonymizedProxyUrl, true).catch(()=>{});
-               }
-               try { await S.browser.close(); } catch(_){}
-               S.browser = null;
-               S.page = null;
-             }
-           }
+        // Save cookies
+        const keep = ['SPC_ST', 'SPC_F', 'SPC_U', 'SPC_EC', 'SPC_CDS', 'SPC_R_T_ID', 'SPC_R_T_IV'];
+        S.cookies = {
+          SPC_ST: spc_st.value,
+          SPC_F: cookies.find(c => c.name === 'SPC_F')?.value || '',
+          all: cookies.filter(c => keep.includes(c.name)).map(c => ({ name: c.name, value: c.value }))
+        };
+        
+        // Fetch User Info using the same browser
+        try {
+          const infoJson = await S.page.evaluate(async () => {
+             const r = await fetch('/api/v4/account/basic/get_account_info');
+             return await r.json();
+          });
+          if (infoJson.data && infoJson.error === 0) {
+            const info = infoJson.data;
+            S.userInfo = {
+              username: info.username || info.shopname || '',
+              email: info.email || '',
+              phone: info.phone || info.phone_number || '',
+              createdAt: info.ctime || info.created_at || null,
+              avatar: info.portrait || info.avatar || '',
+              userid: info.userid || info.user_id || '',
+              raw: info,
+            };
+            console.log('  ? User info:', S.userInfo.username);
+          }
+        } catch(e) {
+          console.warn('  ?? L?i l?y user info native:', e.message);
+        }
+        
+        S.status = 'success';
+        
+        // Cleanup browser
+        if (S.browser) {
+          if (S.browser.__anonymizedProxyUrl) proxyChain.closeAnonymizedProxy(S.browser.__anonymizedProxyUrl, true).catch(()=>{});
+          try { await S.browser.close(); } catch(_){}
+          S.browser = null; S.page = null;
         }
       }
-    } catch (e) {
-      if (!['success', 'idle'].includes(S.status)) console.warn('  ⚠️ poll:', e.message.substring(0, 80));
-    }
-  }, 2000);
+    } catch(e) {}
+  }, 1000);
 }
 
 // ─── Fetch User Info (kept for backward compat) ─────────────────────
@@ -697,33 +577,29 @@ app.post('/api/start', async (_req, res) => {
     S.status = 'ready';
     S.expiresAt = Date.now() + QR_TTL;
 
-    prepareBrowserInBackground(qrData.jar, proxyConfig, myAttemptId);
-
     S.expire = setTimeout(() => {
       if (S.status === 'ready') { S.status = 'expired'; console.log('  ⏰ QR hết hạn'); }
     }, QR_TTL - 30000);
 
-    startApiPoll(qrData.qrId, qrData.jar, myAttemptId);
     console.log('  ✅ QR sẵn sàng\n');
   } catch(e) {
-    if (S.attemptId !== myAttemptId) return; // Ignore errors from old tasks
-    console.error('❌ /api/start error:', e.message);
-    S.status = 'error'; S.error = e.message;
-    try { await reset(); } catch(_) {}
+    if (S.attemptId === myAttemptId) {
+      S.status = 'error';
+      S.error = e.message;
+      console.error('  ❌ Lỗi lấy QR:', e.message);
+    }
   }
 });
 
 // ─── POST /api/refresh ─────────────────────────────────────────────
 app.post('/api/refresh', async (_req, res) => {
-  S.attemptId++;
-  const myAttemptId = S.attemptId;
-  clearTimeout(S.expire); clearInterval(S.poll);
+  const myAttemptId = Date.now();
+  S.attemptId = myAttemptId;
+  await reset();
   S.status = 'loading';
-  S.qrImage = null;
   S.error = null;
-  res.json({ success:true, status:'loading', message:'Đang làm mới QR...' });
+  res.json({ success:true, status:'loading', message:'Đang tải mã QR mới...' });
 
-  console.log('\n🔄 Refresh QR...');
   const proxy = proxyConfig && proxyConfig.verified ? proxyConfig : null;
 
   try {
@@ -734,13 +610,10 @@ app.post('/api/refresh', async (_req, res) => {
     S.status = 'ready';
     S.expiresAt = Date.now() + QR_TTL;
 
-    prepareBrowserInBackground(qrData.jar, proxyConfig, myAttemptId);
-
     S.expire = setTimeout(() => {
       if (S.status === 'ready') { S.status = 'expired'; console.log('  ⏰ QR hết hạn'); }
     }, QR_TTL - 30000);
 
-    startApiPoll(qrData.qrId, qrData.jar, myAttemptId);
     console.log('  ✅ QR làm mới thành công\n');
   } catch(e) {
     if (S.attemptId !== myAttemptId) return; // Ignore errors from old tasks
