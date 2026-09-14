@@ -2970,10 +2970,15 @@ async function autoSetVnProxy() {
     const d = await r.json();
     if (!d.success) throw new Error(d.error || 'Lỗi tạo proxy Floppydata');
 
+    const conn = d.connection;
+    if (!conn) throw new Error('Không nhận được thông tin kết nối từ Floppydata');
+    
+    // Build the proxy string: protocol://host:port:user:pass
+    const formattedConnString = `${conn.protocol}://${conn.host}:${conn.port}:${conn.username}:${conn.password}`;
+
     // Paste into the box
     const input = $('proxyInput' + suf) || $('proxyInput');
-    // For auto-detect in saveProxy, just paste the SOCKS5 string
-    input.value = d.proxy.connectionString;
+    input.value = formattedConnString;
     
     // Trigger save Proxy
     await saveProxy();
