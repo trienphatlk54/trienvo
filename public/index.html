@@ -2763,16 +2763,16 @@ function displayUserInfo(info) {
     const ts = typeof ctime === 'number' && ctime < 2000000000 ? ctime * 1000 : ctime;
     const d = new Date(ts);
     if (!isNaN(d.getTime())) {
-      $('infoCreatedAt').textContent = d.toLocaleDateString('vi-VN', {
+      $('infoCreated').textContent = d.toLocaleDateString('vi-VN', {
         year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit'
       });
     } else {
-      $('infoCreatedAt').textContent = String(ctime);
+      $('infoCreated').textContent = String(ctime);
     }
   } else {
-    $('infoCreatedAt').textContent = '(Không có)';
-    $('infoCreatedAt').classList.add('masked');
+    $('infoCreated').textContent = '(Không có)';
+    $('infoCreated').classList.add('masked');
   }
 
   // Log raw data cho debug
