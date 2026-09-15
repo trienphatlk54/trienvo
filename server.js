@@ -320,159 +320,117 @@ function startApiPoll(qrId, jar, attemptId) {
         return;
       }
       
+
       // If we got a token, try to login
       if (qrToken) {
-        console.log('  🔑 Nhận được qrcode_token, đang lấy session...');
+        console.log('  ?? Nh?n du?c qrcode_token, dang l?y session qua Puppeteer...');
         clearInterval(S.poll);
         
         try {
-          // Approach 1: Try API login first (fast path)
-          let gotSession = false;
-          try {
-            const loginRes = await shopeeRequest('POST',
-              'https://shopee.vn/api/v2/authentication/qrcode_login',
-              { qrcode_id: qrId, qrcode_token: qrToken },
-              jarToString(jar));
-            
-            console.log('  📡 qrcode_login status:', loginRes.status);
-            mergeCookies(jar, loginRes.setCookies);
-            
-            if (jar['SPC_ST']) {
-              const keep = ['SPC_ST', 'SPC_F', 'SPC_U', 'SPC_EC', 'SPC_CDS', 'SPC_R_T_ID', 'SPC_R_T_IV'];
-              S.cookies = {
-                SPC_ST: jar['SPC_ST'],
-                SPC_F: jar['SPC_F'] || '',
-                all: keep.filter(k => jar[k]).map(k => ({ name: k, value: jar[k] })),
-              };
-              console.log('\n🎉 ĐĂNG NHẬP OK (API)! SPC_ST:', jar['SPC_ST'].substring(0, 50) + '…');
-              gotSession = true;
-              S.status = 'success';
-              
-              // Try to get user info via API
-              try {
-                const infoRes = await shopeeRequest('GET',
-                  'https://shopee.vn/api/v4/account/basic/get_account_info',
-                  null, jarToString(jar));
-                const infoJson = JSON.parse(infoRes.body);
-                if (infoJson.data && infoJson.error === 0) {
-                  const info = infoJson.data;
-                  S.userInfo = {
-                    username: info.username || info.shopname || '',
-                    email: info.email || '',
-                    phone: info.phone || info.phone_number || '',
-                    createdAt: info.ctime || info.created_at || null,
-                    avatar: info.portrait || info.avatar || '',
-                    userid: info.userid || info.user_id || '',
-                    raw: info,
-                  };
-                  console.log('  ✅ User info:', S.userInfo.username);
-                }
-              } catch(e) { console.warn('  ⚠️ Lấy user info lỗi:', e.message); }
-            } else {
-              console.log('  ⚠️ API login trả về nhưng không có SPC_ST, chuyển sang Puppeteer...');
+          if (!S.page) {
+            console.log('  ? Tr�nh duy?t ng?m chua kh?i t?o, ch? th�m...');
+            for (let i = 0; i < 30; i++) {
+              await new Promise(r => setTimeout(r, 500));
+              if (S.page) break;
             }
-          } catch(apiErr) {
-            console.log('  ⚠️ API login lỗi:', apiErr.message, '→ chuyển sang Puppeteer...');
+          }
+          if (!S.page) throw new Error('Kh�ng th? kh?i t?o tr�nh duy?t ng?m');
+
+          if (!S.akamaiReady) {
+            console.log('  ? Tr�nh duy?t ng?m dang t?i Akamai WAF, ch? th�m...');
+            for (let i = 0; i < 30; i++) {
+              await new Promise(r => setTimeout(r, 500));
+              if (S.akamaiReady) break;
+            }
+            if (!S.akamaiReady) throw new Error('Tr�nh duy?t ng?m chua t?i xong WAF (Timeout)');
+          }
+
+          // Execute XHR directly in the page
+          const fakeFp = jar['SPC_F'] || '';
+          const loginResult = await S.page.evaluate(async (qId, qToken, fFp) => {
+            return new Promise((resolve) => {
+              try {
+                const csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
+                const csrf = csrfMatch ? csrfMatch[1] : '';
+                
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/api/v2/authentication/qrcode_login', true);
+                xhr.withCredentials = true;
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.setRequestHeader('X-API-SOURCE', 'pc');
+                xhr.setRequestHeader('X-Shopee-Language', 'vi');
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                if (csrf) xhr.setRequestHeader('X-CSRFToken', csrf);
+                
+                xhr.onreadystatechange = function() {
+                  if (xhr.readyState === 4) {
+                    resolve({ status: xhr.status, body: xhr.responseText });
+                  }
+                };
+                xhr.onerror = function() { resolve({ error: 'XHR Network Error' }); };
+                
+                xhr.send(JSON.stringify({
+                  qrcode_id: qId,
+                  qrcode_token: qToken,
+                  device_sz_fingerprint: fFp,
+                  client_identifier: { security_device_fingerprint: fFp }
+                }));
+              } catch (e) {
+                resolve({ error: e.message });
+              }
+            });
+          }, qrId, qrToken, fakeFp);
+          
+          if (loginResult.error) throw new Error(loginResult.error);
+          console.log('  ?? qrcode_login (XHR) status:', loginResult.status);
+          if (loginResult.status !== 200) {
+            throw new Error('HTTP ' + loginResult.status + ': ' + (loginResult.body ? loginResult.body.substring(0, 100) : ''));
           }
           
-          // Approach 2: If API failed, use background browser to navigate to login page
-          if (!gotSession) {
-            console.log('  🌐 Dùng trình duyệt ngầm để lấy session...');
+          // Ch? Shopee set cookie
+          await new Promise(r => setTimeout(r, 1000));
+          const browserCookies = await S.page.cookies('https://shopee.vn');
+          const spcSt = browserCookies.find(c => c.name === 'SPC_ST');
+          
+          if (spcSt) {
+            const keep = ['SPC_ST', 'SPC_F', 'SPC_U', 'SPC_EC', 'SPC_CDS', 'SPC_R_T_ID', 'SPC_R_T_IV'];
+            S.cookies = {
+              SPC_ST: spcSt.value,
+              SPC_F: browserCookies.find(c => c.name === 'SPC_F')?.value || '',
+              all: browserCookies.filter(c => keep.includes(c.name)).map(c => ({ name: c.name, value: c.value }))
+            };
+            console.log('\n?? �ANG NH?P OK! SPC_ST:', spcSt.value.substring(0, 50) + '�');
+            S.status = 'success';
             
-            if (!S.page) {
-              // Browser chưa khởi tạo, chờ thêm
-              console.log('  ⏳ Đang chờ trình duyệt ngầm...');
-              for (let i = 0; i < 30; i++) {
-                await new Promise(r => setTimeout(r, 500));
-                if (S.page) break;
-              }
-            }
-            
-            if (!S.page) throw new Error('Không thể khởi tạo trình duyệt ngầm');
-            
-            // Inject the API cookies (including any from qrcode_login attempt)
-            const cookieEntries = Object.entries(jar)
-              .filter(([, v]) => v)
-              .map(([name, value]) => ({
-                name, value, domain: '.shopee.vn', path: '/', secure: true, sameSite: 'None',
-              }));
-            if (cookieEntries.length) await S.page.setCookie(...cookieEntries);
-            
-            // Navigate to shopee homepage - if cookies are valid, we'll be logged in
-            console.log('  📌 Navigate đến shopee.vn...');
-            await S.page.goto('https://shopee.vn/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-            
-            // Wait for cookies to settle
-            await new Promise(r => setTimeout(r, 2000));
-            
-            // Check cookies
-            const browserCookies = await S.page.cookies('https://shopee.vn');
-            const spcSt = browserCookies.find(c => c.name === 'SPC_ST');
-            
-            if (!spcSt) {
-              // Try navigating to buyer/login/qr - Shopee may redirect to logged-in state
-              console.log('  📌 Thử navigate đến buyer/login/qr...');
-              await S.page.goto('https://shopee.vn/buyer/login/qr', { waitUntil: 'networkidle2', timeout: 30000 });
-              await new Promise(r => setTimeout(r, 3000));
-              
-              const cookies2 = await S.page.cookies('https://shopee.vn');
-              const spcSt2 = cookies2.find(c => c.name === 'SPC_ST');
-              
-              if (spcSt2) {
-                const keep = ['SPC_ST', 'SPC_F', 'SPC_U', 'SPC_EC', 'SPC_CDS', 'SPC_R_T_ID', 'SPC_R_T_IV'];
-                S.cookies = {
-                  SPC_ST: spcSt2.value,
-                  SPC_F: cookies2.find(c => c.name === 'SPC_F')?.value || '',
-                  all: cookies2.filter(c => keep.includes(c.name)).map(c => ({ name: c.name, value: c.value }))
+            // Get user info via browser
+            try {
+              const infoJson = await S.page.evaluate(async () => {
+                const r = await fetch('/api/v4/account/basic/get_account_info');
+                return await r.json();
+              });
+              if (infoJson.data && infoJson.error === 0) {
+                const info = infoJson.data;
+                S.userInfo = {
+                  username: info.username || info.shopname || '',
+                  email: info.email || '',
+                  phone: info.phone || info.phone_number || '',
+                  createdAt: info.ctime || info.created_at || null,
+                  avatar: info.portrait || info.avatar || '',
+                  userid: info.userid || info.user_id || '',
+                  raw: info,
                 };
-                console.log('\n🎉 ĐĂNG NHẬP OK (Browser QR)! SPC_ST:', spcSt2.value.substring(0, 50) + '…');
-                gotSession = true;
-                S.status = 'success';
+                console.log('  ? User info:', S.userInfo.username);
               }
-            } else {
-              const keep = ['SPC_ST', 'SPC_F', 'SPC_U', 'SPC_EC', 'SPC_CDS', 'SPC_R_T_ID', 'SPC_R_T_IV'];
-              S.cookies = {
-                SPC_ST: spcSt.value,
-                SPC_F: browserCookies.find(c => c.name === 'SPC_F')?.value || '',
-                all: browserCookies.filter(c => keep.includes(c.name)).map(c => ({ name: c.name, value: c.value }))
-              };
-              console.log('\n🎉 ĐĂNG NHẬP OK (Browser)! SPC_ST:', spcSt.value.substring(0, 50) + '…');
-              gotSession = true;
-              S.status = 'success';
-            }
-            
-            // Get user info via browser if logged in
-            if (gotSession && S.page && !S.page.isClosed()) {
-              try {
-                const infoJson = await S.page.evaluate(async () => {
-                  const r = await fetch('/api/v4/account/basic/get_account_info');
-                  return await r.json();
-                });
-                if (infoJson.data && infoJson.error === 0) {
-                  const info = infoJson.data;
-                  S.userInfo = {
-                    username: info.username || info.shopname || '',
-                    email: info.email || '',
-                    phone: info.phone || info.phone_number || '',
-                    createdAt: info.ctime || info.created_at || null,
-                    avatar: info.portrait || info.avatar || '',
-                    userid: info.userid || info.user_id || '',
-                    raw: info,
-                  };
-                  console.log('  ✅ User info:', S.userInfo.username);
-                }
-              } catch(e) {}
-            }
-            
-            if (!gotSession) {
-              S.status = 'error';
-              S.error = 'Đăng nhập thành công trên app nhưng không lấy được session cookie từ Shopee';
-            }
+            } catch(e) {}
+          } else {
+            console.log('  ?? Kh�ng nh?n du?c SPC_ST t? XHR');
+            S.status = 'error';
+            S.error = '�ang nh?p th�nh c�ng nhung kh�ng l?y du?c session cookie';
           }
         } catch (loginErr) {
-          console.error('  ❌ Login error:', loginErr.message);
+          console.error('  ? Login error:', loginErr.message);
           S.status = 'error';
-          S.error = 'Lỗi lấy session: ' + loginErr.message;
+          S.error = 'L?i l?y session: ' + loginErr.message;
         } finally {
           if (S.browser) {
             if (S.browser.__anonymizedProxyUrl) proxyChain.closeAnonymizedProxy(S.browser.__anonymizedProxyUrl, true).catch(()=>{});
@@ -481,6 +439,7 @@ function startApiPoll(qrId, jar, attemptId) {
           }
         }
       }
+
     } catch (e) {
       if (!['success', 'idle'].includes(S.status)) console.warn('  ⚠️ poll:', e.message.substring(0, 80));
     }
