@@ -1165,8 +1165,8 @@
                   🎲 Tạo Mật Khẩu Khác
                 </button>
               </div>
-              <div class="qr-preview-box" id="pwdQrBox" style="display: none; width: 110px; height: 110px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #fff; padding: 5px; border-radius: 8px; border: 1px solid var(--border);">
-                <img id="pwdQrImage" src="" alt="Mật khẩu QR" style="max-width: 100%; max-height: 100%;">
+              <div class="qr-preview-box" id="pwdQrBox" style="width: 110px; height: 110px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #fff; padding: 5px; border-radius: 8px; border: 1px solid var(--border);">
+                <img id="pwdQrImage" src="" alt="Mật khẩu QR" style="display: none; max-width: 100%; max-height: 100%;">
               </div>
           </div>
         </div>
@@ -2070,13 +2070,12 @@ function updatePasswordQR() {
   const pwd = document.getElementById('generatedPassword')?.value || '';
   if (pwd) localStorage.setItem('current_password', pwd);
   const pwdQr = document.getElementById('pwdQrImage');
-  const pwdQrBox = document.getElementById('pwdQrBox');
   if (pwd && pwdQr) {
     pwdQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(pwd)}&bgcolor=12121A&color=ffffff&margin=2`;
-    if (pwdQrBox) pwdQrBox.style.display = 'flex';
+    pwdQr.style.display = 'block';
   } else if (pwdQr) {
     pwdQr.src = '';
-    if (pwdQrBox) pwdQrBox.style.display = 'none';
+    pwdQr.style.display = 'none';
   }
 }
 
