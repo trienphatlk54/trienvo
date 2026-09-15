@@ -1149,10 +1149,7 @@
             <div id="phoneSelectList" style="display: flex; flex-direction: column; gap: 6px; height: 125px; overflow-y: auto; padding-right: 4px;">
               <div style="color:var(--text-muted); text-align: center; padding: 10px;">Đang tải danh sách...</div>
             </div>
-            <div id="selectedPhoneDisplay" style="margin-top: 8px; padding: 10px 12px; background: rgba(238,77,45,0.05); border-radius: 6px; border: 1px dashed var(--shopee-light); display: none; align-items: center; justify-content: space-between;">
-              <div><strong style="color:var(--shopee-light);">Đã chọn máy:</strong> <span id="selectedPhoneText" style="font-weight:bold; font-size: 15px;"></span></div>
-              <button class="btn btn-ghost btn-sm" onclick="clearSelectedPhone()">❌ Bỏ chọn</button>
-            </div>
+            
           </div>
         </div>
 
@@ -1181,7 +1178,7 @@
         <div style="font-size: 13px; font-weight: 600; color: var(--shopee-light); margin-bottom: 8px;">③ Lấy số điện thoại</div>
         <div style="padding: 8px 0px; border-bottom: 1px solid var(--border);">
         <select id="phoneMethodSelect" class="proxy-select" style="width:100%; font-size:14px; font-weight:500; cursor:pointer;" onchange="togglePhoneMethod()">
-          <option value="" selected disabled>Chọn phương thức thuê SIM</option>
+          <option value="" selected>Chọn phương thức thuê SIM</option>
           <option value="365otp">Thuê SIM Nhận OTP (365otp)</option>
           <option value="funotp">Thuê SIM Nhận OTP (FunOTP)</option>
           <option value="otisx">Thuê SIM Nhận OTP (Otisx)</option>
