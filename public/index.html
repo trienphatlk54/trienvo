@@ -1143,9 +1143,9 @@
               <span>🔍 Chọn máy lưu tài khoản...</span>
               <span style="font-size: 10px; color: var(--text-muted);">▼</span>
             </button>
-            <div id="selectedPhoneDisplay" style="display: none; margin-top: 8px; padding: 10px 12px; background: rgba(34,197,94,0.1); border: 1px solid var(--success); border-radius: 6px; cursor: pointer;" onclick="clearSelectedPhone()" title="Click để hủy chọn">
-              <div style="font-size: 11px; color: var(--success); margin-bottom: 2px;">✔ Máy vừa chốt (Click để hủy):</div>
-              <div id="selectedPhoneText" style="font-weight: bold; color: var(--success); font-size: 13px;">---</div>
+            <div id="selectedPhoneDisplay" style="display: block; margin-top: 8px; padding: 10px 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); border-radius: 6px; cursor: pointer;" onclick="clearSelectedPhone()" title="Click để hủy chọn">
+              <div id="selectedPhoneLabel" style="font-size: 11px; color: var(--danger); margin-bottom: 2px;">⚠ Chưa chọn máy lưu</div>
+              <div id="selectedPhoneText" style="font-weight: bold; color: var(--danger); font-size: 13px;">Vui lòng chọn 1 máy!</div>
             </div>
           </div>
         </div>
@@ -1164,7 +1164,6 @@
               <div class="qr-preview-box" style="width: 110px; height: 110px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #fff; padding: 5px; border-radius: 8px; border: 1px solid var(--border);">
                 <img id="pwdQrImage" src="" alt="Mật khẩu QR" style="max-width: 100%; max-height: 100%;">
               </div>
-            </div>
           </div>
         </div>
 
@@ -3608,19 +3607,42 @@ function clearSelectedPhone() {
 
 function updateSelectedPhoneUI() {
   const display = $('selectedPhoneDisplay');
+  const label = $('selectedPhoneLabel');
   const text = $('selectedPhoneText');
   const btnTrigger = $('btnPhoneSelectTrigger');
   
   if (selectedPhoneIdForSave && phonesData[selectedPhoneIdForSave]) {
     const p = phonesData[selectedPhoneIdForSave];
-    if (display) display.style.display = 'block';
-    if (text) text.textContent = `${p.identifier} - ${p.type}`;
+    if (display) {
+      display.style.display = 'block';
+      display.style.background = 'rgba(34,197,94,0.1)';
+      display.style.borderColor = 'var(--success)';
+    }
+    if (label) {
+      label.style.color = 'var(--success)';
+      label.innerHTML = '✔ Máy vừa chốt (Click để hủy):';
+    }
+    if (text) {
+      text.style.color = 'var(--success)';
+      text.textContent = `${p.identifier} - ${p.type}`;
+    }
     if (btnTrigger) {
       btnTrigger.innerHTML = `<span>📱 Đổi máy khác...</span><span style="font-size: 10px; color: var(--text-muted);">▼</span>`;
     }
   } else {
-    if (display) display.style.display = 'none';
-    if (text) text.textContent = '---';
+    if (display) {
+      display.style.display = 'block';
+      display.style.background = 'rgba(239, 68, 68, 0.1)';
+      display.style.borderColor = 'var(--danger)';
+    }
+    if (label) {
+      label.style.color = 'var(--danger)';
+      label.innerHTML = '⚠ Chưa chọn máy lưu';
+    }
+    if (text) {
+      text.style.color = 'var(--danger)';
+      text.textContent = 'Vui lòng chọn 1 máy!';
+    }
     if (btnTrigger) {
       btnTrigger.innerHTML = `<span>🔍 Chọn máy lưu tài khoản...</span><span style="font-size: 10px; color: var(--text-muted);">▼</span>`;
     }
