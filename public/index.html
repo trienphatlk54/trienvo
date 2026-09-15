@@ -3923,6 +3923,11 @@ async function executeSaveRequest(payload, currentSaveFields) {
           loadFirebaseData();
         } catch(e) {}
       }
+      
+      // Lập tức reset trang sau 1.5 giây (tẩy trắng dữ liệu các ô)
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } else {
       toast('❌ Lỗi: ' + json.error, 'error');
     }
