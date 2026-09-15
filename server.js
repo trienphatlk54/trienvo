@@ -1009,6 +1009,21 @@ app.get('/api/data/all', async (req, res) => {
   }
 });
 
+app.post('/api/data/delete-multi', async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({error: 'Invalid format'});
+  try {
+    const updates = {};
+    for (const id of ids) {
+      updates[`shopee_accounts/${id}`] = null;
+    }
+    await db.ref().update(updates);
+    res.json({ status: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/data/delete', async (req, res) => {
   const { id } = req.body;
   try {
