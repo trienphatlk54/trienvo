@@ -1237,12 +1237,7 @@
         <div id="currentConfirmedPhoneText" style="font-size: 24px; font-weight: bold; color: var(--success); font-family: monospace;">---</div>
       </div>
 
-      <!-- Save Action -->
-      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);">
-        <button class="btn btn-primary" onclick="saveAccountToPhone()" id="btnSaveAccount" style="width: 100%; font-size: 14px; font-weight: bold; padding: 12px; display: flex; justify-content: center; align-items: center; gap: 8px; background: var(--success); border-color: var(--success);">
-          💾 LƯU VÀO MÁY ĐÃ CHỌN
-        </button>
-      </div>
+      
 </div></div></div>
     
     <!-- Phone Selection Section -->
@@ -2522,6 +2517,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const container = document.getElementById('createQRContainer');
   container.appendChild(cardClone);
+  
+  // Doi nut Luu vao may da chon vao duoi Thong tin tai khoan
+  const infoPanelCreate = cardClone.querySelector('.info-panel');
+  if (infoPanelCreate) {
+    infoPanelCreate.insertAdjacentHTML('beforeend', `      <!-- Save Action -->
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);">
+        <button class="btn btn-primary" onclick="saveAccountToPhone()" id="btnSaveAccount" style="width: 100%; font-size: 14px; font-weight: bold; padding: 12px; display: flex; justify-content: center; align-items: center; gap: 8px; background: var(--success); border-color: var(--success);">
+          💾 LƯU VÀO MÁY ĐÃ CHỌN
+        </button>
+      </div>`);
+  }
 
   // Tạo mật khẩu lần đầu
   generatePassword();
