@@ -3493,27 +3493,16 @@ function renderPhoneSelect() {
 }
 
 function selectPhoneForSave(id) {
-  selectedPhoneIdForSave = id;
-  const p = phonesData[id];
-  if (p) {
-    $('selectedPhoneText').textContent = `${p.identifier} - ${p.type}`;
-    $('selectedPhoneDisplay').style.display = 'flex';
-    if ($('summarySelectedPhone')) {
-      $('summarySelectedPhone').textContent = `${p.identifier} - ${p.type}`;
-      $('summarySelectedPhone').style.color = 'var(--success)';
-    }
+  if (selectedPhoneIdForSave === id) {
+    clearSelectedPhone();
+    return;
   }
+  selectedPhoneIdForSave = id;
   renderPhoneSelect();
 }
 
 function clearSelectedPhone() {
   selectedPhoneIdForSave = null;
-  $('selectedPhoneText').textContent = '';
-  $('selectedPhoneDisplay').style.display = 'none';
-  if ($('summarySelectedPhone')) {
-    $('summarySelectedPhone').textContent = '(Chưa chọn phone)';
-    $('summarySelectedPhone').style.color = 'var(--shopee-light)';
-  }
   renderPhoneSelect();
 }
 
