@@ -1139,11 +1139,14 @@
         <div style="padding: 12px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);">
           
           <div class="card-body" style="display: flex; flex-direction: column; padding: 0;">
-            <input type="text" id="phoneSelectSearch" class="proxy-input" placeholder="🔍 Lọc theo Số định danh hoặc Loại..." onkeyup="renderPhoneSelect()" style="width: 100%; border: 1px solid var(--border); margin-bottom: 8px;">
-            <div id="phoneSelectList" style="display: flex; flex-direction: column; gap: 6px; height: 125px; overflow-y: auto; padding-right: 4px;">
-              <div style="color:var(--text-muted); text-align: center; padding: 10px;">Đang tải danh sách...</div>
+            <button id="btnPhoneSelectTrigger" class="proxy-input" onclick="openPhoneSelectModal()" style="width: 100%; text-align: left; cursor: pointer; border: 1px solid var(--border); background: var(--bg); color: var(--text-muted); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-radius: 6px;">
+              <span>🔍 Chọn máy lưu tài khoản...</span>
+              <span style="font-size: 10px; color: var(--text-muted);">▼</span>
+            </button>
+            <div id="selectedPhoneDisplay" style="display: none; margin-top: 8px; padding: 10px 12px; background: rgba(34,197,94,0.1); border: 1px solid var(--success); border-radius: 6px; cursor: pointer;" onclick="clearSelectedPhone()" title="Click để hủy chọn">
+              <div style="font-size: 11px; color: var(--success); margin-bottom: 2px;">✔ Máy vừa chốt (Click để hủy):</div>
+              <div id="selectedPhoneText" style="font-weight: bold; color: var(--success); font-size: 13px;">---</div>
             </div>
-            
           </div>
         </div>
 
@@ -3532,50 +3535,60 @@ async function completePhoneSession(id) {
 let selectedPhoneIdForSave = null;
 
 function renderPhoneSelect() {
-  const list = $('phoneSelectList');
-  if (!list) return;
-  const searchInput = $('phoneSelectSearch')?.value.toLowerCase() || '';
-  
-  if (!searchInput) {
-    list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px;">Gõ để tìm kiếm điện thoại...</div>';
-    return;
-  }
+  updateSelectedPhoneUI();
+}
 
+function openPhoneSelectModal() {
+  $('phoneSelectModal').classList.add('active');
+  $('modalPhoneSearch').value = '';
+  renderModalPhoneSelect();
+  setTimeout(() => $('modalPhoneSearch').focus(), 100);
+}
+
+function closePhoneSelectModal() {
+  $('phoneSelectModal').classList.remove('active');
+}
+
+function renderModalPhoneSelect() {
+  const list = $('modalPhoneList');
+  if (!list) return;
+  const searchInput = $('modalPhoneSearch')?.value.toLowerCase() || '';
+  
   let ids = Object.keys(phonesData);
   if (ids.length === 0) {
-    list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px;">Chưa có dữ liệu điện thoại. Hãy thêm bên Tab Phone Management & Sessions.</div>';
+    list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px;">Chưa có dữ liệu điện thoại.</div>';
     return;
   }
-
-  // Sort by identifier
+  
   ids.sort((a, b) => {
     const valA = (phonesData[a].identifier || '').toString();
     const valB = (phonesData[b].identifier || '').toString();
     return valA.localeCompare(valB, undefined, {numeric: true});
   });
 
-  let html = '';
-  let count = 0;
-  for (const id of ids) {
+  let htmlStr = '';
+  ids.forEach(id => {
     const p = phonesData[id];
-    if (searchInput) {
-      const matchStr = `${p.identifier} ${p.type}`.toLowerCase();
-      if (!matchStr.includes(searchInput)) continue;
+    const identifier = (p.identifier || '').toString();
+    const type = (p.type || '').toString();
+    const txt = (identifier + ' ' + type).toLowerCase();
+    
+    if (!searchInput || txt.includes(searchInput)) {
+      const isSel = (id === selectedPhoneIdForSave);
+      htmlStr += `<div onclick="selectPhoneForSave('${id}')" style="padding: 10px 12px; background: ${isSel ? 'rgba(34,197,94,0.15)' : 'var(--bg)'}; border: 1px solid ${isSel ? 'var(--success)' : 'var(--border)'}; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s;">
+          <div>
+            <div style="font-weight: 600; font-size: 13px; color: ${isSel ? 'var(--success)' : 'var(--shopee-light)'};">${escapeHtml(identifier)}</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(type)}</div>
+          </div>
+          ${isSel ? '<span style="color: var(--success); font-size: 16px;">✔</span>' : ''}
+        </div>`;
     }
-    const isSelected = id === selectedPhoneIdForSave;
-    html += `
-      <div onclick="selectPhoneForSave('${id}')" style="padding: 10px; border-radius: 6px; cursor: pointer; border: 1px solid ${isSelected ? 'var(--shopee)' : 'var(--border)'}; background: ${isSelected ? 'rgba(238,77,45,0.1)' : 'transparent'}; display: flex; justify-content: space-between;">
-        <div><strong>${escapeHtml(p.identifier || '')}</strong> - ${escapeHtml(p.type || '')}</div>
-        ${isSelected ? '<span style="color:var(--shopee);">✅</span>' : ''}
-      </div>
-    `;
-    count++;
+  });
+  
+  if (!htmlStr) {
+    htmlStr = '<div style="color:var(--text-muted); text-align:center; padding:10px;">Không tìm thấy máy.</div>';
   }
-  if (count === 0) {
-    list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px;">Không tìm thấy.</div>';
-  } else {
-    list.innerHTML = html;
-  }
+  list.innerHTML = htmlStr;
 }
 
 function selectPhoneForSave(id) {
@@ -3584,12 +3597,34 @@ function selectPhoneForSave(id) {
     return;
   }
   selectedPhoneIdForSave = id;
-  renderPhoneSelect();
+  closePhoneSelectModal();
+  updateSelectedPhoneUI();
 }
 
 function clearSelectedPhone() {
   selectedPhoneIdForSave = null;
-  renderPhoneSelect();
+  updateSelectedPhoneUI();
+}
+
+function updateSelectedPhoneUI() {
+  const display = $('selectedPhoneDisplay');
+  const text = $('selectedPhoneText');
+  const btnTrigger = $('btnPhoneSelectTrigger');
+  
+  if (selectedPhoneIdForSave && phonesData[selectedPhoneIdForSave]) {
+    const p = phonesData[selectedPhoneIdForSave];
+    if (display) display.style.display = 'block';
+    if (text) text.textContent = `${p.identifier} - ${p.type}`;
+    if (btnTrigger) {
+      btnTrigger.innerHTML = `<span>📱 Đổi máy khác...</span><span style="font-size: 10px; color: var(--text-muted);">▼</span>`;
+    }
+  } else {
+    if (display) display.style.display = 'none';
+    if (text) text.textContent = '---';
+    if (btnTrigger) {
+      btnTrigger.innerHTML = `<span>🔍 Chọn máy lưu tài khoản...</span><span style="font-size: 10px; color: var(--text-muted);">▼</span>`;
+    }
+  }
 }
 
 function updateSummaryUI() { /* Removed */ }
@@ -4224,6 +4259,22 @@ async function startVoucherCheck() {
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closePhoneModal()">Hủy</button>
       <button class="btn btn-primary" onclick="savePhoneModal()" id="btnSavePhoneModal">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Phone Select -->
+<div class="modal-overlay" id="phoneSelectModal">
+  <div class="modal-content" style="max-width: 350px;">
+    <div class="modal-header">
+      <h3 style="font-size: 15px; margin: 0;">🔍 Chọn Máy Lưu Tài Khoản</h3>
+      <button class="modal-close" onclick="closePhoneSelectModal()">x</button>
+    </div>
+    <div class="modal-body" style="padding: 16px;">
+      <input type="text" id="modalPhoneSearch" class="proxy-input" placeholder="Tên định danh hoặc Loại..." onkeyup="renderModalPhoneSelect()" style="width: 100%; margin-bottom: 12px;" autocomplete="off">
+      <div id="modalPhoneList" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin;">
+        <div style="color:var(--text-muted); text-align: center; padding: 10px;">Gõ để tìm kiếm...</div>
+      </div>
     </div>
   </div>
 </div>
