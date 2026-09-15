@@ -1070,41 +1070,41 @@
     </div>
   </div>
 
-            <div class="user-info-card show" id="userInfoCard" style="padding: 12px; display: block;">
-        <div style="font-size: 13px; font-weight: bold; margin-bottom: 8px; color: var(--shopee-light); display: flex; justify-content: space-between; align-items: center;">
+            <div class="user-info-card show" id="userInfoCard" style="padding: 8px; display: block; margin-bottom: 12px;">
+        <div style="font-size: 13px; font-weight: bold; margin-bottom: 4px; color: var(--shopee-light); display: flex; justify-content: space-between; align-items: center;">
           <span>Thông tin tài khoản</span>
           <span id="userIdDisplay" style="font-weight: normal; color: var(--text-muted); font-size: 11px;">-</span>
           <!-- Hidden elements for JS compatibility -->
           <div id="userAvatar" style="display: none;"></div>
           <h4 id="userDisplayName" style="display: none;"></h4>
         </div>
-        <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+        <table style="width: 100%; font-size: 12px; border-collapse: collapse; table-layout: fixed;">
           <tr style="border-bottom: 1px dashed rgba(255,255,255,0.1);">
-            <td style="padding: 6px 4px; color: var(--text-muted); width: 70px;">Username</td>
-            <td id="infoUsername" style="padding: 6px 4px; font-weight: 600; color: var(--shopee-light);">-</td>
-            <td style="padding: 6px 4px; color: var(--text-muted); width: 60px;">Email</td>
-            <td id="infoEmail" style="padding: 6px 4px; font-weight: 600;">-</td>
+            <td style="padding: 4px; color: var(--text-muted); width: 65px;">Username</td>
+            <td id="infoUsername" style="padding: 4px; font-weight: 600; color: var(--shopee-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
+            <td style="padding: 4px; color: var(--text-muted); width: 60px;">Email</td>
+            <td id="infoEmail" style="padding: 4px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
           </tr>
           <tr style="border-bottom: 1px dashed rgba(255,255,255,0.1);">
-            <td style="padding: 6px 4px; color: var(--text-muted);">Phone</td>
-            <td id="infoPhone" style="padding: 6px 4px; font-weight: 600;">-</td>
-            <td style="padding: 6px 4px; color: var(--text-muted);">Ngày tạo</td>
-            <td id="infoCreated" style="padding: 6px 4px; font-weight: 600;">-</td>
+            <td style="padding: 4px; color: var(--text-muted);">Phone</td>
+            <td id="infoPhone" style="padding: 4px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
+            <td style="padding: 4px; color: var(--text-muted);">Ngày tạo</td>
+            <td id="infoCreated" style="padding: 4px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</td>
           </tr>
           <tr style="border-bottom: 1px dashed rgba(255,255,255,0.1);">
-            <td style="padding: 8px 4px; color: var(--text-muted); vertical-align: top;">SPC_ST</td>
-            <td colspan="3" style="padding: 8px 4px;">
-              <div style="display: flex; gap: 8px; align-items: flex-start;">
-                <div id="valSpcSt" style="flex: 1; font-family: monospace; font-size: 11px; word-break: break-all; color: var(--shopee-light); background: rgba(0,0,0,0.2); padding: 6px; border-radius: 4px;">-</div>
+            <td style="padding: 4px; color: var(--text-muted); vertical-align: middle;">SPC_ST</td>
+            <td colspan="3" style="padding: 4px;">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <div id="valSpcSt" style="flex: 1; font-family: monospace; font-size: 11px; white-space: nowrap; overflow-x: auto; color: var(--shopee-light); background: rgba(0,0,0,0.2); padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); scrollbar-width: thin; min-width: 0;">-</div>
                 <button class="btn btn-ghost btn-sm" onclick="copyValue('spc_st')" id="btnCopySt" style="padding: 2px 6px; font-size: 10px; border: 1px solid var(--border); white-space: nowrap;">Copy</button>
               </div>
             </td>
           </tr>
           <tr>
-            <td style="padding: 8px 4px; color: var(--text-muted); vertical-align: top;">SPC_F</td>
-            <td colspan="3" style="padding: 8px 4px;">
-              <div style="display: flex; gap: 8px; align-items: flex-start;">
-                <div id="valSpcF" style="flex: 1; font-family: monospace; font-size: 11px; word-break: break-all; color: var(--shopee-light); background: rgba(0,0,0,0.2); padding: 6px; border-radius: 4px;">-</div>
+            <td style="padding: 4px; color: var(--text-muted); vertical-align: middle;">SPC_F</td>
+            <td colspan="3" style="padding: 4px;">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <div id="valSpcF" style="flex: 1; font-family: monospace; font-size: 11px; white-space: nowrap; overflow-x: auto; color: var(--shopee-light); background: rgba(0,0,0,0.2); padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); scrollbar-width: thin; min-width: 0;">-</div>
                 <button class="btn btn-ghost btn-sm" onclick="copyValue('spc_f')" id="btnCopyF" style="padding: 2px 6px; font-size: 10px; border: 1px solid var(--border); white-space: nowrap;">Copy</button>
               </div>
             </td>
