@@ -386,6 +386,15 @@ function startApiPoll(qrId, jar, attemptId) {
           if (loginResult.status !== 200) {
             throw new Error('HTTP ' + loginResult.status + ': ' + (loginResult.body ? loginResult.body.substring(0, 100) : ''));
           }
+          console.log('  ?? qrcode_login response body:', loginResult.body ? loginResult.body.substring(0, 200) : 'empty');
+          try {
+            const bodyJson = JSON.parse(loginResult.body);
+            if (bodyJson.error) {
+              throw new Error('Shopee API Error: ' + bodyJson.error + (bodyJson.error_msg ? ' - ' + bodyJson.error_msg : ''));
+            }
+          } catch(err) {
+            if (err.message.includes('Shopee API Error')) throw err;
+          }
           
           // Ch? Shopee set cookie
           await new Promise(r => setTimeout(r, 1000));
@@ -402,12 +411,13 @@ function startApiPoll(qrId, jar, attemptId) {
             console.log('\n?? �ANG NH?P OK! SPC_ST:', spcSt.value.substring(0, 50) + '�');
             S.status = 'success';
             
-            // Get user info via browser
+                        // L?y userInfo qua pure API d? c� d?y d? d? li?u
             try {
-              const infoJson = await S.page.evaluate(async () => {
-                const r = await fetch('/api/v4/account/basic/get_account_info');
-                return await r.json();
-              });
+              const cookieStr = S.cookies.all.map(c => c.name + '=' + c.value).join('; ');
+              const infoRes = await shopeeRequest('GET',
+                'https://shopee.vn/api/v4/account/basic/get_account_info',
+                null, cookieStr);
+              const infoJson = JSON.parse(infoRes.body);
               if (infoJson.data && infoJson.error === 0) {
                 const info = infoJson.data;
                 S.userInfo = {
@@ -420,8 +430,12 @@ function startApiPoll(qrId, jar, attemptId) {
                   raw: info,
                 };
                 console.log('  ? User info:', S.userInfo.username);
+              } else {
+                console.warn('  ?? get_account_info tr? v? l?i:', infoJson.error);
               }
-            } catch(e) {}
+            } catch (e) {
+              console.warn('  ?? L?i l?y userInfo:', e.message);
+            }
           } else {
             console.log('  ?? Kh�ng nh?n du?c SPC_ST t? XHR');
             S.status = 'error';
