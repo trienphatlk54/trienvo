@@ -1258,26 +1258,12 @@
         <div id="currentConfirmedPhoneText" style="font-size: 24px; font-weight: bold; color: var(--success); font-family: monospace;">---</div>
       </div>
 
-      <!-- Actions & Note (Moved here) -->
+      <!-- Save Action -->
       <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);">
-        <div style="margin-bottom: 12px;">
-          <input type="text" id="summaryNote" placeholder="?? Ghi ch thm (VD: Acc b? ban...)" style="width: 100%; font-size: 13px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          <button class="btn btn-primary" onclick="saveAccountToPhone()" id="btnSaveAccount" style="width: 100%; font-size: 14px; font-weight: bold; padding: 12px; display: flex; justify-content: center; align-items: center; gap: 8px; background: var(--success); border-color: var(--success);">
-            ?? LUU VO MY DA CH?N
-          </button>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-ghost" onclick="resetQrInfo()" style="flex: 1; font-size: 12px; border: 1px solid var(--border); color: var(--error); padding: 8px;">
-              ?? Xa tr?ng
-            </button>
-            <button class="btn btn-ghost" onclick="switchTab('analytics'); return false;" style="flex: 1; font-size: 12px; border: 1px solid var(--border); color: var(--shopee-light); padding: 8px;">
-              ?? D? li?u
-            </button>
-          </div>
-        </div>
+        <button class="btn btn-primary" onclick="saveAccountToPhone()" id="btnSaveAccount" style="width: 100%; font-size: 14px; font-weight: bold; padding: 12px; display: flex; justify-content: center; align-items: center; gap: 8px; background: var(--success); border-color: var(--success);">
+          💾 LƯU VÀO MÁY ĐÃ CHỌN
+        </button>
       </div>
-
 </div></div>
     
     <!-- Phone Selection Section -->
