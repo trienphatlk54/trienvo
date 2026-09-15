@@ -459,9 +459,7 @@
     }
 
     /* ── Cookie Section ───────────────────────────── */
-    .cookie-section {
-      display: flex; flex-direction: column; gap: 8px;
-    }
+    .cookie-section { display: flex; flex-direction: column; gap: 4px; }
 
     .cookie-section-title {
       font-size: 12px; font-weight: 700;
@@ -1258,44 +1256,35 @@
       </div><div id="currentConfirmedPhoneBlock" style="padding: 8px 12px; border-top: 1px solid var(--border); display: none; background: rgba(0, 255, 100, 0.05); flex-direction: column; align-items: center; justify-content: center;">
         <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 4px;">Số điện thoại đang chốt hiện tại</div>
         <div id="currentConfirmedPhoneText" style="font-size: 24px; font-weight: bold; color: var(--success); font-family: monospace;">---</div>
-      </div></div></div>
+      </div>
+
+      <!-- Actions & Note (Moved here) -->
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);">
+        <div style="margin-bottom: 12px;">
+          <input type="text" id="summaryNote" placeholder="?? Ghi ch thm (VD: Acc b? ban...)" style="width: 100%; font-size: 13px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button class="btn btn-primary" onclick="saveAccountToPhone()" id="btnSaveAccount" style="width: 100%; font-size: 14px; font-weight: bold; padding: 12px; display: flex; justify-content: center; align-items: center; gap: 8px; background: var(--success); border-color: var(--success);">
+            ?? LUU VO MY DA CH?N
+          </button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-ghost" onclick="resetQrInfo()" style="flex: 1; font-size: 12px; border: 1px solid var(--border); color: var(--error); padding: 8px;">
+              ?? Xa tr?ng
+            </button>
+            <button class="btn btn-ghost" onclick="switchTab('analytics'); return false;" style="flex: 1; font-size: 12px; border: 1px solid var(--border); color: var(--shopee-light); padding: 8px;">
+              ?? D? li?u
+            </button>
+          </div>
+        </div>
+      </div>
+
+</div></div>
     
     <!-- Phone Selection Section -->
     
     
     <!-- Tạo Mật Khẩu Ngẫu Nhiên -->
-        <!-- Summary & Save Card -->
-    <div class="main-card" style="border: 1px solid var(--success); margin-top: 8px;">
-      <div class="card-header" style="padding-bottom: 12px;">
-        <h2 style="font-size: 16px; margin: 0;">💾 Lưu vào dữ liệu máy</h2>
-      </div>
-      <div class="card-body" style="padding: 12px; display: flex; flex-direction: column; gap: 12px;">
-        
-        <!-- Ghi ch -->
-        <div style="margin-bottom: 8px;">
-          <input type="text" id="summaryNote" placeholder="?? Ghi ch thm (VD: Acc b? ban...)" style="width: 100%; font-size: 13px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
-        </div>
-
-        <!-- Actions -->
-        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-          <button class="btn btn-primary" onclick="saveAccountToPhone()" id="btnSaveAccount" style="width: 100%; font-size: 14px; font-weight: bold; padding: 12px; display: flex; justify-content: center; align-items: center; gap: 8px;">
-            🚀 LƯU VÀO MÁY ĐÃ CHỌN
-          </button>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-ghost" onclick="resetQrInfo()" style="flex: 1; font-size: 12px; border: 1px solid var(--border); color: var(--error); padding: 8px;">
-              🗑 Xóa trắng thông tin
-            </button>
-            <button class="btn btn-ghost" onclick="switchTab('analytics'); return false;" style="flex: 1; font-size: 12px; border: 1px solid var(--border); color: var(--shopee-light); padding: 8px;">
-              📊 Xem Bảng Dữ Liệu
-            </button>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
-
-    <!-- Tab 4: Phone Management -->
+        <!-- Tab 4: Phone Management -->
     <div id="tab-phone" class="tab-pane">
       <div class="main-card">
         <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
