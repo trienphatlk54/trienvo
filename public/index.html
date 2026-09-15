@@ -2919,6 +2919,92 @@ function clearProxy() {
 }
 
 // ── Start Polling ──────────────────────────────────────────────────────────────
+
+async function autoSetVnProxyAndQR() {
+  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
+  const suf = isCreate ? '_create' : '';
+  const btnId = 'btnAutoVnProxyAndQR' + suf;
+  const btn = document.getElementById(btnId) || $(btnId) || document.getElementById('btnAutoVnProxyAndQR');
+  
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang lấy VN Proxy...';
+  }
+
+  const currentIp = ($('proxyIp' + suf) || $('proxyIp')) ? ($('proxyIp' + suf) || $('proxyIp')).textContent.trim() : '';
+
+  try {
+    const r = await fetch('/api/floppydata/create-proxy', {
+      method: 'POST',
+      headers: { ...getFloppyHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ country: 'VN' })
+    });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.error || 'Lỗi tạo proxy Floppydata');
+
+    const conn = d.connection;
+    if (!conn) throw new Error('Không nhận được thông tin kết nối từ Floppydata');
+    
+    const formattedConnString = `${conn.protocol}://${conn.host}:${conn.port}:${conn.username}:${conn.password}`;
+
+    const input = $('proxyInput' + suf) || $('proxyInput');
+    input.value = formattedConnString;
+    
+    if (btn) btn.textContent = '⏳ Đang kiểm tra IP...';
+    
+    // Inline saveProxy
+    const type = ($('proxyType' + suf) || $('proxyType')).value;
+    const raw = input.value.trim();
+    const res = await fetch('/api/proxy/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, raw }),
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      const displayIp = data.displayIp || data.ip;
+      const badge = $('proxyBadge' + suf) || $('proxyBadge');
+      badge.className = 'badge badge-ok';
+      badge.textContent = 'Đang dùng';
+      
+      const pInfo = $('proxyInfo' + suf) || $('proxyInfo');
+      pInfo.style.display = 'flex';
+      
+      const pIp = $('proxyIp' + suf) || $('proxyIp');
+      pIp.textContent = displayIp;
+      
+      const pClear = $('btnClearProxy' + suf) || $('btnClearProxy');
+      pClear.style.display = 'inline-flex';
+      
+      if (currentIp && currentIp === displayIp) {
+        toast('Trùng IP! Proxy mới có cùng IP với Proxy cũ.', 'warning', 3000);
+        return; // D?ng l?i
+      }
+      
+      if (typeof loadFloppyProxies === 'function') {
+        loadFloppyProxies();
+        loadFloppyBalance();
+      }
+      
+      if (btn) btn.textContent = '⏳ Đang lấy QR...';
+      
+      // Call startSession
+      await startSession();
+      
+    } else {
+      throw new Error(data.error || 'Proxy die hoặc không hoạt động');
+    }
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🇻🇳 Lấy Proxy & QR Code';
+    }
+  }
+}
+
 function startPolling() {
   if (state.polling) clearInterval(state.polling);
   state.polling = setInterval(async () => {
