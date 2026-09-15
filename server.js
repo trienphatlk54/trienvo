@@ -191,6 +191,7 @@ function shopeeRequest(method, url, data, cookieStr = '') {
         'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
         'Referer': 'https://shopee.vn/buyer/login',
         ...(cookieStr ? { 'Cookie': cookieStr } : {}),
+        ...(cookieStr && cookieStr.match(/csrftoken=([^;]+)/) ? { 'X-CSRFToken': cookieStr.match(/csrftoken=([^;]+)/)[1] } : {}),
         ...(data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) } : {}),
       },
     };
@@ -405,19 +406,23 @@ function startApiPoll(qrId, jar, attemptId) {
             const keep = ['SPC_ST', 'SPC_F', 'SPC_U', 'SPC_EC', 'SPC_CDS', 'SPC_R_T_ID', 'SPC_R_T_IV'];
             S.cookies = {
               SPC_ST: spcSt.value,
-              SPC_F: browserCookies.find(c => c.name === 'SPC_F')?.value || '',
+              SPC_F: browserCookies.find(c => c.name === 'SPC_F')?.value || jar['SPC_F'] || '',
               all: browserCookies.filter(c => keep.includes(c.name)).map(c => ({ name: c.name, value: c.value }))
             };
             console.log('\n?? �ANG NH?P OK! SPC_ST:', spcSt.value.substring(0, 50) + '�');
             S.status = 'success';
             
-                        // L?y userInfo qua pure API d? c� d?y d? d? li?u
+            // L?y userInfo qua browser (th�m CSRF)
             try {
-              const cookieStr = S.cookies.all.map(c => c.name + '=' + c.value).join('; ');
-              const infoRes = await shopeeRequest('GET',
-                'https://shopee.vn/api/v4/account/basic/get_account_info',
-                null, cookieStr);
-              const infoJson = JSON.parse(infoRes.body);
+              const infoJson = await S.page.evaluate(async () => {
+                const csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
+                const csrf = csrfMatch ? csrfMatch[1] : '';
+                const r = await fetch('/api/v4/account/basic/get_account_info', {
+                  headers: csrf ? { 'X-CSRFToken': csrf, 'X-API-SOURCE': 'pc' } : { 'X-API-SOURCE': 'pc' },
+                  credentials: 'include'
+                });
+                return await r.json();
+              });
               if (infoJson.data && infoJson.error === 0) {
                 const info = infoJson.data;
                 S.userInfo = {
@@ -429,12 +434,12 @@ function startApiPoll(qrId, jar, attemptId) {
                   userid: info.userid || info.user_id || '',
                   raw: info,
                 };
-                console.log('  ? User info:', S.userInfo.username);
+                console.log('  ? User info OK:', S.userInfo.username);
               } else {
-                console.warn('  ?? get_account_info tr? v? l?i:', infoJson.error);
+                console.warn('  ?? get_account_info (browser) l?i:', infoJson.error);
               }
             } catch (e) {
-              console.warn('  ?? L?i l?y userInfo:', e.message);
+              console.warn('  ?? L?i fetch userInfo browser:', e.message);
             }
           } else {
             console.log('  ?? Kh�ng nh?n du?c SPC_ST t? XHR');
