@@ -1046,41 +1046,6 @@
       <div class="info-panel">
 
         <!-- User Info Card -->
-        <div class="user-info-card" id="userInfoCard">
-          <div class="user-info-header">
-            <span class="section-icon">👤</span>
-            <h3>Thông tin tài khoản</h3>
-          </div>
-          <div class="user-info-body">
-            <div class="user-profile-top">
-              <div class="user-avatar" id="userAvatar">🛍️</div>
-              <div class="user-name-block">
-                <h4 id="userDisplayName">Đang tải...</h4>
-                <div class="user-id" id="userIdDisplay">—</div>
-              </div>
-            </div>
-            <div class="user-fields">
-              <div class="user-field">
-                <div class="field-label">👤 Username</div>
-                <div class="field-value" id="infoUsername">—</div>
-              </div>
-              <div class="user-field">
-                <div class="field-label">📧 Email</div>
-                <div class="field-value" id="infoEmail">—</div>
-              </div>
-              <div class="user-field">
-                <div class="field-label">📱 Phone (+84)</div>
-                <div class="field-value" id="infoPhone">—</div>
-              </div>
-              <div class="user-field">
-                <div class="field-label">📅 Ngày tạo</div>
-                <div class="field-value" id="infoCreatedAt">—</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Cookies -->
         <div class="proxy-section" style="margin: 0px 0px 16px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02);">
     <div class="proxy-section-title">
       🔒 Cấu hình Proxy
@@ -1102,35 +1067,51 @@
       <span>🌍 IP qua proxy:</span>
       <span class="proxy-ip" id="proxyIp"></span>
     </div>
-  </div><div class="cookie-section">
-          <div class="cookie-section-title">🍪 Session Cookies</div>
+  </div>
 
-          <div class="cookie-card" id="cardSpcSt">
-            <div class="cookie-header">
-              <span class="cookie-name">SPC_ST</span>
-              <button class="btn btn-ghost btn-sm" onclick="copyValue('spc_st')" id="btnCopySt">
-                📋 Copy
-              </button>
-            </div>
-            <div class="cookie-value" id="valSpcSt">
-              <span class="placeholder">Chưa có dữ liệu — đang chờ đăng nhập...</span>
-            </div>
-          </div>
-
-          <div class="cookie-card" id="cardSpcF">
-            <div class="cookie-header">
-              <span class="cookie-name">SPC_F</span>
-              <button class="btn btn-ghost btn-sm" onclick="copyValue('spc_f')" id="btnCopyF">
-                📋 Copy
-              </button>
-            </div>
-            <div class="cookie-value" id="valSpcF">
-              <span class="placeholder">Chưa có dữ liệu — đang chờ đăng nhập...</span>
-            </div>
+      <div class="user-info-card" id="userInfoCard">
+        <div class="user-header" style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
+          <div class="user-avatar" id="userAvatar" style="width:48px; height:48px; background:var(--shopee); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:24px;">👤</div>
+          <div class="user-name-block">
+            <h4 id="userDisplayName" style="margin:0; font-size:16px; color:var(--text);">Đang tải...</h4>
+            <div class="user-id" id="userIdDisplay" style="font-size:12px; color:var(--text-muted);">-</div>
           </div>
         </div>
+        <div class="user-fields" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="user-field">
+            <div class="field-label" style="font-size:12px; color:var(--text-muted);">👤 Username</div>
+            <div class="field-value" id="infoUsername" style="font-size:14px; font-weight:600; color:var(--shopee-light);">-</div>
+          </div>
+          <div class="user-field">
+            <div class="field-label" style="font-size:12px; color:var(--text-muted);">📧 Email</div>
+            <div class="field-value" id="infoEmail" style="font-size:14px; font-weight:600; color:var(--text);">-</div>
+          </div>
+          <div class="user-field">
+            <div class="field-label" style="font-size:12px; color:var(--text-muted);">📱 Phone (+84)</div>
+            <div class="field-value" id="infoPhone" style="font-size:14px; font-weight:600; color:var(--text);">-</div>
+          </div>
+          <div class="user-field">
+            <div class="field-label" style="font-size:12px; color:var(--text-muted);">📅 Ngày tạo</div>
+            <div class="field-value" id="infoCreated" style="font-size:14px; font-weight:600; color:var(--text);">-</div>
+          </div>
+          <div class="user-field" style="grid-column: span 2; border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 4px;">
+            <div class="field-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
+              <span style="font-size:12px; color:var(--text-muted); font-weight:bold;">🍪 SPC_ST</span>
+              <button class="btn btn-ghost btn-sm" onclick="copyValue('spc_st')" id="btnCopySt" style="padding: 2px 8px; font-size: 11px; border: 1px solid var(--border);">📋 Copy</button>
+            </div>
+            <div class="field-value" id="valSpcSt" style="font-family: monospace; font-size: 11px; word-break: break-all; color: var(--shopee-light); background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">-</div>
+          </div>
+          <div class="user-field" style="grid-column: span 2;">
+            <div class="field-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
+              <span style="font-size:12px; color:var(--text-muted); font-weight:bold;">🍪 SPC_F</span>
+              <button class="btn btn-ghost btn-sm" onclick="copyValue('spc_f')" id="btnCopyF" style="padding: 2px 8px; font-size: 11px; border: 1px solid var(--border);">📋 Copy</button>
+            </div>
+            <div class="field-value" id="valSpcF" style="font-family: monospace; font-size: 11px; word-break: break-all; color: var(--shopee-light); background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">-</div>
+          </div>
+        </div>
+      </div>
 
-        <!-- All Cookies Expand -->
+<!-- All Cookies Expand -->
         <div id="allCookiesWrap">
           <button class="btn btn-ghost btn-sm" id="btnToggleAll" onclick="toggleAllCookies()" style="display:none;">
             🔍 Xem thêm cookies khác
@@ -1296,7 +1277,6 @@
                 <th data-col="shopeeUsername" onclick="setPhoneSort('shopeeUsername')" style="padding: 12px 8px; cursor:pointer;">Username ↕</th>
                 <th data-col="shopeeEmail" onclick="setPhoneSort('shopeeEmail')" style="padding: 12px 8px; cursor:pointer;">Email ↕</th>
                 <th data-col="shopeeCreatedAt" onclick="setPhoneSort('shopeeCreatedAt')" style="padding: 12px 8px; cursor:pointer;">Ngày tạo ↕</th>
-                <th data-col="note" onclick="setPhoneSort('note')" style="padding: 12px 8px; cursor:pointer;">Ghi chú ↕</th>
                 <th data-col="ipProxy" onclick="setPhoneSort('ipProxy')" style="padding: 12px 8px; cursor:pointer;">IP Proxy ↕</th>
                 <th data-col="simSource" onclick="setPhoneSort('simSource')" style="padding: 12px 8px; cursor:pointer;">Nguồn SIM ↕</th>
                 <th data-col="simStatus" onclick="setPhoneSort('simStatus')" style="padding: 12px 8px; cursor:pointer;">TT SIM ↕</th>
@@ -1401,8 +1381,6 @@
               <th data-col="phone" onclick="setDataSort('phone')" style="padding: 10px 8px; cursor:pointer;">Số Điện Thoại ↕</th>
               <th data-col="shopeeUsername" onclick="setDataSort('shopeeUsername')" style="padding: 10px 8px; cursor:pointer;">Username ↕</th>
               <th data-col="password" onclick="setDataSort('password')" style="padding: 10px 8px; cursor:pointer;">Mật Khẩu ↕</th>
-              <th data-col="note" onclick="setDataSort('note')" style="padding: 10px 8px; cursor:pointer;">Ghi chú ↕</th>
-              <th data-col="notes" onclick="setDataSort('notes')" style="padding: 10px 8px; cursor:pointer;">Notes ↕</th>
               <th data-col="ipProxy" onclick="setDataSort('ipProxy')" style="padding: 10px 8px; cursor:pointer;">IP Proxy ↕</th>
               <th data-col="simSource" onclick="setDataSort('simSource')" style="padding: 10px 8px; cursor:pointer;">Nguồn SIM ↕</th>
               <th data-col="simStatus" onclick="setDataSort('simStatus')" style="padding: 10px 8px; cursor:pointer;">Tình trạng SIM ↕</th>
@@ -1977,8 +1955,6 @@ function renderFirebaseData() {
         <td style="padding: 12px 8px; font-family:monospace; font-weight:bold; color:var(--shopee-light);">${item.phone}</td>
         <td style="padding: 12px 8px; font-family:monospace;">${item.shopeeUsername || ''}</td>
         <td style="padding: 12px 8px; font-family:monospace; color:var(--warning);">${item.password}</td>
-        <td style="padding: 12px 8px; font-size:12px;">${item.note || ''}</td>
-        <td style="padding: 12px 8px;"><input type="text" class="proxy-input" style="width: 100px; padding: 4px; font-size: 12px; background: rgba(0,0,0,0.2);" value="${item.notes || ''}" onchange="updateShopeeNotes('${key}', this.value)" placeholder="Notes..."></td>
         <td style="padding: 12px 8px; font-size:12px; font-family:monospace;">${item.ipProxy || ''}</td>
         <td style="padding: 12px 8px; font-size:12px;">${item.simSource || ''}</td>
         <td style="padding: 12px 8px; font-size:12px;">${item.simStatus || ''}</td>
@@ -2698,8 +2674,8 @@ function displayCookies(cookies) {
   $('valSpcSt').innerHTML = `<span class="value-text">${cookies.SPC_ST}</span>`;
   $('valSpcF').innerHTML  = `<span class="value-text">${cookies.SPC_F}</span>`;
 
-  $('cardSpcSt').classList.add('highlight');
-  $('cardSpcF').classList.add('highlight');
+  
+  
 
   // All cookies table
   if (cookies.all && cookies.all.length > 0) {
