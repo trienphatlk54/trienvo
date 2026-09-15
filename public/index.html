@@ -1182,54 +1182,86 @@
           <option value="manual">Nhập số điện thoại thủ công</option>
         </select>
       </div>
-      <div id="methodApiBlock" class="card-body" style="grid-template-columns: 1fr; padding: 10px 12px; display: none;">
-        <div style="display:flex; justify-content:space-between; margin-bottom: 16px;">
-          <h3 style="font-size:14px; margin:0; color:var(--text-muted);">Tự động chờ lấy mã xác nhận từ API</h3>
-          <div style="text-align:right;">
-            <div style="font-size:12px; color:var(--text-muted);">Số dư tài khoản</div>
-            <div style="font-size:16px; font-weight:bold; color:var(--success); cursor:pointer;" onclick="fetchBalance()" id="simBalance" title="Bấm để làm mới">Đang tải...</div>
+      <div id="methodApiBlock" style="padding: 16px; display: none;">
+        <!-- Header with balance -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px dashed var(--border);">
+          <div style="display:flex; align-items:center; gap: 8px;">
+            <span style="font-size:18px;">⚡</span>
+            <h3 style="font-size:15px; margin:0; font-weight:600; color:var(--shopee-light);">Thuê SIM tự động qua API</h3>
+          </div>
+          <div style="text-align:right; background: rgba(34,197,94,0.1); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--success);">
+            <div style="font-size:11px; color:var(--success); text-transform:uppercase; font-weight: 600; letter-spacing: 0.5px;">Số dư tài khoản</div>
+            <div style="font-size:16px; font-weight:bold; color:var(--success); cursor:pointer; margin-top:2px;" onclick="fetchBalance()" id="simBalance" title="Bấm để làm mới">Đang tải...</div>
           </div>
         </div>
-        
-        <!-- Row 1: Thuê mới -->
-        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom: 12px;">
-          <select id="simService" class="proxy-select" style="min-width: 150px;">
-            <option value="270">Shopee</option>
-          </select>
-          <span id="simPrefixWrapper">
-            <input type="text" id="simPrefix" class="proxy-input" placeholder="Đầu số (vd: 03, 09)" style="max-width: 180px;">
-          </span>
-          <input type="number" id="simCount" class="proxy-input" placeholder="SL" value="1" min="1" max="10" style="max-width: 70px;">
-          <button class="btn btn-primary" id="btnRentSim" onclick="rentMultipleSims()">
-            🛒 Thuê SIM Mới
-          </button>
-        </div>
-
-        <!-- Row 2: Thuê lại sim cũ -->
-        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05);">
-          <input type="text" id="simOldOrderId" class="proxy-input" placeholder="Nhập Order ID cũ để thuê lại" style="max-width: 250px;">
-          <button class="btn btn-ghost" id="btnContinueSim" onclick="continueSim()">
-            🔄 Thuê Lại SIM Cũ
-          </button>
-        </div>
-        
-        <!-- Bảng chứa danh sách SIM đang thuê -->
-        <div id="simListArea" style="display:flex; flex-direction:column; gap:10px;"></div>
-      </div><div id="methodManualBlock" class="card-body" style="grid-template-columns: 1fr; padding: 10px 12px; display: none;">
-        <h3 style="font-size:14px; margin:0 0 16px 0; color:var(--text-muted);">Sử dụng số điện thoại có sẵn của bạn</h3>
-        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-          <input type="text" id="manualPhoneInput" class="proxy-input" placeholder="Nhập số điện thoại..." style="max-width: 250px;">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="radio" name="simStatus_manual" value="SIM new" checked=""> SIM new</label>
-            <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="radio" name="simStatus_manual" value="SIM đã sử dụng"> SIM đã sử dụng</label>
+      
+        <!-- Form Layout Using Grid -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 20px;">
+          
+          <!-- Cột trái: Thuê SIM mới -->
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+            <h4 style="font-size: 13px; margin: 0 0 12px 0; color: var(--text); display: flex; align-items: center; gap: 6px;">
+              <span style="color:var(--primary);">📱</span> Thuê SIM Mới
+            </h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+              <div>
+                <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Dịch vụ</label>
+                <select id="simService" class="proxy-input" style="width: 100%;"><option value="270">Shopee</option></select>
+              </div>
+              <div>
+                <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Đầu số (vd: 03, 09)</label>
+                <span id="simPrefixWrapper"><input type="text" id="simPrefix" class="proxy-input" placeholder="Tất cả" style="width: 100%;"></span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: flex-end;">
+              <div style="width: 80px;">
+                <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Số lượng</label>
+                <input type="number" id="simCount" class="proxy-input" value="1" min="1" max="10" style="width: 100%;">
+              </div>
+              <button class="btn btn-primary" id="btnRentSim" onclick="rentMultipleSims()" style="flex: 1; height: 36px; padding: 0;">
+                🚀 Lấy số ngay
+              </button>
+            </div>
           </div>
-          <button class="btn btn-primary" onclick="confirmManualPhone()">
-            ✅ Xác nhận sử dụng số này
-          </button>
+      
+          <!-- Cột phải: Thuê lại SIM cũ -->
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column;">
+            <h4 style="font-size: 13px; margin: 0 0 12px 0; color: var(--text); display: flex; align-items: center; gap: 6px;">
+              <span style="color:var(--warning);">🔄</span> Thuê lại SIM cũ (Gia hạn)
+            </h4>
+            <div style="flex: 1;">
+              <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Mã Order ID cũ</label>
+              <input type="text" id="simOldOrderId" class="proxy-input" placeholder="Nhập Order ID cần thuê lại..." style="width: 100%; margin-bottom: 12px;">
+            </div>
+            <button class="btn btn-ghost" id="btnContinueSim" onclick="continueSim()" style="width: 100%; height: 36px; border: 1px solid var(--border); padding: 0;">
+              🔄 Yêu cầu thuê lại
+            </button>
+          </div>
         </div>
-      </div><div id="currentConfirmedPhoneBlock" style="padding: 8px 12px; border-top: 1px solid var(--border); display: none; background: rgba(0, 255, 100, 0.05); flex-direction: column; align-items: center; justify-content: center;">
-        <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 4px;">Số điện thoại đang chốt hiện tại</div>
-        <div id="currentConfirmedPhoneText" style="font-size: 24px; font-weight: bold; color: var(--success); font-family: monospace;">---</div>
+      
+        <!-- Danh sách SIM -->
+        <div id="simListArea" style="display:flex; flex-direction:column; gap:12px;"></div>
+      </div><div id="methodManualBlock" style="padding: 16px; display: none;">
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+          <h4 style="font-size: 14px; margin: 0 0 16px 0; color: var(--text); display: flex; align-items: center; gap: 6px;">
+            <span>✍️</span> Sử dụng số điện thoại có sẵn của bạn
+          </h4>
+          <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+            <div style="flex: 1; min-width: 250px;">
+              <input type="text" id="manualPhoneInput" class="proxy-input" placeholder="Nhập số điện thoại của bạn..." style="width: 100%; height: 38px;">
+            </div>
+            <div style="display:flex; align-items:center; gap:16px; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px;">
+              <label style="font-size:13px; display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="radio" name="simStatus_manual" value="SIM new" checked=""> SIM mới</label>
+              <label style="font-size:13px; display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="radio" name="simStatus_manual" value="SIM đã sử dụng"> SIM cũ</label>
+            </div>
+            <button class="btn btn-primary" onclick="confirmManualPhone()" style="height: 38px; padding: 0 20px;">
+              ✔ Xác nhận dùng số này
+            </button>
+          </div>
+        </div>
+      </div><div id="currentConfirmedPhoneBlock" style="margin: 0 16px 16px 16px; padding: 16px; border: 1px dashed var(--success); display: none; background: rgba(34,197,94,0.08); border-radius: 8px; flex-direction: column; align-items: center; justify-content: center;">
+        <div style="font-size: 13px; color: var(--success); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">✔️ Số điện thoại đang dùng để đăng ký</div>
+        <div id="currentConfirmedPhoneText" style="font-size: 28px; font-weight: bold; color: var(--success); font-family: monospace; letter-spacing: 1px;">---</div>
       </div>
 
       
