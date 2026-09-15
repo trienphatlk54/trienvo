@@ -1267,50 +1267,13 @@
         <!-- Summary & Save Card -->
     <div class="main-card" style="border: 1px solid var(--success); margin-top: 8px;">
       <div class="card-header" style="padding-bottom: 12px;">
-        <h2 style="font-size: 16px; margin: 0;">💾 Lưu Thông Tin Tài Khoản</h2>
+        <h2 style="font-size: 16px; margin: 0;">💾 Lưu vào dữ liệu máy</h2>
       </div>
       <div class="card-body" style="padding: 12px; display: flex; flex-direction: column; gap: 12px;">
         
-        <!-- Highlight Box: Phone & Password -->
-        <div style="background: rgba(238,77,45,0.05); border: 1px solid rgba(238,77,45,0.2); border-radius: 8px; padding: 12px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span style="font-size: 12px; color: var(--text-muted);">📱 Máy đang chọn:</span>
-            <span id="summarySelectedPhone" style="font-family: monospace; font-size: 14px; color: var(--shopee-light); font-weight: bold;">(Chưa chọn)</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span style="font-size: 12px; color: var(--text-muted);">📞 SĐT Xác nhận:</span>
-            <span id="summaryPhoneConf" style="font-family: monospace; font-size: 14px; color: var(--shopee-light); font-weight: bold;">(Chưa xác nhận)</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 12px; color: var(--text-muted);">🔑 Mật khẩu:</span>
-            <span id="summaryPassword" style="font-family: monospace; font-size: 14px; color: var(--warning); font-weight: bold;">(Chưa tạo)</span>
-          </div>
-        </div>
-
-        <!-- QR Data Grid -->
-        <div>
-          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: bold;">Dữ liệu Cookie &amp; Phiên</div>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; background: rgba(255,255,255,0.02); border-radius: 8px; padding: 12px; border: 1px solid var(--border); font-size: 12px;">
-            <div style="margin-bottom: 6px;"><span style="color:var(--text-muted);">Shopee ĐT:</span> <br><span id="summaryQrPhone" style="color:var(--success); font-family: monospace; font-size:13px; font-weight:bold;">--</span></div>
-            <div style="margin-bottom: 6px;"><span style="color:var(--text-muted);">Username:</span> <br><span id="summaryQrUser" style="font-family: monospace;">--</span></div>
-            <div style="margin-bottom: 6px; grid-column: span 2;"><span style="color:var(--text-muted);">Email:</span> <br><span id="summaryQrEmail" style="font-family: monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; width: 100%;">--</span></div>
-            <div style="margin-bottom: 6px;"><span style="color:var(--text-muted);">Ngày tạo:</span> <br><span id="summaryQrCreated" style="font-family: monospace;">--</span></div>
-            <div style="margin-bottom: 6px;"><span style="color:var(--text-muted);">IP Thực:</span> <br><span id="summaryQrIp" style="font-family: monospace;">--</span></div>
-            <div style="margin-bottom: 6px;"><span style="color:var(--text-muted);">Nguồn SIM:</span> <br><span id="summaryQrSimSource" style="font-family: monospace;">--</span></div>
-            <div style="margin-bottom: 6px;"><span style="color:var(--text-muted);">Tình trạng:</span> <br><span id="summaryQrSimStatus" style="font-family: monospace;">--</span></div>
-
-            <div style="grid-column: span 2; margin-bottom: 6px;">
-              <span style="color:var(--text-muted);">SPC_F:</span> <span id="summaryQrF" style="font-family:monospace; color:var(--text-muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width: 100%;">--</span>
-            </div>
-            <div style="grid-column: span 2;">
-              <span style="color:var(--text-muted);">SPC_ST:</span> <span id="summaryQrSt" style="font-family:monospace; color:var(--text-muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width: 100%;">--</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Ghi chú -->
-        <div>
-          <input type="text" id="summaryNote" placeholder="📝 Ghi chú thêm (VD: Acc bị ban...)" style="width: 100%; font-size: 13px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
+        <!-- Ghi ch -->
+        <div style="margin-bottom: 8px;">
+          <input type="text" id="summaryNote" placeholder="?? Ghi ch thm (VD: Acc b? ban...)" style="width: 100%; font-size: 13px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
         </div>
 
         <!-- Actions -->
@@ -3606,84 +3569,10 @@ function clearSelectedPhone() {
   renderPhoneSelect();
 }
 
-function updateSummaryUI() {
-  try {
-    if (!$('summaryPhoneConf')) return;
-
-    const manualPhoneText = $('currentConfirmedPhoneText')?.textContent;
-    if (manualPhoneText && manualPhoneText !== '-' && manualPhoneText !== '�' && manualPhoneText !== '(Chua x�c nh?n)') {
-      $('summaryPhoneConf').textContent = manualPhoneText;
-    } else if (state.userInfo && state.userInfo.phone) {
-      $('summaryPhoneConf').textContent = state.userInfo.phone;
-    } else {
-      $('summaryPhoneConf').textContent = '(Chua x�c nh?n)';
-    }
-
-    const generatedPwd = $('generatedPassword')?.value;
-    if (generatedPwd) {
-      $('summaryPassword').textContent = generatedPwd;
-    } else {
-      $('summaryPassword').textContent = '(Chua t?o)';
-    }
-
-    const cookies = state.cookies || {};
-    const user = state.userInfo || {};
-    
-    $('summaryQrF').textContent = cookies.SPC_F || '--';
-    $('summaryQrSt').textContent = cookies.SPC_ST || '--';
-    $('summaryQrF').title = cookies.SPC_F || '';
-    $('summaryQrSt').title = cookies.SPC_ST || '';
-    
-    const usernameFromState = user.username || user.shopname || '';
-    const usernameFromDOM = $('infoUsername')?.textContent || '';
-    const finalUsername = usernameFromState || (usernameFromDOM !== '-' && usernameFromDOM !== '�' ? usernameFromDOM : '');
-    $('summaryQrUser').textContent = finalUsername || '--';
-
-    const emailFromState = user.email || (user.raw && user.raw.email) || '';
-    const emailFromDOM = $('infoEmail')?.textContent || '';
-    const finalEmail = emailFromState || (emailFromDOM !== '(Chua cung c?p)' && emailFromDOM !== '-' && emailFromDOM !== '�' ? emailFromDOM : '');
-    $('summaryQrEmail').textContent = finalEmail || '--';
-
-    const phoneFromState = user.phone || (user.raw && user.raw.phone) || '';
-    const phoneFromDOM = $('infoPhone')?.textContent || '';
-    let finalPhone = phoneFromState;
-    if (!finalPhone && phoneFromDOM && phoneFromDOM !== '(Chua cung c?p)' && phoneFromDOM !== '-' && phoneFromDOM !== '�') {
-      finalPhone = phoneFromDOM;
-    }
-    if (finalPhone) {
-      let formatted = String(finalPhone);
-      if (formatted.startsWith('0')) formatted = '+84' + formatted.substring(1);
-      else if (formatted.startsWith('84')) formatted = '+' + formatted;
-      else if (!formatted.startsWith('+')) formatted = '+84' + formatted;
-      $('summaryQrPhone').textContent = formatted;
-    } else {
-      $('summaryQrPhone').textContent = '--';
-    }
-
-    let createdStr = '--';
-    if (user.createdAt) {
-      try {
-        const d = new Date(user.createdAt * 1000);
-        createdStr = d.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) + ' ' + d.toLocaleDateString('vi-VN');
-      } catch(e) {}
-    } else {
-      const createdDOM = $('infoCreated')?.textContent;
-      if (createdDOM && createdDOM !== '-' && createdDOM !== '�') {
-        createdStr = createdDOM;
-      }
-    }
-    $('summaryQrCreated').textContent = createdStr;
-    $('summaryQrIp').textContent = $('proxyIp')?.textContent || '--';
-    $('summaryQrSimSource').textContent = window.currentSimSource || '--';
-    $('summaryQrSimStatus').textContent = window.currentSimStatus || '--';
-  } catch(e) {
-    console.error("updateSummaryUI Error: ", e);
-    if($("summaryQrUser")) $("summaryQrUser").textContent = "ERR:" + e.message;
-  }
-}
+function updateSummaryUI() { /* Removed */ }
 
 // Start updating summary periodically
-setInterval(updateSummaryUI, 1000);
+// setInterval(updateSummaryUI, 1000);
 
 function resetQrInfo() {
   if (!confirm('Bạn có chắc chắn muốn làm mới (reset) toàn bộ thông tin quét QR hiện tại?')) return;
@@ -3733,14 +3622,24 @@ async function saveAccountToPhone() {
   btn.innerText = '⏳ Đang lưu...';
 
   // Gather Info 1 (Phone confirmed)
-  const phoneConf = $('summaryPhoneConf').textContent;
-  const isPhoneConfEmpty = phoneConf === '(Chưa xác nhận)' || phoneConf === '—';
+  
+  let phoneConf = '';
+  const manualPhoneText = $('currentConfirmedPhoneText')?.textContent;
+  if (manualPhoneText && manualPhoneText !== '-' && manualPhoneText !== '�' && manualPhoneText !== '(Chua x�c nh?n)') {
+    phoneConf = manualPhoneText;
+  } else if (state.userInfo && state.userInfo.phone) {
+    phoneConf = state.userInfo.phone;
+  }
+  const isPhoneConfEmpty = !phoneConf;
   const finalShopeePhone = isPhoneConfEmpty ? p.shopeePhone : phoneConf;
 
+
   // Gather Info 2 (Password)
-  const pwd = $('summaryPassword').textContent;
-  const isPwdEmpty = pwd === '(Chưa tạo)';
+  
+  const pwd = $('generatedPassword')?.value || '';
+  const isPwdEmpty = !pwd;
   const finalPassword = isPwdEmpty ? p.shopeePassword : pwd;
+
 
   // Gather Info 3 (QR Session) - đọc từ state, fallback qua DOM
   const cookies = state.cookies || {};
@@ -3787,7 +3686,7 @@ async function saveAccountToPhone() {
     finalSessionTime = new Date().toLocaleString('vi-VN');
   }
 
-  const finalIpProxy = $('summaryQrIp')?.textContent === '--' ? '' : ($('summaryQrIp')?.textContent || '');
+  const finalIpProxy = $('proxyIp')?.textContent || '';
   const finalSimSource = window.currentSimSource || p.simSource || '';
   const finalSimStatus = window.currentSimStatus || p.simStatus || '';
 
