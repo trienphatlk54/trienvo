@@ -1169,16 +1169,18 @@
 
       </div>
       </div>
-      
+    </div>
+    
+    <div class="main-card" style="margin: 0 16px 16px 16px; border: 1px solid var(--border); padding: 0;">
       <!-- ③ Lấy số điện thoại -->
       <div style="padding: 10px 12px;">
         
         <div style="padding: 8px 0px; border-bottom: 1px solid var(--border);">
         <select id="phoneMethodSelect" class="proxy-select" style="width:100%; font-size:14px; font-weight:500; cursor:pointer;" onchange="togglePhoneMethod()">
-          <option value="" selected>Chọn phương thức thuê SIM</option>
+          <option value="">Chọn phương thức thuê SIM</option>
           <option value="365otp">Thuê SIM Nhận OTP (365otp)</option>
           <option value="funotp">Thuê SIM Nhận OTP (FunOTP)</option>
-          <option value="otisx">Thuê SIM Nhận OTP (Otisx)</option>
+          <option value="otisx" selected>Thuê SIM Nhận OTP (Otisx)</option>
           <option value="manual">Nhập số điện thoại thủ công</option>
         </select>
       </div>
@@ -2557,6 +2559,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Tự động lấy số dư 365otp khi vừa mở tab
   fetchBalance();
+  togglePhoneMethod();
 });
 
 // ── Tab Navigation ─────────────────────────────────────────────────────────────
