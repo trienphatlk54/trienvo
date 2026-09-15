@@ -974,7 +974,7 @@
           <!-- QR Image -->
           <div class="qr-img-wrap">
             <img id="qrImage" src="" alt="Mã QR Shopee" style="display:none;">
-            <button id="btnEnlargeQr" onclick="openQrModal()" title="Phóng to QR" style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.5); color: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; z-index: 20; backdrop-filter: blur(4px); transition: all 0.2s;">🔍</button>
+            
           </div>
 
           <!-- Overlay: Idle -->
@@ -1006,6 +1006,11 @@
             <div class="overlay-icon check-anim">✅</div>
             <div class="overlay-text" style="color:#22c55e;font-weight:700;">Đăng nhập thành công!</div>
           </div>
+        <div style="display: flex; justify-content: flex-end; margin-top: 8px; width: 100%;">
+          <button onclick="openQrModal()" title="Phóng to QR" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; text-transform: uppercase;">
+            🔍 Phóng to
+          </button>
+        </div>
         </div>
 
         <!-- Timer -->
