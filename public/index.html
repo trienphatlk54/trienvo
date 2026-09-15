@@ -1069,48 +1069,47 @@
     </div>
   </div>
 
-      <div class="user-info-card" id="userInfoCard">
-        <div class="user-header" style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
-          <div class="user-avatar" id="userAvatar" style="width:48px; height:48px; background:var(--shopee); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:24px;">👤</div>
-          <div class="user-name-block">
-            <h4 id="userDisplayName" style="margin:0; font-size:16px; color:var(--text);">Đang tải...</h4>
-            <div class="user-id" id="userIdDisplay" style="font-size:12px; color:var(--text-muted);">-</div>
-          </div>
+            <div class="user-info-card" id="userInfoCard" style="padding: 12px; display: none;">
+        <div style="font-size: 13px; font-weight: bold; margin-bottom: 8px; color: var(--shopee-light); display: flex; justify-content: space-between; align-items: center;">
+          <span>Thông tin tài khoản</span>
+          <span id="userIdDisplay" style="font-weight: normal; color: var(--text-muted); font-size: 11px;">-</span>
+          <!-- Hidden elements for JS compatibility -->
+          <div id="userAvatar" style="display: none;"></div>
+          <h4 id="userDisplayName" style="display: none;"></h4>
         </div>
-        <div class="user-fields" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-          <div class="user-field">
-            <div class="field-label" style="font-size:12px; color:var(--text-muted);">👤 Username</div>
-            <div class="field-value" id="infoUsername" style="font-size:14px; font-weight:600; color:var(--shopee-light);">-</div>
-          </div>
-          <div class="user-field">
-            <div class="field-label" style="font-size:12px; color:var(--text-muted);">📧 Email</div>
-            <div class="field-value" id="infoEmail" style="font-size:14px; font-weight:600; color:var(--text);">-</div>
-          </div>
-          <div class="user-field">
-            <div class="field-label" style="font-size:12px; color:var(--text-muted);">📱 Phone (+84)</div>
-            <div class="field-value" id="infoPhone" style="font-size:14px; font-weight:600; color:var(--text);">-</div>
-          </div>
-          <div class="user-field">
-            <div class="field-label" style="font-size:12px; color:var(--text-muted);">📅 Ngày tạo</div>
-            <div class="field-value" id="infoCreated" style="font-size:14px; font-weight:600; color:var(--text);">-</div>
-          </div>
-          <div class="user-field" style="grid-column: span 2; border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 4px;">
-            <div class="field-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
-              <span style="font-size:12px; color:var(--text-muted); font-weight:bold;">🍪 SPC_ST</span>
-              <button class="btn btn-ghost btn-sm" onclick="copyValue('spc_st')" id="btnCopySt" style="padding: 2px 8px; font-size: 11px; border: 1px solid var(--border);">📋 Copy</button>
-            </div>
-            <div class="field-value" id="valSpcSt" style="font-family: monospace; font-size: 11px; word-break: break-all; color: var(--shopee-light); background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">-</div>
-          </div>
-          <div class="user-field" style="grid-column: span 2;">
-            <div class="field-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
-              <span style="font-size:12px; color:var(--text-muted); font-weight:bold;">🍪 SPC_F</span>
-              <button class="btn btn-ghost btn-sm" onclick="copyValue('spc_f')" id="btnCopyF" style="padding: 2px 8px; font-size: 11px; border: 1px solid var(--border);">📋 Copy</button>
-            </div>
-            <div class="field-value" id="valSpcF" style="font-family: monospace; font-size: 11px; word-break: break-all; color: var(--shopee-light); background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">-</div>
-          </div>
-        </div>
+        <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+          <tr style="border-bottom: 1px dashed rgba(255,255,255,0.1);">
+            <td style="padding: 6px 4px; color: var(--text-muted); width: 70px;">Username</td>
+            <td id="infoUsername" style="padding: 6px 4px; font-weight: 600; color: var(--shopee-light);">-</td>
+            <td style="padding: 6px 4px; color: var(--text-muted); width: 60px;">Email</td>
+            <td id="infoEmail" style="padding: 6px 4px; font-weight: 600;">-</td>
+          </tr>
+          <tr style="border-bottom: 1px dashed rgba(255,255,255,0.1);">
+            <td style="padding: 6px 4px; color: var(--text-muted);">Phone</td>
+            <td id="infoPhone" style="padding: 6px 4px; font-weight: 600;">-</td>
+            <td style="padding: 6px 4px; color: var(--text-muted);">Ngày tạo</td>
+            <td id="infoCreated" style="padding: 6px 4px; font-weight: 600;">-</td>
+          </tr>
+          <tr style="border-bottom: 1px dashed rgba(255,255,255,0.1);">
+            <td style="padding: 8px 4px; color: var(--text-muted); vertical-align: top;">SPC_ST</td>
+            <td colspan="3" style="padding: 8px 4px;">
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <div id="valSpcSt" style="flex: 1; font-family: monospace; font-size: 11px; word-break: break-all; color: var(--shopee-light); background: rgba(0,0,0,0.2); padding: 6px; border-radius: 4px;">-</div>
+                <button class="btn btn-ghost btn-sm" onclick="copyValue('spc_st')" id="btnCopySt" style="padding: 2px 6px; font-size: 10px; border: 1px solid var(--border); white-space: nowrap;">Copy</button>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 4px; color: var(--text-muted); vertical-align: top;">SPC_F</td>
+            <td colspan="3" style="padding: 8px 4px;">
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <div id="valSpcF" style="flex: 1; font-family: monospace; font-size: 11px; word-break: break-all; color: var(--shopee-light); background: rgba(0,0,0,0.2); padding: 6px; border-radius: 4px;">-</div>
+                <button class="btn btn-ghost btn-sm" onclick="copyValue('spc_f')" id="btnCopyF" style="padding: 2px 6px; font-size: 10px; border: 1px solid var(--border); white-space: nowrap;">Copy</button>
+              </div>
+            </td>
+          </tr>
+        </table>
       </div>
-
 <!-- All Cookies Expand -->
         <div id="allCookiesWrap">
           <button class="btn btn-ghost btn-sm" id="btnToggleAll" onclick="toggleAllCookies()" style="display:none;">
@@ -1771,7 +1770,7 @@ async function syncFirebaseData() {
           phone: p.shopeePhone || p.shopeeUsername || '',
           password: p.shopeePassword || '',
           provider: 'Shopee QR (Đồng bộ)',
-          time: p.shopeeSessionTime || p.shopeeCreatedAt || new Date().toLocaleString('vi-VN'),
+          time: p.shopeeCreatedAt || p.shopeeSessionTime || new Date().toLocaleString('vi-VN'),
           note: p.note || '',
           ipProxy: p.ipProxy || '',
           simSource: p.simSource || '',
@@ -3747,7 +3746,7 @@ async function executeSaveRequest(payload, currentSaveFields) {
               phone: payload.shopeePhone || payload.shopeeUsername || '',
               password: payload.shopeePassword || '',
               provider: 'Shopee QR',
-              time: payload.shopeeSessionTime || new Date().toLocaleString('vi-VN'),
+              time: payload.shopeeCreatedAt || payload.shopeeSessionTime || new Date().toLocaleString('vi-VN'),
               note: payload.note || '',
               ipProxy: payload.ipProxy || '',
               simSource: payload.simSource || '',
