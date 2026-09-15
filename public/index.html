@@ -1033,15 +1033,7 @@
           🔍 Phóng to QR
         </button>
 
-        <!-- Success Banner -->
-        <div class="success-banner" id="successBanner" style="margin-top: 16px; width: 100%;">
-          <div class="icon">🎉</div>
-          <div>
-            <h4>Đăng nhập thành công!</h4>
-            <p id="successTime">Cookie đã được trích xuất lúc —</p>
-          </div>
-        </div>
-      </div>
+              </div>
 
       <!-- Info Panel -->
       <div class="info-panel">
@@ -1073,7 +1065,7 @@
 
             <div class="user-info-card show" id="userInfoCard" style="padding: 8px; display: block; margin-bottom: 12px;">
         <div style="font-size: 13px; font-weight: bold; margin-bottom: 4px; color: var(--shopee-light); display: flex; justify-content: space-between; align-items: center;">
-          <span>Thông tin tài khoản</span>
+          <span>Thông tin tài khoản <span id="successMiniBadge" style="display:none; color: var(--success); font-size: 11px; margin-left: 8px; font-weight: normal; background: rgba(34,197,94,0.15); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--success);">🎉 Đăng nhập thành công!</span></span>
           <span id="userIdDisplay" style="font-weight: normal; color: var(--text-muted); font-size: 11px;">-</span>
           <!-- Hidden elements for JS compatibility -->
           <div id="userAvatar" style="display: none;"></div>
@@ -2587,6 +2579,7 @@ function toast(msg, type = 'info', duration = 3500) {
 
 // ── Update Status Pill ─────────────────────────────────────────────────────────
 function setStatus(s, label) {
+  if (s === 'loading' || s === 'idle') { if ($('successMiniBadge')) $('successMiniBadge').style.display = 'none'; if ($('successMiniBadge_create')) $('successMiniBadge_create').style.display = 'none'; }
   const pill = $('statusPill');
   const labels = {
     idle:    'Chờ bắt đầu',
@@ -2694,9 +2687,8 @@ function displayCookies(cookies) {
   }
 
   // Success banner
-  const banner = $('successBanner');
-  banner.classList.add('show');
-  $('successTime').textContent = `Cookie được trích xuất lúc ${new Date().toLocaleTimeString('vi-VN')}`;
+  if ($('successMiniBadge')) $('successMiniBadge').style.display = 'inline-block';
+  if ($('successMiniBadge_create')) $('successMiniBadge_create').style.display = 'inline-block';
 }
 
 // ── Copy Value ─────────────────────────────────────────────────────────────────
