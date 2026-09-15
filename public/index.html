@@ -919,7 +919,10 @@
       <div class="nav-item" onclick="switchTab('vouchercheck')">
         <span class="nav-icon">🎫</span> Voucher Checking
       </div>
-      <div class="nav-item" onclick="switchTab('floppyproxy')">
+      <div class="nav-item" onclick="switchTab('ccn', this)">
+          <span class="nav-icon">💳</span> Accounts CCN
+        </div>
+        <div class="nav-item" onclick="switchTab('floppyproxy', this)">
         <span class="nav-icon">🌐</span> Floppydata Proxy
       </div>
     </nav>
@@ -1480,7 +1483,45 @@
       </div>
     </div>
 
-  <!-- Tab: Floppydata Proxy -->
+  <!-- Tab: Accounts CCN -->
+    <div id="tab-ccn" class="tab-pane">
+      <div style="width:100%; max-width: 900px;">
+        <div class="main-card">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>💳 Trích Xuất Tài Khoản CCN</h2>
+          </div>
+          <div class="card-body">
+            <div style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 20px;">
+              <div style="flex: 1;">
+                <label style="font-size: 13px; color: var(--text-muted); margin-bottom: 6px; display: block;">Chọn State (Bang)</label>
+                <select id="ccnStateSelect" class="proxy-select" style="width: 100%;">
+                  <option value="CA">California (CA)</option>
+                  <option value="NY">New York (NY)</option>
+                  <option value="TX">Texas (TX)</option>
+                  <option value="FL">Florida (FL)</option>
+                  <option value="IL">Illinois (IL)</option>
+                  <option value="PA">Pennsylvania (PA)</option>
+                  <option value="OH">Ohio (OH)</option>
+                  <option value="GA">Georgia (GA)</option>
+                  <option value="NC">North Carolina (NC)</option>
+                  <option value="MI">Michigan (MI)</option>
+                </select>
+              </div>
+              <button class="btn btn-primary" id="btnFetchCcn" onclick="fetchFakeProfile()" style="padding: 10px 20px; height: 42px;">
+                🔄 Lấy Fake Profile
+              </button>
+            </div>
+            
+            <div id="ccnResultArea" style="display:none; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+              <h3 style="font-size: 15px; margin-bottom: 12px; color: var(--shopee-light); border-bottom: 1px dashed var(--border); padding-bottom: 8px;">📋 Thông tin Profile</h3>
+              <div id="ccnResultContent" style="font-size: 13px; line-height: 1.6; word-break: break-all; white-space: pre-wrap; font-family: monospace;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tab: Floppydata Proxy -->
   <div id="tab-floppyproxy" class="tab-pane">
     <div style="width:100%; max-width: 900px;">
 
