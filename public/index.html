@@ -3607,81 +3607,79 @@ function clearSelectedPhone() {
 }
 
 function updateSummaryUI() {
-  if (!$('summaryPhoneConf')) return;
+  try {
+    if (!$('summaryPhoneConf')) return;
 
-  // Update Phone (Info 1)
-  const manualPhoneText = $('currentConfirmedPhoneText')?.textContent;
-  if (manualPhoneText && manualPhoneText !== '-' && manualPhoneText !== '—' && manualPhoneText !== '(Chưa xác nhận)') {
-    $('summaryPhoneConf').textContent = manualPhoneText;
-  } else if (state.userInfo && state.userInfo.phone) {
-    $('summaryPhoneConf').textContent = state.userInfo.phone;
-  } else {
-    $('summaryPhoneConf').textContent = '(Chưa xác nhận)';
-  }
-
-  // Update Password (Info 2)
-  const generatedPwd = $('generatedPassword')?.value;
-  if (generatedPwd) {
-    $('summaryPassword').textContent = generatedPwd;
-  } else {
-    $('summaryPassword').textContent = '(Chưa tạo)';
-  }
-
-  // Update QR Info (Info 3)
-  // Đọc từ state trước, nếu không có thì đọc từ DOM (displayUserInfo đã ghi vào DOM)
-  const cookies = state.cookies || {};
-  const user = state.userInfo || {};
-  
-  $('summaryQrF').textContent = cookies.SPC_F || '--';
-  $('summaryQrSt').textContent = cookies.SPC_ST || '--';
-  $('summaryQrF').title = cookies.SPC_F || '';
-  $('summaryQrSt').title = cookies.SPC_ST || '';
-  
-  // Username: đọc từ state hoặc DOM
-  const usernameFromState = user.username || user.shopname || '';
-  const usernameFromDOM = $('infoUsername')?.textContent || '';
-  const finalUsername = usernameFromState || (usernameFromDOM !== '—' ? usernameFromDOM : '');
-  $('summaryQrUser').textContent = finalUsername || '--';
-
-  // Email: đọc từ state hoặc DOM
-  const emailFromState = user.email || (user.raw && user.raw.email) || '';
-  const emailFromDOM = $('infoEmail')?.textContent || '';
-  const finalEmail = emailFromState || (emailFromDOM !== '(Chưa cung cấp)' && emailFromDOM !== '—' ? emailFromDOM : '');
-  $('summaryQrEmail').textContent = finalEmail || '--';
-
-  // Phone: đọc từ state hoặc DOM
-  const phoneFromState = user.phone || (user.raw && user.raw.phone) || '';
-  const phoneFromDOM = $('infoPhone')?.textContent || '';
-  let finalPhone = phoneFromState;
-  if (!finalPhone && phoneFromDOM && phoneFromDOM !== '(Chưa cung cấp)' && phoneFromDOM !== '—') {
-    finalPhone = phoneFromDOM;
-  }
-  if (finalPhone) {
-    let formatted = finalPhone;
-    if (finalPhone.startsWith('0')) formatted = '+84' + finalPhone.substring(1);
-    else if (finalPhone.startsWith('84')) formatted = '+' + finalPhone;
-    else if (!finalPhone.startsWith('+')) formatted = '+84' + finalPhone;
-    $('summaryQrPhone').textContent = formatted;
-  } else {
-    $('summaryQrPhone').textContent = '--';
-  }
-
-  // Ngày tạo: đọc từ state hoặc DOM
-  let createdStr = '--';
-  const ctime = user.createdAt || (user.raw && (user.raw.ctime || user.raw.created_at || user.raw.create_time));
-  if (ctime) {
-    const ts = typeof ctime === 'number' && ctime < 2000000000 ? ctime * 1000 : ctime;
-    createdStr = new Date(ts).toLocaleDateString('vi-VN');
-  } else {
-    const createdFromDOM = $('infoCreated')?.textContent || '';
-    if (createdFromDOM && createdFromDOM !== '—' && createdFromDOM !== '--') {
-      createdStr = createdFromDOM;
+    const manualPhoneText = $('currentConfirmedPhoneText')?.textContent;
+    if (manualPhoneText && manualPhoneText !== '-' && manualPhoneText !== '�' && manualPhoneText !== '(Chua x�c nh?n)') {
+      $('summaryPhoneConf').textContent = manualPhoneText;
+    } else if (state.userInfo && state.userInfo.phone) {
+      $('summaryPhoneConf').textContent = state.userInfo.phone;
+    } else {
+      $('summaryPhoneConf').textContent = '(Chua x�c nh?n)';
     }
+
+    const generatedPwd = $('generatedPassword')?.value;
+    if (generatedPwd) {
+      $('summaryPassword').textContent = generatedPwd;
+    } else {
+      $('summaryPassword').textContent = '(Chua t?o)';
+    }
+
+    const cookies = state.cookies || {};
+    const user = state.userInfo || {};
+    
+    $('summaryQrF').textContent = cookies.SPC_F || '--';
+    $('summaryQrSt').textContent = cookies.SPC_ST || '--';
+    $('summaryQrF').title = cookies.SPC_F || '';
+    $('summaryQrSt').title = cookies.SPC_ST || '';
+    
+    const usernameFromState = user.username || user.shopname || '';
+    const usernameFromDOM = $('infoUsername')?.textContent || '';
+    const finalUsername = usernameFromState || (usernameFromDOM !== '-' && usernameFromDOM !== '�' ? usernameFromDOM : '');
+    $('summaryQrUser').textContent = finalUsername || '--';
+
+    const emailFromState = user.email || (user.raw && user.raw.email) || '';
+    const emailFromDOM = $('infoEmail')?.textContent || '';
+    const finalEmail = emailFromState || (emailFromDOM !== '(Chua cung c?p)' && emailFromDOM !== '-' && emailFromDOM !== '�' ? emailFromDOM : '');
+    $('summaryQrEmail').textContent = finalEmail || '--';
+
+    const phoneFromState = user.phone || (user.raw && user.raw.phone) || '';
+    const phoneFromDOM = $('infoPhone')?.textContent || '';
+    let finalPhone = phoneFromState;
+    if (!finalPhone && phoneFromDOM && phoneFromDOM !== '(Chua cung c?p)' && phoneFromDOM !== '-' && phoneFromDOM !== '�') {
+      finalPhone = phoneFromDOM;
+    }
+    if (finalPhone) {
+      let formatted = String(finalPhone);
+      if (formatted.startsWith('0')) formatted = '+84' + formatted.substring(1);
+      else if (formatted.startsWith('84')) formatted = '+' + formatted;
+      else if (!formatted.startsWith('+')) formatted = '+84' + formatted;
+      $('summaryQrPhone').textContent = formatted;
+    } else {
+      $('summaryQrPhone').textContent = '--';
+    }
+
+    let createdStr = '--';
+    if (user.createdAt) {
+      try {
+        const d = new Date(user.createdAt * 1000);
+        createdStr = d.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) + ' ' + d.toLocaleDateString('vi-VN');
+      } catch(e) {}
+    } else {
+      const createdDOM = $('infoCreated')?.textContent;
+      if (createdDOM && createdDOM !== '-' && createdDOM !== '�') {
+        createdStr = createdDOM;
+      }
+    }
+    $('summaryQrCreated').textContent = createdStr;
+    $('summaryQrIp').textContent = $('proxyIp')?.textContent || '--';
+    $('summaryQrSimSource').textContent = window.currentSimSource || '--';
+    $('summaryQrSimStatus').textContent = window.currentSimStatus || '--';
+  } catch(e) {
+    console.error("updateSummaryUI Error: ", e);
+    if($("summaryQrUser")) $("summaryQrUser").textContent = "ERR:" + e.message;
   }
-  $('summaryQrCreated').textContent = createdStr;
-  $('summaryQrIp').textContent = $('proxyIp')?.textContent || '--';
-  $('summaryQrSimSource').textContent = window.currentSimSource || '--';
-  $('summaryQrSimStatus').textContent = window.currentSimStatus || '--';
 }
 
 // Start updating summary periodically

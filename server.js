@@ -410,7 +410,7 @@ function startApiPoll(qrId, jar, attemptId) {
               all: browserCookies.filter(c => keep.includes(c.name)).map(c => ({ name: c.name, value: c.value }))
             };
             console.log('\n?? �ANG NH?P OK! SPC_ST:', spcSt.value.substring(0, 50) + '�');
-            S.status = 'success';
+            // // S.status = 'success'; moved down
             
             // L?y userInfo qua browser (th�m CSRF)
             try {
@@ -435,7 +435,8 @@ function startApiPoll(qrId, jar, attemptId) {
                   raw: info,
                 };
                 console.log('  ? User info OK:', S.userInfo.username);
-              } else {
+                S.status = 'success';
+          } else {
                 console.warn('  ?? get_account_info (browser) l?i:', infoJson.error);
               }
             } catch (e) {
