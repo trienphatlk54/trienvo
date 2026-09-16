@@ -4829,8 +4829,8 @@ function showProxyQR(connStr) {
   const input = document.getElementById('qrProxyModalText');
   canvas.innerHTML = '';
   new QRCode(canvas, { text: getStandardProxyUrl(connStr),
-    width: 300,
-    height: 300,
+    width: 240,
+    height: 240,
     colorDark : "#000000",
     colorLight : "#ffffff",
     correctLevel : QRCode.CorrectLevel.M
@@ -5133,35 +5133,102 @@ const ZIP_PREFIXES = {
 function formatAddressForDisplay(fullAddress) {
   if (!fullAddress) return '';
   const match = fullAddress.match(/\b([A-Z]{2})\s+(\d{5})\b/);
-  if (match) {
-    return match[0];
-  }
+  if (match) return match[0];
+  const zipMatch = fullAddress.match(/\b(\d{5})\b/);
+  if (zipMatch) return zipMatch[0];
   return fullAddress.length > 15 ? fullAddress.substring(0, 15) + '...' : fullAddress;
 }
 
 function processAddress(address) {
   if (!address) return { state: '', time: '' };
-  const match = address.match(/\b([A-Z]{2})\s+(\d{5})\b/);
-  if (!match) return { state: '', time: '' };
   
-  const stateCode = match[1];
-  const zipCode = match[2];
+  const ZIP_TO_STATE = {};
+  for (let s in ZIP_PREFIXES) {
+    ZIP_PREFIXES[s].forEach(prefix => {
+      ZIP_TO_STATE[prefix] = s;
+    });
+  }
+
+  const CITY_TO_STATE = {
+    "new york": "NY", "los angeles": "CA", "chicago": "IL", "houston": "TX", "phoenix": "AZ",
+    "philadelphia": "PA", "san antonio": "TX", "san diego": "CA", "dallas": "TX", "san jose": "CA",
+    "austin": "TX", "jacksonville": "FL", "fort worth": "TX", "columbus": "OH", "charlotte": "NC",
+    "san francisco": "CA", "indianapolis": "IN", "seattle": "WA", "denver": "CO", "washington": "DC",
+    "boston": "MA", "el paso": "TX", "nashville": "TN", "detroit": "MI", "oklahoma city": "OK",
+    "portland": "OR", "las vegas": "NV", "memphis": "TN", "louisville": "KY", "baltimore": "MD",
+    "milwaukee": "WI", "albuquerque": "NM", "tucson": "AZ", "fresno": "CA", "sacramento": "CA",
+    "kansas city": "MO", "mesa": "AZ", "atlanta": "GA", "omaha": "NE", "colorado springs": "CO",
+    "raleigh": "NC", "miami": "FL", "virginia beach": "VA", "oakland": "CA", "minneapolis": "MN",
+    "tulsa": "OK", "arlington": "TX", "tampa": "FL", "new orleans": "LA", "wichita": "KS",
+    "cleveland": "OH", "bakersfield": "CA", "aurora": "CO", "anaheim": "CA", "honolulu": "HI",
+    "san bernardino": "CA", "riverside": "CA", "stockton": "CA", "chula vista": "CA", "irvine": "CA",
+    "fremont": "CA", "santa ana": "CA", "santa clara": "CA", "berkeley": "CA",
+    "saint paul": "MN", "pittsburgh": "PA", "newark": "NJ", "cincinnati": "OH", "anchorage": "AK"
+  };
+  
+  let stateCode = null;
+  let zipCode = null;
+  
+  // 1. Try to extract Zip Code (5 digits)
+  const zipMatch = address.match(/\b(\d{5})\b/);
+  if (zipMatch) {
+    zipCode = zipMatch[1];
+    const prefix = zipCode.substring(0, 2);
+    if (ZIP_TO_STATE[prefix]) {
+      stateCode = ZIP_TO_STATE[prefix];
+    }
+  }
+  
+  // 2. Try full state name
+  if (!stateCode) {
+    const lowerAddress = address.toLowerCase();
+    for (let s in STATE_MAP) {
+      if (lowerAddress.includes(STATE_MAP[s].name.toLowerCase())) {
+        stateCode = s;
+        break;
+      }
+    }
+  }
+  
+  // 3. Try 2-letter state code
+  if (!stateCode) {
+    const codeMatch = address.match(/\b([A-Z]{2})\b/g);
+    if (codeMatch) {
+      for (let code of codeMatch) {
+        if (STATE_MAP[code]) {
+          stateCode = code;
+          break;
+        }
+      }
+    }
+  }
+
+  // 4. Try city name fallback
+  if (!stateCode) {
+    const lowerAddress = address.toLowerCase();
+    for (let city in CITY_TO_STATE) {
+      if (lowerAddress.includes(city)) {
+        stateCode = CITY_TO_STATE[city];
+        break;
+      }
+    }
+  }
+  
+  if (!stateCode) return { state: 'N/A', time: '' };
   
   const stateInfo = STATE_MAP[stateCode];
-  if (!stateInfo) return { state: '', time: '' };
-  
-  const zipPrefix = zipCode.substring(0, 2);
-  const validPrefixes = ZIP_PREFIXES[stateCode];
-  if (validPrefixes && !validPrefixes.includes(zipPrefix)) {
-    return { state: 'Invalid Zip', time: '' };
-  }
   
   let timeStr = '';
   try {
     timeStr = new Date().toLocaleString('vi-VN', { timeZone: stateInfo.tz });
   } catch(e) { timeStr = 'N/A'; }
   
-  return { state: stateInfo.name, time: timeStr, tz: stateInfo.tz, stateCode: stateCode.toLowerCase() };
+  return {
+    state: stateInfo.name,
+    time: timeStr,
+    tz: stateInfo.tz,
+    stateCode: stateCode.toLowerCase()
+  };
 }
 
 async function getTOTP(secret) {
