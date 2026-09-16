@@ -1129,25 +1129,35 @@ app.get('/api/npo-lookup', async (req, res) => {
     }
     
     let orgs = [];
-    const regex = /<tr class="item"[^>]*>([\s\S]*?)<\/tr>/g;
+    const regex = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
     let match;
     while ((match = regex.exec(html)) !== null) {
       const rowHtml = match[1];
-      const nameMatch = rowHtml.match(/<td class="text-left capitalize">\s*<a href="[^"]*ein=([^"]+)">([^<]+)<\/a>/);
-      const tds = [...rowHtml.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m => m[1].replace(/<[^>]+>/g, '').trim().replace(/\s+/g, ' '));
+      const nameMatch = rowHtml.match(/<td[^>]*capitalize[^>]*>\s*<a href="([^"]+)">([^<]+)<\/a>/i);
       
-      if (nameMatch && tds.length >= 5) {
-        orgs.push({
-          ein: nameMatch[1].trim(),
-          name: nameMatch[2].trim(),
-          address: tds[1],
-          city: tds[2],
-          state: tds[3],
-          zip: tds[4],
-          inCareOf: tds[5] || '',
-          assets: tds[7] || '',
-          income: tds[8] || ''
-        });
+      if (nameMatch) {
+        const tds = [...rowHtml.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m => m[1].replace(/<[^>]+>/g, '').trim().replace(/\s+/g, ' '));
+        
+        const href = nameMatch[1];
+        let ein = '';
+        const einMatch = href.match(/\b(\d{2}-?\d{7})\b|\b(\d{9})\b|ein=([^&"]+)|id=([^&"]+)/i);
+        if (einMatch) {
+           ein = einMatch[1] || einMatch[2] || einMatch[3] || einMatch[4];
+        }
+        
+        if (ein && tds.length >= 5) {
+          orgs.push({
+            ein: ein.trim(),
+            name: nameMatch[2].trim(),
+            address: tds[1],
+            city: tds[2],
+            state: tds[3],
+            zip: tds[4],
+            inCareOf: tds[5] || '',
+            assets: tds[7] || '',
+            income: tds[8] || ''
+          });
+        }
       }
     }
     
