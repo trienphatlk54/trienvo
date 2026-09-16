@@ -5463,6 +5463,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
+    // Check if there is already existing data
+    const currentFullname = document.getElementById('bsnFullname').value.trim();
+    if (currentFullname) {
+      const confirmChange = confirm('Profile này đã có dữ liệu. Bạn có chắc chắn muốn tạo ngẫu nhiên đè lên dữ liệu cũ không?');
+      if (!confirmChange) return;
+    }
+    
     // Process address to get stateCode
     const computed = processAddress(row.address);
     const stateCode = computed.stateCode ? computed.stateCode.toUpperCase() : '';
