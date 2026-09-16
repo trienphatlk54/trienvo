@@ -1488,29 +1488,34 @@
       <div style="width:100%;">
         <div class="main-card" style="max-width: 100%; width: 100%;">
           <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <h2>💳 Quản lý Accounts CCN</h2>
-            <div class="btn-group">
-              <button class="btn btn-secondary btn-sm" onclick="addCcnRow()">➕ Thêm dòng</button>
-              <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ccnFileInput').click()">📂 Tải từ File</button>
-              <input type="file" id="ccnFileInput" accept=".txt,.csv" style="display:none" onchange="importCcnFromFile(event)">
-              <button class="btn btn-secondary btn-sm" onclick="importCcnFromPaste()">📋 Nhập từ Text</button>
-              <button class="btn btn-secondary btn-sm" style="color:var(--error); border-color:var(--error);" onclick="clearAllCcn()">🗑 Xóa tất cả</button>
+            <h2>?? Qu?n l� Accounts CCN</h2>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <input type="text" id="ccnTableSearch" class="proxy-input" placeholder="?? T�m ki?m..." onkeyup="renderCcnTable()" style="max-width: 200px; padding: 6px 12px; font-size: 12px;">
+              <div class="btn-group">
+                <button class="btn btn-secondary btn-sm" onclick="zoomCcnTableView(0.1)" title="Ph�ng to">?? +</button>
+                <button class="btn btn-secondary btn-sm" onclick="zoomCcnTableView(-0.1)" title="Thu nh?">?? -</button>
+                <button class="btn btn-secondary btn-sm" onclick="addCcnRow()">? Th�m d�ng</button>
+                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ccnFileInput').click()">?? T?i t? File</button>
+                <input type="file" id="ccnFileInput" accept=".txt,.csv" style="display:none" onchange="importCcnFromFile(event)">
+                <button class="btn btn-secondary btn-sm" onclick="importCcnFromPaste()">?? Nh?p t? Text</button>
+                <button class="btn btn-secondary btn-sm" style="color:var(--error); border-color:var(--error);" onclick="clearAllCcn()">?? X�a t?t c?</button>
+              </div>
             </div>
           </div>
           <div class="card-body" style="display: block; padding: 0;">
             <div class="table-container" style="max-height: calc(100vh - 180px); overflow-y: auto; overflow-x: auto; width: 100%;">
               <table class="compact-table" style="width:100%; min-width: 1000px; border-collapse: collapse; text-align: left; font-size: 13px;">
                 <thead>
-                  <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                  <tr id="ccnTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
                     <th style="padding: 10px 8px; width: 40px; text-align: center;">#</th>
-                    <th style="padding: 10px 8px;">Email</th>
-                    <th style="padding: 10px 8px;">Pass</th>
-                    <th style="padding: 10px 8px; width: 80px;">2FA</th>
-                    <th style="padding: 10px 8px;">Country</th>
-                    <th style="padding: 10px 8px;">Address</th>
-                    <th style="padding: 10px 8px;">State</th>
-                    <th style="padding: 10px 8px;">Time State</th>
-                    <th style="padding: 10px 8px; width: 80px; text-align: center;">Thao tác</th>
+                    <th data-col="email" onclick="setCcnSort('email')" style="padding: 10px 8px; cursor:pointer;">Email ?</th>
+                    <th data-col="pass" onclick="setCcnSort('pass')" style="padding: 10px 8px; cursor:pointer;">Pass ?</th>
+                    <th data-col="twofa" onclick="setCcnSort('twofa')" style="padding: 10px 8px; width: 80px; cursor:pointer;">2FA ?</th>
+                    <th data-col="country" onclick="setCcnSort('country')" style="padding: 10px 8px; cursor:pointer;">Country ?</th>
+                    <th data-col="address" onclick="setCcnSort('address')" style="padding: 10px 8px; cursor:pointer;">Address ?</th>
+                    <th data-col="state" onclick="setCcnSort('state')" style="padding: 10px 8px; cursor:pointer;">State ?</th>
+                    <th data-col="timeState" onclick="setCcnSort('timeState')" style="padding: 10px 8px; cursor:pointer;">Time State ?</th>
+                    <th style="padding: 10px 8px; width: 120px; text-align: center;">Thao t�c</th>
                   </tr>
                 </thead>
                 <tbody id="ccnTableBody">
@@ -4817,6 +4822,9 @@ async function deleteFloppyProxy(id) {
 // ──────────────────────────────────────────────────────────────────────────
 // ACCOUNTS CCN CRUD
 let ccnData = {}; 
+let ccnTableZoom = 1.0;
+let ccnSortCol = '';
+let ccnSortAsc = true;
 
 const STATE_MAP = {
   "AL": { name: "Alabama", tz: "America/Chicago" }, "AK": { name: "Alaska", tz: "America/Anchorage" }, "AZ": { name: "Arizona", tz: "America/Phoenix" }, "AR": { name: "Arkansas", tz: "America/Chicago" },
@@ -4923,6 +4931,36 @@ async function generateAndCopyTOTP(btn, secret) {
   setTimeout(() => { btn.innerText = oldText; }, 3000);
 }
 
+function zoomCcnTableView(delta) {
+  ccnTableZoom += delta;
+  if (ccnTableZoom < 0.3) ccnTableZoom = 0.3;
+  if (ccnTableZoom > 2.0) ccnTableZoom = 2.0;
+  const table = document.querySelector('#tab-ccn .table-container table');
+  if (table) table.style.zoom = ccnTableZoom;
+}
+
+function setCcnSort(col) {
+  if (ccnSortCol === col) {
+    ccnSortAsc = !ccnSortAsc;
+  } else {
+    ccnSortCol = col;
+    ccnSortAsc = true;
+  }
+  
+  const tr = document.getElementById('ccnTableHeaderTr');
+  if (tr) {
+    tr.querySelectorAll('th[data-col]').forEach(th => {
+      let text = th.innerText.replace(' ▼', '').replace(' ▲', '').replace(' ↕', '');
+      if (th.getAttribute('data-col') === col) {
+        th.innerText = text + (ccnSortAsc ? ' ▲' : ' ▼');
+      } else {
+        th.innerText = text + ' ↕';
+      }
+    });
+  }
+  renderCcnTable();
+}
+
 async function loadCcnData() {
   const tbody = document.getElementById('ccnTableBody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 16px;">Đang tải từ Cloud...</td></tr>';
@@ -4957,29 +4995,54 @@ async function saveCcnRecord(id, row) {
 function renderCcnTable() {
   const tbody = document.getElementById('ccnTableBody');
   if (!tbody) return;
-  const entries = Object.entries(ccnData);
+  const searchInput = (document.getElementById('ccnTableSearch')?.value || '').toLowerCase();
+  
+  let entries = Object.entries(ccnData).map(([id, row]) => {
+    const computed = processAddress(row.address);
+    return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time };
+  });
+
+  if (searchInput) {
+    entries = entries.filter(r => {
+      return r.email.toLowerCase().includes(searchInput) ||
+             r.address.toLowerCase().includes(searchInput) ||
+             r.state.toLowerCase().includes(searchInput) ||
+             r.country.toLowerCase().includes(searchInput);
+    });
+  }
+
+  if (ccnSortCol) {
+    entries.sort((a, b) => {
+      let valA = (a[ccnSortCol] || '').toString().toLowerCase();
+      let valB = (b[ccnSortCol] || '').toString().toLowerCase();
+      
+      if (valA < valB) return ccnSortAsc ? -1 : 1;
+      if (valA > valB) return ccnSortAsc ? 1 : -1;
+      return 0;
+    });
+  }
+
   if (entries.length === 0) {
     tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu.</td></tr>';
     return;
   }
   
   let rows = '';
-  entries.forEach(([id, row], idx) => {
-    const computed = processAddress(row.address);
+  entries.forEach((row, idx) => {
     rows += `
       <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
         <td style="padding: 10px 8px; text-align: center; color: var(--text-muted);">${idx + 1}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.email || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.pass || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer; font-family: monospace; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(row.twofa || '')}" onclick="copyText(this.innerText)">${escapeHtml(row.twofa || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.country || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.address || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer; color: var(--success);" onclick="copyText(this.innerText)">${escapeHtml(computed.state || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer; color: var(--shopee-light);" onclick="copyText(this.innerText)">${escapeHtml(computed.time || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.email)}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.pass)}</td>
+        <td style="padding: 10px 8px; cursor: pointer; font-family: monospace; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(row.twofa)}" onclick="copyText(this.innerText)">${escapeHtml(row.twofa)}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.country)}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.address)}</td>
+        <td style="padding: 10px 8px; cursor: pointer; color: var(--success);" onclick="copyText(this.innerText)">${escapeHtml(row.state)}</td>
+        <td style="padding: 10px 8px; cursor: pointer; color: var(--shopee-light);" onclick="copyText(this.innerText)">${escapeHtml(row.timeState)}</td>
         <td style="padding: 10px 8px; text-align: center; display: flex; gap: 4px; justify-content: center;">
-          <button class="btn btn-secondary btn-sm" onclick="generateAndCopyTOTP(this, '${escapeHtml(row.twofa || '')}')" title="Tạo và Copy code 6 số" style="font-size:11px; padding:4px 8px;">🗝 Lấy Code</button>
-          <button class="btn btn-secondary btn-sm" onclick="editCcnRow('${id}')" title="Sửa" style="font-size:11px; padding:4px 8px;">✏️</button>
-          <button class="btn btn-secondary btn-sm" onclick="deleteCcnRow('${id}')" title="Xóa" style="font-size:11px; padding:4px 8px;">❌</button>
+          <button class="btn btn-secondary btn-sm" onclick="generateAndCopyTOTP(this, '${escapeHtml(row.twofa)}')" title="Tạo và Copy code 6 số" style="font-size:11px; padding:4px 8px;">🗝 Lấy Code</button>
+          <button class="btn btn-secondary btn-sm" onclick="editCcnRow('${row.id}')" title="Sửa" style="font-size:11px; padding:4px 8px;">✏️</button>
+          <button class="btn btn-secondary btn-sm" onclick="deleteCcnRow('${row.id}')" title="Xóa" style="font-size:11px; padding:4px 8px;">❌</button>
         </td>
       </tr>
     `;
