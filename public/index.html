@@ -1524,6 +1524,7 @@
               <div style="display:flex; flex-wrap:wrap; gap:5px;">
                 <button class="btn btn-secondary btn-sm" onclick="zoomCcnTableView(0.1)" title="Phóng to">🔍 +</button>
                 <button class="btn btn-secondary btn-sm" onclick="zoomCcnTableView(-0.1)" title="Thu nhỏ">🔍 -</button>
+                <button id="btnToggleCcnMode" class="btn btn-secondary btn-sm" onclick="toggleAddCcnMode()">🔌 Mode Add CCNs: OFF</button>
                 <button class="btn btn-secondary btn-sm" onclick="addCcnRow()">➕ Thêm dòng</button>
                 <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ccnFileInput').click()">📂 Tải từ File</button>
                 <input type="file" id="ccnFileInput" accept=".txt,.csv" style="display:none" onchange="importCcnFromFile(event)">
@@ -5280,7 +5281,7 @@ function renderCcnTable() {
     .filter(([id, row]) => (row.status || 0) === currentCcnTab)
     .map(([id, row]) => {
       const computed = processAddress(row.address);
-      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, stateCode: computed.stateCode, status: row.status||0, identity: row.identity || '', linkedProxy: row.linkedProxy || '', bsn: row.bsn || null };
+      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, stateCode: computed.stateCode, status: row.status||0, identity: row.identity || '', linkedProxy: row.linkedProxy || '', bsn: row.bsn || null, assignedCards: row.assignedCards || [] };
     });
 
   if (searchInput) {
@@ -5753,6 +5754,97 @@ window.renderCcnCards = function() {
   
   container.innerHTML = htmlStr;
 }
+
+
+window.isAddCcnMode = false;
+window.toggleAddCcnMode = function() {
+  window.isAddCcnMode = !window.isAddCcnMode;
+  const btn = document.getElementById('btnToggleCcnMode');
+  if (btn) {
+    btn.innerHTML = window.isAddCcnMode ? '🔌 Mode Add CCNs: ON' : '🔌 Mode Add CCNs: OFF';
+    btn.style.color = window.isAddCcnMode ? 'var(--success)' : '';
+  }
+  renderCcnTable();
+};
+
+window.assignCardAccountId = null;
+window.assignCardSlotIndex = null;
+
+window.openAssignCardModal = function(accountId, slotIndex) {
+  window.assignCardAccountId = accountId;
+  window.assignCardSlotIndex = slotIndex;
+  
+  const binSelect = document.getElementById('assignCardBinSelect');
+  binSelect.innerHTML = '<option value="">-- Chọn BIN --</option>';
+  
+  const bins = Object.keys(window.ccnCardsData || {}).sort();
+  bins.forEach(bin => {
+    const count = window.ccnCardsData[bin].length;
+    binSelect.innerHTML += `<option value="${bin}">${bin} (${count} thẻ)</option>`;
+  });
+  
+  document.getElementById('assignCardList').innerHTML = '<div style="text-align:center; padding: 20px; color:var(--text-muted);">Vui lòng chọn BIN</div>';
+  document.getElementById('assignCardModal').classList.add('active');
+};
+
+window.renderAssignCardList = function() {
+  const bin = document.getElementById('assignCardBinSelect').value;
+  const list = document.getElementById('assignCardList');
+  if (!bin || !window.ccnCardsData[bin]) {
+    list.innerHTML = '<div style="text-align:center; padding: 20px; color:var(--text-muted);">Vui lòng chọn BIN</div>';
+    return;
+  }
+  
+  let htmlStr = '';
+  window.ccnCardsData[bin].forEach((card) => {
+    let displayCard = card;
+    if (card.includes('|')) {
+      const parts = card.split('|');
+      displayCard = `<strong>${parts[0]}</strong>` + (parts.length > 1 ? `<span style="color:var(--text-muted)">|${parts.slice(1).join('|')}</span>` : '');
+    } else {
+      displayCard = `<strong>${card}</strong>`;
+    }
+    
+    htmlStr += `
+      <div style="padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'" onclick="assignCardToSlot('${card}')">
+        <span style="font-family:monospace; font-size:13px;">${displayCard}</span>
+        <button class="btn btn-sm btn-primary" style="padding: 2px 8px; font-size:11px;">Chọn</button>
+      </div>
+    `;
+  });
+  list.innerHTML = htmlStr;
+};
+
+window.assignCardToSlot = async function(cardText) {
+  if (!window.assignCardAccountId) return;
+  
+  const id = window.assignCardAccountId;
+  const slot = window.assignCardSlotIndex;
+  
+  let row = window.ccnData[id];
+  if (!row) return;
+  
+  if (!row.assignedCards) row.assignedCards = [];
+  row.assignedCards[slot] = cardText;
+  
+  document.getElementById('assignCardModal').classList.remove('active');
+  toast('Đang lưu thẻ vào account...', 'info');
+  await window.saveCcnRecord(id, row);
+  toast('Lưu thẻ thành công!', 'success');
+  renderCcnTable();
+};
+
+window.removeAssignedCard = async function(accountId, slotIndex) {
+  if (!confirm('Bạn có chắc muốn gỡ thẻ này khỏi account?')) return;
+  let row = window.ccnData[accountId];
+  if (!row || !row.assignedCards) return;
+  
+  row.assignedCards[slotIndex] = null;
+  toast('Đang gỡ thẻ...', 'info');
+  await window.saveCcnRecord(accountId, row);
+  toast('Gỡ thẻ thành công!', 'success');
+  renderCcnTable();
+};
 
 window.addSingleCcnCard = async function() {
   const card = prompt('Nhập thông tin thẻ (VD: 4207670337397783|09|2030|123):');
