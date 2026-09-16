@@ -5376,7 +5376,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // BSN Logic
-  function openBsnModal(rowId) {
+  window.openBsnModal = function(rowId) {
     const row = ccnData[rowId];
     if (!row) return;
     document.getElementById('bsnRowId').value = rowId;
@@ -5398,11 +5398,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('bsnModal').classList.add('active');
   }
   
-  function closeBsnModal() {
+  window.closeBsnModal = function() {
     document.getElementById('bsnModal').classList.remove('active');
   }
   
-  async function generateBsnProfile() {
+  window.generateBsnProfile = async function() {
     toast('Đang tạo profile ngẫu nhiên từ randomuser.me...', 'info');
     try {
       const res = await fetch('https://randomuser.me/api/?nat=us');
@@ -5420,7 +5420,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
-  async function saveBsnProfile() {
+  window.saveBsnProfile = async function() {
     const rowId = document.getElementById('bsnRowId').value;
     const row = ccnData[rowId];
     if (!row) return;
