@@ -4902,6 +4902,16 @@ const ZIP_PREFIXES = {
   "WV": ["24", "25", "26"], "WI": ["53", "54"], "WY": ["82"], "DC": ["20"]
 };
 
+
+function formatAddressForDisplay(fullAddress) {
+  if (!fullAddress) return '';
+  const match = fullAddress.match(/\b([A-Z]{2})\s+(\d{5})\b/);
+  if (match) {
+    return '...' + match[0];
+  }
+  return fullAddress.length > 15 ? fullAddress.substring(0, 15) + '...' : fullAddress;
+}
+
 function processAddress(address) {
   if (!address) return { state: '', time: '' };
   const match = address.match(/\b([A-Z]{2})\s+(\d{5})\b/);
@@ -4924,7 +4934,7 @@ function processAddress(address) {
     timeStr = new Date().toLocaleString('vi-VN', { timeZone: stateInfo.tz });
   } catch(e) { timeStr = 'N/A'; }
   
-  return { state: stateInfo.name, time: timeStr, tz: stateInfo.tz };
+  return { state: stateInfo.name, time: timeStr, tz: stateInfo.tz, stateCode: stateCode.toLowerCase() };
 }
 
 async function getTOTP(secret) {
@@ -5051,6 +5061,40 @@ async function saveCcnRecord(id, row) {
   } catch(e) {}
 }
 
+
+async function generateCcnProxy(rowId, stateCode) {
+  if (!stateCode) {
+    toast('Không trích xuất được bang (State)', 'error');
+    return;
+  }
+  toast('Đang tạo Proxy US...', 'info');
+  try {
+    const r = await fetch('/api/floppydata/create-proxy', {
+      method: 'POST',
+      headers: { ...getFloppyHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ country: 'US', state: stateCode })
+    });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.error || 'Lỗi tạo Proxy');
+
+    toast('Tạo Proxy US thành công!', 'success');
+    if (typeof loadFloppyProxies === 'function') loadFloppyProxies();
+    
+    const conn = d.connection;
+    const formattedConnString = conn.protocol + '://' + conn.host + ':' + conn.port + ':' + conn.username + ':' + conn.password;
+    
+    const row = ccnData[rowId];
+    if (row) {
+      row.linkedProxy = formattedConnString;
+      await saveCcnRecord(rowId, row);
+    }
+    
+    showProxyQR(formattedConnString);
+  } catch(e) {
+    toast(e.message || 'Lỗi kết nối tạo Proxy', 'error');
+  }
+}
+
 function renderCcnTable() {
   const tbody = document.getElementById('ccnTableBody');
   if (!tbody) return;
@@ -5060,7 +5104,7 @@ function renderCcnTable() {
     .filter(([id, row]) => (row.status || 0) === currentCcnTab)
     .map(([id, row]) => {
       const computed = processAddress(row.address);
-      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, status: row.status||0, identity: row.identity || '' };
+      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, stateCode: computed.stateCode, status: row.status||0, identity: row.identity || '', linkedProxy: row.linkedProxy || '' };
     });
 
   if (searchInput) {
@@ -5084,7 +5128,7 @@ function renderCcnTable() {
   }
 
   if (entries.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu ở Tab này.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu ở Tab này.</td></tr>';
     return;
   }
   
@@ -5103,7 +5147,7 @@ function renderCcnTable() {
         </td>
         <td style="padding: 10px 8px;">${renderCcnIdentityCell(row)}</td>
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.country)}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.address)}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" title="${escapeHtml(row.address)}" data-full="${escapeHtml(row.address)}" onclick="copyText(this.getAttribute('data-full'))">${escapeHtml(formatAddressForDisplay(row.address))}</td>
         <td style="padding: 10px 8px; cursor: pointer; color: var(--success);" onclick="copyText(this.innerText)">${escapeHtml(row.state)}</td>
         <td class="time-state-cell" data-tz="${escapeHtml(row.tz || '')}" style="padding: 10px 8px; cursor: pointer; color: var(--shopee-light); font-weight: 500;" onclick="copyText(this.innerText)">${escapeHtml(row.timeState)}</td>
         <td style="padding: 10px 8px; text-align: center;">
@@ -5113,6 +5157,16 @@ function renderCcnTable() {
             <option value="1" ${row.status === 1 ? 'disabled' : ''}>OK / Treo</option>
             <option value="2" ${row.status === 2 ? 'disabled' : ''}>Lock / Die</option>
           </select>
+        </td>
+        <td style="padding: 10px 8px; text-align: center;">
+          ${row.linkedProxy ? `
+            <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
+              <span style="font-size:10px; font-family:monospace; color:var(--success); max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="copyText('${row.linkedProxy}')">${row.linkedProxy}</span>
+              <button class="btn btn-sm btn-ghost" onclick="showProxyQR('${row.linkedProxy}')" style="padding:2px; font-size:14px;" title="Xem QR">📱</button>
+            </div>
+          ` : `
+            <button class="btn btn-sm btn-primary" onclick="generateCcnProxy('${row.id}', '${row.stateCode}')" style="font-size:11px; padding:3px 6px;">🌐 Tạo Proxy</button>
+          `}
         </td>
       </tr>
     `;
