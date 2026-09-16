@@ -890,7 +890,30 @@
         grid-template-columns: 1fr !important;
       }
     }
+
+  /* Mobile Responsive CCN Header */
+  @media (max-width: 768px) {
+    #tab-ccn .card-header {
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+    #tab-ccn .card-header > div {
+      flex-direction: column !important;
+      align-items: stretch !important;
+      width: 100%;
+    }
+    #tab-ccn .card-header > div > div {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr;
+      width: 100%;
+    }
+    #ccnTableSearch {
+      max-width: 100% !important;
+      width: 100%;
+    }
+  }
 </style>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
@@ -4838,9 +4861,16 @@ let currentCcnTab = 0;
 let ccnEditIdentityId = null;
 function renderCcnIdentityCell(row) {
   if (row.identity && ccnEditIdentityId !== row.id) {
+    let displayStr = row.identity;
+    if (typeof phonesData !== 'undefined') {
+      const p = Object.values(phonesData).find(x => x.identifier === row.identity);
+      if (p && p.type) {
+        displayStr = `${row.identity} (${p.type})`;
+      }
+    }
     return `
       <div style="display:flex; align-items:center; gap:4px;">
-        <span style="font-weight:bold; cursor:pointer; color: var(--primary);" onclick="copyText(this.innerText)">${escapeHtml(row.identity)}</span>
+        <span style="font-weight:bold; cursor:pointer; color: var(--primary);" onclick="copyText('${escapeHtml(row.identity)}')">${escapeHtml(displayStr)}</span>
         <button class="btn btn-sm btn-ghost" onclick="ccnEditIdentityId='${row.id}'; renderCcnTable();" style="padding:0 4px;" title="Sửa">✏️</button>
       </div>
     `;
