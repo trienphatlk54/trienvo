@@ -5538,7 +5538,9 @@ document.addEventListener('DOMContentLoaded', () => {
     toast('Đang trích xuất tổ chức (NPO)...', 'info');
     try {
       const state = document.getElementById('bsnState').value.trim();
-      const res = await fetch('/api/npo-lookup?zip=' + zip + '&state=' + state);
+      const state = document.getElementById('bsnState').value.trim();
+      const city = document.getElementById('bsnCity').value.trim();
+      const res = await fetch('/api/npo-lookup?zip=' + zip + '&state=' + state + '&city=' + encodeURIComponent(city));
       const data = await res.json();
       if (data.success) {
         const org = data.organization;
