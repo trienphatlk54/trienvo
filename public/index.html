@@ -4887,7 +4887,7 @@ function processAddress(address) {
     timeStr = new Date().toLocaleString('vi-VN', { timeZone: stateInfo.tz });
   } catch(e) { timeStr = 'N/A'; }
   
-  return { state: stateInfo.name, time: timeStr };
+  return { state: stateInfo.name, time: timeStr, tz: stateInfo.tz };
 }
 
 async function getTOTP(secret) {
@@ -5023,7 +5023,7 @@ function renderCcnTable() {
     .filter(([id, row]) => (row.status || 0) === currentCcnTab)
     .map(([id, row]) => {
       const computed = processAddress(row.address);
-      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, status: row.status||0 };
+      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, status: row.status||0 };
     });
 
   if (searchInput) {
@@ -5059,15 +5059,15 @@ function renderCcnTable() {
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.email)}</td>
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.pass)}</td>
         <td style="padding: 10px 8px;">
-          <div style="display:flex; align-items:center; gap:5px;">
+          <div style="display:flex; align-items:center; gap:6px;">
             <span style="font-family: monospace; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;" title="${escapeHtml(row.twofa)}" onclick="copyText(this.innerText)">${escapeHtml(row.twofa)}</span>
-            <button class="btn btn-secondary btn-sm" onclick="generateAndCopyTOTP(this, '${escapeHtml(row.twofa)}')" title="Lấy Code 6 số" style="font-size:11px; padding:2px 6px; flex-shrink:0;">🗝 Code</button>
+            <button class="btn btn-sm" onclick="generateAndCopyTOTP(this, '${escapeHtml(row.twofa)}')" title="Lấy Code 6 số" style="font-size:11px; padding:3px 8px; flex-shrink:0; background: var(--primary); color: #fff; font-weight: bold; border-radius: 4px; border: none; box-shadow: 0 2px 4px rgba(238,77,45,0.3);">🗝 Code</button>
           </div>
         </td>
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.country)}</td>
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.address)}</td>
         <td style="padding: 10px 8px; cursor: pointer; color: var(--success);" onclick="copyText(this.innerText)">${escapeHtml(row.state)}</td>
-        <td style="padding: 10px 8px; cursor: pointer; color: var(--shopee-light);" onclick="copyText(this.innerText)">${escapeHtml(row.timeState)}</td>
+        <td class="time-state-cell" data-tz="${escapeHtml(row.tz || '')}" style="padding: 10px 8px; cursor: pointer; color: var(--shopee-light); font-weight: 500;" onclick="copyText(this.innerText)">${escapeHtml(row.timeState)}</td>
         <td style="padding: 10px 8px; text-align: center;">
           <select onchange="moveCcnRow('${row.id}', parseInt(this.value))" style="font-size:11px; padding: 4px 6px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; width: 100%; cursor: pointer;">
             <option value="" disabled selected>Chuyển Tab...</option>
@@ -5172,6 +5172,25 @@ function importCcnFromFile(event) {
 
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(loadCcnData, 300);
+
+// Real-time CCN clock
+let ccnTimeInterval = null;
+function updateCcnRealTime() {
+  const tab = document.getElementById('tab-ccn');
+  if (!tab || !tab.classList.contains('active')) return;
+  const cells = document.querySelectorAll('.time-state-cell');
+  cells.forEach(cell => {
+    const tz = cell.getAttribute('data-tz');
+    if (tz && tz !== 'undefined') {
+      try {
+        cell.innerText = new Date().toLocaleString('vi-VN', { timeZone: tz });
+      } catch(e) {}
+    }
+  });
+}
+if (ccnTimeInterval) clearInterval(ccnTimeInterval);
+ccnTimeInterval = setInterval(updateCcnRealTime, 1000);
+
 });
 
 
