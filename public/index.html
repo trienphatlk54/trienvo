@@ -5403,6 +5403,11 @@ function renderCcnTable() {
     if (window.isAddCcnMode) {
        const bsnFullname = row.bsn ? escapeHtml(row.bsn.fullname || '') : '';
        let cardsHtml = '';
+              if (row.assignedCards && !Array.isArray(row.assignedCards)) {
+          let arr = [];
+          Object.keys(row.assignedCards).forEach(k => { arr[parseInt(k)] = row.assignedCards[k]; });
+          row.assignedCards = arr;
+       }
        const numSlots = Math.max(6, (row.assignedCards ? row.assignedCards.length : 0)) + (row.extraSlots || 0);
        for(let i=0; i<numSlots; i++) {
          let card = null;
@@ -5425,7 +5430,7 @@ function renderCcnTable() {
        
        // Thêm nút Thêm cột
        cardsHtml += `<div style="flex: 0 0 auto; padding:5px 8px; text-align:center; min-width:0;">
-         <button class="btn btn-sm" style="font-size:11px; padding:2px 8px; border: 1px dashed var(--primary); color:var(--primary); background: transparent;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'" onclick="ccnData['${row.id}'].extraSlots = (ccnData['${row.id}'].extraSlots || 0) + 1; renderCcnTable();">+ Thêm cột</button>
+         <button class="btn btn-sm" style="font-size:11px; padding:2px 8px; border: 1px dashed var(--primary); color:var(--primary); background: transparent;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'" onclick="ccnData['${row.id}'].extraSlots = (ccnData['${row.id}'].extraSlots || 0) + 1; window.saveCcnRecord('${row.id}', ccnData['${row.id}']).then(()=>renderCcnTable());">+ Thêm cột</button>
        </div>`;
        
        rows += `
