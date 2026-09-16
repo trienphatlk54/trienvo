@@ -4844,8 +4844,8 @@ function renderCcnIdentityCell(row) {
     `;
   } else {
     let options = `<option value="">Chọn ĐD</option>`;
-    if (typeof phoneData !== 'undefined') {
-      Object.values(phoneData).forEach(p => {
+    if (typeof phonesData !== 'undefined') {
+      Object.values(phonesData).forEach(p => {
         if (p.identifier) {
           options += `<option value="${escapeHtml(p.identifier)}" ${row.identity === p.identifier ? 'selected' : ''}>${escapeHtml(p.identifier)}</option>`;
         }
