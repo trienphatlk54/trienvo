@@ -1517,7 +1517,7 @@
                   <th data-col="pass" onclick="setCcnSort('pass')" style="padding: 10px 8px; cursor:pointer;">Pass ↕</th>
                   <th data-col="twofa" onclick="setCcnSort('twofa')" style="padding: 10px 8px; width: 140px; cursor:pointer;">2FA ↕</th>
                   <th data-col="identity" onclick="setCcnSort('identity')" style="padding: 10px 8px; width: 120px; cursor:pointer;">Định danh ↕</th>
-                  <th data-col="country" onclick="setCcnSort('country')" style="padding: 10px 8px; cursor:pointer;">Country ↕</th>
+                  
                   <th data-col="address" onclick="setCcnSort('address')" style="padding: 10px 8px; cursor:pointer;">Address ↕</th>
                   <th data-col="state" onclick="setCcnSort('state')" style="padding: 10px 8px; cursor:pointer;">State ↕</th>
                   <th data-col="timeState" onclick="setCcnSort('timeState')" style="padding: 10px 8px; cursor:pointer;">Time State ↕</th>
@@ -4907,7 +4907,7 @@ function formatAddressForDisplay(fullAddress) {
   if (!fullAddress) return '';
   const match = fullAddress.match(/\b([A-Z]{2})\s+(\d{5})\b/);
   if (match) {
-    return '...' + match[0];
+    return match[0];
   }
   return fullAddress.length > 15 ? fullAddress.substring(0, 15) + '...' : fullAddress;
 }
@@ -5128,7 +5128,7 @@ function renderCcnTable() {
   }
 
   if (entries.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu ở Tab này.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu ở Tab này.</td></tr>';
     return;
   }
   
@@ -5146,7 +5146,7 @@ function renderCcnTable() {
           </div>
         </td>
         <td style="padding: 10px 8px;">${renderCcnIdentityCell(row)}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.country)}</td>
+        
         <td style="padding: 10px 8px; cursor: pointer;" title="${escapeHtml(row.address)}" data-full="${escapeHtml(row.address)}" onclick="copyText(this.getAttribute('data-full'))">${escapeHtml(formatAddressForDisplay(row.address))}</td>
         <td style="padding: 10px 8px; cursor: pointer; color: var(--success);" onclick="copyText(this.innerText)">${escapeHtml(row.state)}</td>
         <td class="time-state-cell" data-tz="${escapeHtml(row.tz || '')}" style="padding: 10px 8px; cursor: pointer; color: var(--shopee-light); font-weight: 500;" onclick="copyText(this.innerText)">${escapeHtml(row.timeState)}</td>
