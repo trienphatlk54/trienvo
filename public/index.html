@@ -1790,6 +1790,24 @@
     </div>
   </div>
 
+
+  <!-- Modal Delete Row -->
+  <div class="modal-overlay" id="deleteRowModal">
+    <div class="modal-content" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3>Xác nhận xóa dòng</h3>
+        <button class="close-btn" onclick="document.getElementById('deleteRowModal').classList.remove('active')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 20px;">Bạn có chắc chắn muốn xóa vĩnh viễn dòng dữ liệu này và toàn bộ thẻ đã gán?</p>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button class="btn btn-secondary" onclick="document.getElementById('deleteRowModal').classList.remove('active')">Hủy</button>
+          <button class="btn btn-primary" style="background:var(--error); border-color:var(--error);" onclick="confirmDeleteRow()">Xóa vĩnh viễn</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <script>
 
 function getFormattedTime(dateInput) {
@@ -5372,30 +5390,16 @@ function renderCcnTable() {
         <td style="padding: 10px 8px; cursor: pointer; color: var(--success);" onclick="copyText(this.innerText)">${escapeHtml(row.state)}</td>
         <td class="time-state-cell" data-tz="${escapeHtml(row.tz || '')}" style="padding: 10px 8px; cursor: pointer; color: var(--shopee-light); font-weight: 500;" onclick="copyText(this.innerText)">${escapeHtml(row.timeState)}</td>
         <td style="padding: 10px 8px; text-align: center;">
-          <button class="btn btn-sm ${row.bsn ? 'btn-ghost' : 'btn-primary'}" onclick="openBsnModal('${row.id}')" style="font-size:11px; padding:3px 6px; ${row.bsn ? 'color: var(--success);' : ''}">${row.bsn ? '👤 Xem BSN' : '➕ Tạo BSN'}</button>
-        </td>
-        <td style="padding: 10px 8px; text-align: center;">
-          <select onchange="moveCcnRow('${row.id}', parseInt(this.value))" style="font-size:11px; padding: 4px 6px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; width: 100%; cursor: pointer;">
-            <option value="" disabled selected>Chuyển Tab...</option>
-            <option value="0" ${row.status === 0 ? 'disabled' : ''}>Chưa làm</option>
-            <option value="1" ${row.status === 1 ? 'disabled' : ''}>Success</option>
-            <option value="2" ${row.status === 2 ? 'disabled' : ''}>Payment</option>
-            <option value="3" ${row.status === 3 ? 'disabled' : ''}>Cancel</option>
-            <option value="4" ${row.status === 4 ? 'disabled' : ''}>Check Thẻ</option>
-            <option value="5" ${row.status === 5 ? 'disabled' : ''}>Review</option>
-            <option value="6" ${row.status === 6 ? 'disabled' : ''}>Lock</option>
-          </select>
-        </td>
-        <td style="padding: 10px 8px; text-align: center;">
+          <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
           ${row.linkedProxy ? `
-            <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
               <span style="font-size:10px; font-family:monospace; color:var(--success); max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="copyText('${row.linkedProxy}')" title="${row.linkedProxy}">${row.linkedProxy}</span>
               <button class="btn btn-sm btn-ghost" onclick="showProxyQR('${row.linkedProxy}')" style="padding:2px; font-size:14px;" title="Xem QR">📱</button>
               <button class="btn btn-sm btn-ghost" onclick="generateCcnProxy('${row.id}', '${row.stateCode}')" style="padding:2px; font-size:14px;" title="Tạo Proxy mới">🔄</button>
-            </div>
           ` : `
             <button class="btn btn-sm btn-primary" onclick="generateCcnProxy('${row.id}', '${row.stateCode}')" style="font-size:11px; padding:3px 6px;">🌐 Tạo Proxy</button>
           `}
+            <button class="btn btn-sm btn-ghost" onclick="openDeleteRowModal('${row.id}')" style="padding:2px; font-size:14px; color:var(--error);" title="Xóa dòng">🗑️</button>
+          </div>
         </td>
       </tr>
     `;
@@ -5939,6 +5943,34 @@ window.renderAssignCardList = function() {
 window.removeCardTargetId = null;
 window.removeCardTargetSlot = null;
 window.removeCardTargetText = null;
+
+
+window.deleteRowTargetId = null;
+
+window.openDeleteRowModal = function(id) {
+  window.deleteRowTargetId = id;
+  document.getElementById('deleteRowModal').classList.add('active');
+};
+
+window.confirmDeleteRow = async function() {
+  const id = window.deleteRowTargetId;
+  if (!id) return;
+  document.getElementById('deleteRowModal').classList.remove('active');
+  
+  toast('Đang xóa dòng...', 'info');
+  try {
+    await fetch('/api/ccn/delete', { 
+       method: 'POST', 
+       headers: {'Content-Type': 'application/json'}, 
+       body: JSON.stringify({id}) 
+    });
+    delete ccnData[id];
+    window.renderCcnTable();
+    toast('Đã xóa dòng thành công!', 'success');
+  } catch (e) {
+    toast('Lỗi khi xóa dòng', 'error');
+  }
+};
 
 window.removeAssignedCard = function(accountId, slotIndex) {
   let row = ccnData[accountId];
