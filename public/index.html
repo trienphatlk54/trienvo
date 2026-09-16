@@ -1380,7 +1380,7 @@
               </tr>
             </thead>
             <tbody id="tiktokTableBody">
-              <tr><td colspan="10" style="text-align:center; padding:10px;">Đang tải dữ liệu...</td></tr>
+              <tr><td colspan="11" style="text-align:center; padding:10px;">Đang tải dữ liệu...</td></tr>
             </tbody>
           </table>
         </div>
@@ -5250,6 +5250,9 @@ function renderCcnTable() {
         <td style="padding: 10px 8px; cursor: pointer;" title="${escapeHtml(row.address)}" data-full="${escapeHtml(row.address)}" onclick="copyText(this.getAttribute('data-full'))">${escapeHtml(formatAddressForDisplay(row.address))}</td>
         <td style="padding: 10px 8px; cursor: pointer; color: var(--success);" onclick="copyText(this.innerText)">${escapeHtml(row.state)}</td>
         <td class="time-state-cell" data-tz="${escapeHtml(row.tz || '')}" style="padding: 10px 8px; cursor: pointer; color: var(--shopee-light); font-weight: 500;" onclick="copyText(this.innerText)">${escapeHtml(row.timeState)}</td>
+        <td style="padding: 10px 8px; text-align: center;">
+          <button class="btn btn-sm ${row.bsn ? 'btn-ghost' : 'btn-primary'}" onclick="openBsnModal('${row.id}')" style="font-size:11px; padding:3px 6px; ${row.bsn ? 'color: var(--success);' : ''}">${row.bsn ? '👤 Xem BSN' : '➕ Tạo BSN'}</button>
+        </td>
         <td style="padding: 10px 8px; text-align: center;">
           <select onchange="moveCcnRow('${row.id}', parseInt(this.value))" style="font-size:11px; padding: 4px 6px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; width: 100%; cursor: pointer;">
             <option value="" disabled selected>Chuyển Tab...</option>
