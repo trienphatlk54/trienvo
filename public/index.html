@@ -4887,7 +4887,7 @@ function renderCcnIdentityCell(row) {
       });
     }
     return `
-      <input list="identity-list-${row.id}" value="${escapeHtml(row.identity || '')}" onchange="updateCcnIdentity('${row.id}', this.value)" placeholder="Lọc/Chọn ĐD..." style="font-size:11px; padding: 3px; min-width:130px; width:100%; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
+      <input list="identity-list-${row.id}" value="${escapeHtml(row.identity || '')}" onchange="updateCcnIdentity('${row.id}', this.value)" placeholder="Lọc/Chọn ĐD..." style="font-size:11px; padding: 3px; width: 100px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
       <datalist id="identity-list-${row.id}">
         ${options}
       </datalist>
