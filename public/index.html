@@ -5524,9 +5524,10 @@ document.addEventListener('DOMContentLoaded', () => {
       toast('Vui lòng điền Zip Code trước!', 'error');
       return;
     }
-    toast('Đang tìm tổ chức (NPO) từ Melissa...', 'info');
+    toast('Đang trích xuất tổ chức (NPO)...', 'info');
     try {
-      const res = await fetch('/api/npo-lookup?zip=' + zip);
+      const state = document.getElementById('bsnState').value.trim();
+      const res = await fetch('/api/npo-lookup?zip=' + zip + '&state=' + state);
       const data = await res.json();
       if (data.success) {
         const org = data.organization;
