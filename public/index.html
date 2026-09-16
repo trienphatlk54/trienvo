@@ -5720,7 +5720,7 @@ window.renderCcnCards = function() {
     if (!cards || cards.length === 0) continue;
     
     htmlStr += `
-      <div style="min-width: 280px; flex-shrink: 0; background: rgba(0,0,0,0.02); border: 1px solid var(--border); border-radius: 8px; display:flex; flex-direction:column;">
+      <div style="flex: 1 0 280px; background: rgba(0,0,0,0.02); border: 1px solid var(--border); border-radius: 8px; display:flex; flex-direction:column;">
         <div style="padding: 10px; font-weight: bold; text-align: center; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.05);">
           BIN: <span style="color:var(--primary);">${bin}</span> 
           <span style="font-size:11px; color:var(--text-muted); font-weight:normal;">(${cards.length} thẻ)</span>
