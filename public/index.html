@@ -1488,36 +1488,41 @@
       <div style="width:100%;">
         <div class="main-card" style="max-width: 100%; width: 100%;">
           <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <h2>?? Qu?n l� Accounts CCN</h2>
+            <h2>💳 Quản lý Accounts CCN</h2>
             <div style="display:flex; gap:10px; align-items:center;">
-              <input type="text" id="ccnTableSearch" class="proxy-input" placeholder="?? T�m ki?m..." onkeyup="renderCcnTable()" style="max-width: 200px; padding: 6px 12px; font-size: 12px;">
+              <input type="text" id="ccnTableSearch" class="proxy-input" placeholder="🔍 Tìm kiếm..." onkeyup="renderCcnTable()" style="max-width: 200px; padding: 6px 12px; font-size: 12px;">
               <div class="btn-group">
-                <button class="btn btn-secondary btn-sm" onclick="zoomCcnTableView(0.1)" title="Ph�ng to">?? +</button>
-                <button class="btn btn-secondary btn-sm" onclick="zoomCcnTableView(-0.1)" title="Thu nh?">?? -</button>
-                <button class="btn btn-secondary btn-sm" onclick="addCcnRow()">? Th�m d�ng</button>
-                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ccnFileInput').click()">?? T?i t? File</button>
+                <button class="btn btn-secondary btn-sm" onclick="zoomCcnTableView(0.1)" title="Phóng to">🔍 +</button>
+                <button class="btn btn-secondary btn-sm" onclick="zoomCcnTableView(-0.1)" title="Thu nhỏ">🔍 -</button>
+                <button class="btn btn-secondary btn-sm" onclick="addCcnRow()">➕ Thêm dòng</button>
+                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ccnFileInput').click()">📂 Tải từ File</button>
                 <input type="file" id="ccnFileInput" accept=".txt,.csv" style="display:none" onchange="importCcnFromFile(event)">
-                <button class="btn btn-secondary btn-sm" onclick="importCcnFromPaste()">?? Nh?p t? Text</button>
-                <button class="btn btn-secondary btn-sm" style="color:var(--error); border-color:var(--error);" onclick="clearAllCcn()">?? X�a t?t c?</button>
+                <button class="btn btn-secondary btn-sm" onclick="importCcnFromPaste()">📋 Nhập từ Text</button>
+                <button class="btn btn-secondary btn-sm" style="color:var(--error); border-color:var(--error);" onclick="clearAllCcn()">🗑 Xóa tất cả</button>
               </div>
             </div>
           </div>
           <div class="card-body" style="display: block; padding: 0;">
+            <div style="display:flex; gap:10px; padding: 10px; border-bottom: 1px solid var(--border);">
+              <button id="btnCcnTab0" class="btn btn-primary btn-sm" onclick="setCcnTab(0)">Chưa Làm</button>
+              <button id="btnCcnTab1" class="btn btn-ghost btn-sm" onclick="setCcnTab(1)">OK / Treo / Payment</button>
+              <button id="btnCcnTab2" class="btn btn-ghost btn-sm" onclick="setCcnTab(2)">Lock / Validate / Die</button>
+            </div>
             <div class="table-container" style="max-height: calc(100vh - 180px); overflow-y: auto; overflow-x: auto; width: 100%;">
               <table class="compact-table" style="width:100%; min-width: 1000px; border-collapse: collapse; text-align: left; font-size: 13px;">
                 <thead>
-                  <tr id="ccnTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
-                    <th style="padding: 10px 8px; width: 40px; text-align: center;">#</th>
-                    <th data-col="email" onclick="setCcnSort('email')" style="padding: 10px 8px; cursor:pointer;">Email ?</th>
-                    <th data-col="pass" onclick="setCcnSort('pass')" style="padding: 10px 8px; cursor:pointer;">Pass ?</th>
-                    <th data-col="twofa" onclick="setCcnSort('twofa')" style="padding: 10px 8px; width: 80px; cursor:pointer;">2FA ?</th>
-                    <th data-col="country" onclick="setCcnSort('country')" style="padding: 10px 8px; cursor:pointer;">Country ?</th>
-                    <th data-col="address" onclick="setCcnSort('address')" style="padding: 10px 8px; cursor:pointer;">Address ?</th>
-                    <th data-col="state" onclick="setCcnSort('state')" style="padding: 10px 8px; cursor:pointer;">State ?</th>
-                    <th data-col="timeState" onclick="setCcnSort('timeState')" style="padding: 10px 8px; cursor:pointer;">Time State ?</th>
-                    <th style="padding: 10px 8px; width: 120px; text-align: center;">Thao t�c</th>
-                  </tr>
-                </thead>
+                <tr id="ccnTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                  <th style="padding: 10px 8px; width: 40px; text-align: center;">#</th>
+                  <th data-col="email" onclick="setCcnSort('email')" style="padding: 10px 8px; cursor:pointer;">Email ↕</th>
+                  <th data-col="pass" onclick="setCcnSort('pass')" style="padding: 10px 8px; cursor:pointer;">Pass ↕</th>
+                  <th data-col="twofa" onclick="setCcnSort('twofa')" style="padding: 10px 8px; width: 80px; cursor:pointer;">2FA ↕</th>
+                  <th data-col="country" onclick="setCcnSort('country')" style="padding: 10px 8px; cursor:pointer;">Country ↕</th>
+                  <th data-col="address" onclick="setCcnSort('address')" style="padding: 10px 8px; cursor:pointer;">Address ↕</th>
+                  <th data-col="state" onclick="setCcnSort('state')" style="padding: 10px 8px; cursor:pointer;">State ↕</th>
+                  <th data-col="timeState" onclick="setCcnSort('timeState')" style="padding: 10px 8px; cursor:pointer;">Time State ↕</th>
+                  <th style="padding: 10px 8px; width: 220px; text-align: center;">Thao tác</th>
+                </tr>
+              </thead>
                 <tbody id="ccnTableBody">
                   <!-- Rows -->
                 </tbody>
@@ -4825,6 +4830,7 @@ let ccnData = {};
 let ccnTableZoom = 1.0;
 let ccnSortCol = '';
 let ccnSortAsc = true;
+let currentCcnTab = 0;
 
 const STATE_MAP = {
   "AL": { name: "Alabama", tz: "America/Chicago" }, "AK": { name: "Alaska", tz: "America/Anchorage" }, "AZ": { name: "Arizona", tz: "America/Phoenix" }, "AR": { name: "Arkansas", tz: "America/Chicago" },
@@ -4961,6 +4967,22 @@ function setCcnSort(col) {
   renderCcnTable();
 }
 
+function setCcnTab(tabIndex) {
+  currentCcnTab = tabIndex;
+  document.getElementById('btnCcnTab0').className = tabIndex === 0 ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  document.getElementById('btnCcnTab1').className = tabIndex === 1 ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  document.getElementById('btnCcnTab2').className = tabIndex === 2 ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  renderCcnTable();
+}
+
+async function moveCcnRow(id, newStatus) {
+  const row = ccnData[id];
+  if (!row) return;
+  row.status = newStatus;
+  await saveCcnRecord(id, row);
+  toast('Đã chuyển tab thành công', 'success');
+}
+
 async function loadCcnData() {
   const tbody = document.getElementById('ccnTableBody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 16px;">Đang tải từ Cloud...</td></tr>';
@@ -4997,10 +5019,12 @@ function renderCcnTable() {
   if (!tbody) return;
   const searchInput = (document.getElementById('ccnTableSearch')?.value || '').toLowerCase();
   
-  let entries = Object.entries(ccnData).map(([id, row]) => {
-    const computed = processAddress(row.address);
-    return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time };
-  });
+  let entries = Object.entries(ccnData)
+    .filter(([id, row]) => (row.status || 0) === currentCcnTab)
+    .map(([id, row]) => {
+      const computed = processAddress(row.address);
+      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, status: row.status||0 };
+    });
 
   if (searchInput) {
     entries = entries.filter(r => {
@@ -5023,7 +5047,7 @@ function renderCcnTable() {
   }
 
   if (entries.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu ở Tab này.</td></tr>';
     return;
   }
   
@@ -5039,10 +5063,16 @@ function renderCcnTable() {
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.address)}</td>
         <td style="padding: 10px 8px; cursor: pointer; color: var(--success);" onclick="copyText(this.innerText)">${escapeHtml(row.state)}</td>
         <td style="padding: 10px 8px; cursor: pointer; color: var(--shopee-light);" onclick="copyText(this.innerText)">${escapeHtml(row.timeState)}</td>
-        <td style="padding: 10px 8px; text-align: center; display: flex; gap: 4px; justify-content: center;">
-          <button class="btn btn-secondary btn-sm" onclick="generateAndCopyTOTP(this, '${escapeHtml(row.twofa)}')" title="Tạo và Copy code 6 số" style="font-size:11px; padding:4px 8px;">🗝 Lấy Code</button>
-          <button class="btn btn-secondary btn-sm" onclick="editCcnRow('${row.id}')" title="Sửa" style="font-size:11px; padding:4px 8px;">✏️</button>
-          <button class="btn btn-secondary btn-sm" onclick="deleteCcnRow('${row.id}')" title="Xóa" style="font-size:11px; padding:4px 8px;">❌</button>
+        <td style="padding: 10px 8px; text-align: center; display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
+          <select onchange="moveCcnRow('${row.id}', parseInt(this.value))" style="font-size:11px; padding: 2px 4px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
+            <option value="" disabled selected>Chuyển Tab...</option>
+            <option value="0" ${row.status === 0 ? 'disabled' : ''}>Chưa Làm</option>
+            <option value="1" ${row.status === 1 ? 'disabled' : ''}>OK / Treo / Payment</option>
+            <option value="2" ${row.status === 2 ? 'disabled' : ''}>Lock / Validate / Die</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="generateAndCopyTOTP(this, '${escapeHtml(row.twofa)}')" title="Tạo và Copy code 6 số" style="font-size:11px; padding:2px 6px;">🗝 Lấy Code</button>
+          <button class="btn btn-secondary btn-sm" onclick="editCcnRow('${row.id}')" title="Sửa" style="font-size:11px; padding:2px 6px;">✏️</button>
+          <button class="btn btn-secondary btn-sm" onclick="deleteCcnRow('${row.id}')" title="Xóa" style="font-size:11px; padding:2px 6px;">❌</button>
         </td>
       </tr>
     `;
@@ -5058,8 +5088,8 @@ async function addCcnRow() {
   const country = prompt('Nhập Country:') || '';
   const address = prompt('Nhập Address:') || '';
   
-  await saveCcnRecord(null, { email, pass, twofa, country, address });
-  toast('Đã thêm dòng mới', 'success');
+  await saveCcnRecord(null, { email, pass, twofa, country, address, status: currentCcnTab });
+  toast('Đã thêm dòng mới vào Tab hiện tại', 'success');
 }
 
 async function editCcnRow(id) {
@@ -5071,7 +5101,8 @@ async function editCcnRow(id) {
     pass: prompt('Sửa Password:', row.pass) || '',
     twofa: prompt('Sửa 2FA:', row.twofa) || '',
     country: prompt('Sửa Country:', row.country) || '',
-    address: prompt('Sửa Address:', row.address) || ''
+    address: prompt('Sửa Address:', row.address) || '',
+    status: row.status || 0
   };
   await saveCcnRecord(id, newRow);
   toast('Đã cập nhật', 'success');
@@ -5088,7 +5119,7 @@ async function deleteCcnRow(id) {
 }
 
 async function clearAllCcn() {
-  if (!confirm('CHÚ Ý: Xóa toàn bộ dữ liệu trong bảng CCN?')) return;
+  if (!confirm('CHÚ Ý: Xóa toàn bộ dữ liệu trong tất cả các Tab CCN?')) return;
   try {
     await fetch('/api/ccn/clear', { method: 'POST' });
     ccnData = {};
@@ -5112,11 +5143,12 @@ async function parseCcnSource(text) {
       pass: parts[1]?.trim() || '',
       twofa: parts[2]?.trim() || '',
       country: parts[3]?.trim() || '',
-      address: parts[4]?.trim() || ''
+      address: parts[4]?.trim() || '',
+      status: currentCcnTab
     });
     count++;
   }
-  if (count > 0) toast(`Đã nhập ${count} dòng vào Cloud`, 'success');
+  if (count > 0) toast(`Đã nhập ${count} dòng vào Tab hiện tại`, 'success');
 }
 
 function importCcnFromPaste() {
