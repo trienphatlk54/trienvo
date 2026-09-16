@@ -5425,15 +5425,29 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('bsnZip').value = row.bsn.zip || '';
       document.getElementById('bsnCity').value = row.bsn.city || '';
       document.getElementById('bsnState').value = row.bsn.state || '';
+      
+      // Load NPO data if it exists
+      if (row.bsn.npoName) {
+        document.getElementById('npoNameText').innerText = row.bsn.npoName || '';
+        document.getElementById('npoEinText').innerText = row.bsn.npoEin || '';
+        document.getElementById('npoCareOfText').innerText = row.bsn.npoCareOf || '';
+        document.getElementById('npoAddressText').innerText = row.bsn.npoAddress || '';
+        document.getElementById('npoCszText').innerText = row.bsn.npoCsz || '';
+        document.getElementById('npoAssetsText').innerText = row.bsn.npoAssets || '';
+        document.getElementById('npoIncomeText').innerText = row.bsn.npoIncome || '';
+        document.getElementById('npoResultSection').style.display = 'flex';
+      } else {
+        document.getElementById('npoResultSection').style.display = 'none';
+      }
     } else {
       document.getElementById('bsnFullname').value = '';
       document.getElementById('bsnPhone').value = '';
       document.getElementById('bsnZip').value = '';
       document.getElementById('bsnCity').value = '';
       document.getElementById('bsnState').value = '';
+      document.getElementById('npoResultSection').style.display = 'none';
     }
     
-    document.getElementById('npoResultSection').style.display='none';
     document.getElementById('bsnModal').classList.add('active');
   }
   
@@ -5507,6 +5521,8 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('bsnZip').value = zipCode;
       document.getElementById('bsnCity').value = cityName || user.location.city;
       document.getElementById('bsnState').value = stateName;
+      
+      // Giữ nguyên NPO nếu đã có, không clear NPO khi random Profile
       toast('Tạo profile thành công!', 'success');
     } catch(e) {
       toast('Lỗi kết nối tạo profile', 'error');
@@ -5525,6 +5541,17 @@ document.addEventListener('DOMContentLoaded', () => {
       city: document.getElementById('bsnCity').value.trim(),
       state: document.getElementById('bsnState').value.trim()
     };
+    
+    // Save NPO fields if the section is visible
+    if (document.getElementById('npoResultSection').style.display !== 'none') {
+      bsnData.npoName = document.getElementById('npoNameText').innerText;
+      bsnData.npoEin = document.getElementById('npoEinText').innerText;
+      bsnData.npoCareOf = document.getElementById('npoCareOfText').innerText;
+      bsnData.npoAddress = document.getElementById('npoAddressText').innerText;
+      bsnData.npoCsz = document.getElementById('npoCszText').innerText;
+      bsnData.npoAssets = document.getElementById('npoAssetsText').innerText;
+      bsnData.npoIncome = document.getElementById('npoIncomeText').innerText;
+    }
     
     row.bsn = bsnData;
     toast('Đang lưu...', 'info');
