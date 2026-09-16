@@ -5411,14 +5411,30 @@ function renderCcnTable() {
        const numSlots = Math.max(6, (row.assignedCards ? row.assignedCards.length : 0)) + (row.extraSlots || 0);
        for(let i=0; i<numSlots; i++) {
          let card = null;
+         let timeHtml = '';
          if (row.assignedCards && row.assignedCards[i]) {
-            let parts = row.assignedCards[i].split('|');
+            let cardObj = row.assignedCards[i];
+            let rawCard = typeof cardObj === 'string' ? cardObj : cardObj.card;
+            let timestamp = typeof cardObj === 'object' && cardObj.timestamp ? cardObj.timestamp : null;
+            
+            let parts = rawCard.split('|');
             parts[0] = parts[0].replace(/(.{4})/g, '$1 ').trim();
             card = escapeHtml(parts.join('|'));
+            
+            if (timestamp) {
+               const d = new Date(timestamp);
+               const hh = String(d.getHours()).padStart(2, '0');
+               const mm = String(d.getMinutes()).padStart(2, '0');
+               const dd = String(d.getDate()).padStart(2, '0');
+               const mt = String(d.getMonth() + 1).padStart(2, '0');
+               const yy = d.getFullYear();
+               timeHtml = `<div style="font-size:10px; color:var(--text-muted); margin-top:3px; font-weight:normal;">${hh}:${mm} ${dd}/${mt}/${yy}</div>`;
+            }
          }
          if (card) {
-           cardsHtml += `<div style="flex: 0 0 auto; border-right:1px solid var(--border); padding:5px 20px 5px 8px; text-align:center; position:relative; min-width:0;">
+           cardsHtml += `<div style="flex: 0 0 auto; border-right:1px solid var(--border); padding:5px 20px 5px 8px; text-align:center; position:relative; min-width:0; display:flex; flex-direction:column; justify-content:center;">
              <div style="font-family:monospace; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color: var(--success); font-weight: bold;" title="${card}">${card}</div>
+             ${timeHtml}
              <button onclick="removeAssignedCard('${row.id}', ${i})" style="position:absolute; top:-2px; right:2px; background:none; border:none; color:var(--error); cursor:pointer; font-size:14px;" title="Xóa">&times;</button>
            </div>`;
          } else {
