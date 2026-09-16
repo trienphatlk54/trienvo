@@ -4543,6 +4543,24 @@ async function startVoucherCheck() {
 </div>
 
 
+  
+  <!-- BSN Warning Modal -->
+  <div class="modal-overlay" id="bsnWarningModal" style="z-index: 10000;">
+      <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+          <h3 style="font-size: 17px; margin: 0; color:var(--error);">⚠️ Cảnh báo chưa lưu</h3>
+          <button class="modal-close" onclick="document.getElementById('bsnWarningModal').classList.remove('active')">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 16px;">
+          <p style="margin-bottom: 20px;">Đóng modal hiện tại sẽ làm mất dữ liệu chưa lưu. Bạn có muốn tiếp tục đóng không?</p>
+          <div style="display:flex; flex-direction:column; gap: 10px;">
+            <button class="btn btn-primary" onclick="forceCloseBsnModal()">Vẫn đóng không lưu dữ liệu</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('bsnWarningModal').classList.remove('active')">Quay lại (Lưu dữ liệu)</button>
+          </div>
+        </div>
+      </div>
+  </div>
+
   <!-- BSN Modal -->
   <div class="modal-overlay" id="bsnModal">
       <div class="modal-content" style="max-width: 650px;">
@@ -5461,7 +5479,7 @@ function renderCcnTable() {
          <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.1);">
            <td colspan="11" style="padding:0;">
              <div style="display:flex; width:100%;">
-               <div style="width: ${maxBsnWidth}px; padding: 8px; border-right: 1px solid var(--border); font-weight:bold; color:var(--primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size: 16px;" title="${bsnFullname}">${bsnFullname}</div>
+               <div style="width: max-content; min-width: 150px; padding: 8px 16px 8px 8px; border-right: 1px solid var(--border); font-weight:bold; color:var(--primary); white-space:nowrap; font-size: 16px;" title="${bsnFullname}">${bsnFullname}</div>
                <div style="display:flex; flex:1; flex-wrap: wrap; overflow-x: auto;">
                  ${cardsHtml}
                </div>
@@ -5606,9 +5624,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('bsnModal').classList.add('active');
   }
   
+  
   window.closeBsnModal = function() {
+    document.getElementById('bsnWarningModal').classList.add('active');
+  }
+  
+  window.forceCloseBsnModal = function() {
+    document.getElementById('bsnWarningModal').classList.remove('active');
     document.getElementById('bsnModal').classList.remove('active');
   }
+
   
   window.generateBsnProfile = async function() {
     const rowId = document.getElementById('bsnRowId').value;
@@ -5719,7 +5744,7 @@ document.addEventListener('DOMContentLoaded', () => {
     toast('Đang lưu...', 'info');
     await saveCcnRecord(rowId, row);
     toast('Đã lưu BSN Profile thành công', 'success');
-    closeBsnModal();
+    forceCloseBsnModal();
     renderCcnTable();
   }
   window.extractNPO = async function() {
