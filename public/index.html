@@ -1524,7 +1524,7 @@
               <div style="display:flex; flex-wrap:wrap; gap:5px;">
                 <button class="btn btn-secondary btn-sm" onclick="zoomCcnTableView(0.1)" title="Phóng to">🔍 +</button>
                 <button class="btn btn-secondary btn-sm" onclick="zoomCcnTableView(-0.1)" title="Thu nhỏ">🔍 -</button>
-                <button id="btnToggleCcnMode" class="btn btn-secondary btn-sm" onclick="toggleAddCcnMode()">🔌 Mode Add CCNs: OFF</button>
+                <button id="btnToggleCcnMode" class="btn btn-secondary btn-sm" onclick="toggleAddCcnMode()" style="color: var(--success);">🔌 Mode Add CCNs: ON</button>
                 <button class="btn btn-secondary btn-sm" onclick="addCcnRow()">➕ Thêm dòng</button>
                 <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ccnFileInput').click()">📂 Tải từ File</button>
                 <input type="file" id="ccnFileInput" accept=".txt,.csv" style="display:none" onchange="importCcnFromFile(event)">
@@ -5859,7 +5859,7 @@ window.renderCcnCards = function() {
 }
 
 
-window.isAddCcnMode = false;
+window.isAddCcnMode = true;
 window.toggleAddCcnMode = function() {
   window.isAddCcnMode = !window.isAddCcnMode;
   const btn = document.getElementById('btnToggleCcnMode');
