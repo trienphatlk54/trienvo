@@ -3692,6 +3692,21 @@ function renderModalPhoneSelect() {
     return valA.localeCompare(valB, undefined, {numeric: true});
   });
 
+  
+  function highlightMatch(text, query) {
+    if (!query) return escapeHtml(text);
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const index = lowerText.indexOf(lowerQuery);
+    if (index === -1) return escapeHtml(text);
+    
+    const before = text.substring(0, index);
+    const match = text.substring(index, index + query.length);
+    const after = text.substring(index + query.length);
+    
+    return escapeHtml(before) + '<span style="background: rgba(238,77,45,0.4); color: #fff; border-radius: 2px; padding: 0 2px;">' + escapeHtml(match) + '</span>' + escapeHtml(after);
+  }
+
   let htmlStr = '';
   ids.forEach(id => {
     const p = phonesData[id];
@@ -3703,8 +3718,8 @@ function renderModalPhoneSelect() {
       const isSel = (id === selectedPhoneIdForSave);
       htmlStr += `<div onclick="selectPhoneForSave('${id}')" style="padding: 10px 12px; background: ${isSel ? 'rgba(34,197,94,0.15)' : 'var(--bg)'}; border: 1px solid ${isSel ? 'var(--success)' : 'var(--border)'}; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s;">
           <div>
-            <div style="font-weight: 600; font-size: 13px; color: ${isSel ? 'var(--success)' : 'var(--shopee-light)'};">${escapeHtml(identifier)}</div>
-            <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(type)}</div>
+            <div style="font-weight: 600; font-size: 13px; color: ${isSel ? 'var(--success)' : 'var(--shopee-light)'};">${highlightMatch(identifier, searchInput)}</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${highlightMatch(type, searchInput)}</div>
           </div>
           ${isSel ? '<span style="color: var(--success); font-size: 16px;">✔</span>' : ''}
         </div>`;
