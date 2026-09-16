@@ -891,7 +891,141 @@
       }
     }
 </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
+// ──────────────────────────────────────────────────────────────────────────
+// ACCOUNTS CCN CRUD
+let ccnData = JSON.parse(localStorage.getItem('ccnData') || '[]');
+
+function saveCcnData() {
+  localStorage.setItem('ccnData', JSON.stringify(ccnData));
+}
+
+function renderCcnTable() {
+  const tbody = document.getElementById('ccnTableBody');
+  if (!tbody) return;
+  if (ccnData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu. Hãy thêm mới hoặc nhập từ file/text.</td></tr>';
+    return;
+  }
+  
+  let rows = '';
+  ccnData.forEach((row, idx) => {
+    rows += `
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+        <td style="padding: 10px 8px; text-align: center; color: var(--text-muted);">${idx + 1}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.email || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.pass || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer; font-family: monospace;" onclick="copyText(this.innerText)">${escapeHtml(row.twofa || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.country || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.address || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.state || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.timeState || '')}</td>
+        <td style="padding: 10px 8px; text-align: center;">
+          <span class="action-edit" onclick="editCcnRow(${idx})" style="cursor:pointer; margin-right:8px;" title="Sửa">✏️</span>
+          <span class="action-delete" onclick="deleteCcnRow(${idx})" style="cursor:pointer;" title="Xóa">❌</span>
+        </td>
+      </tr>
+    `;
+  });
+  tbody.innerHTML = rows;
+}
+
+function addCcnRow() {
+  const email = prompt('Nhập Email:');
+  if (email === null) return;
+  const pass = prompt('Nhập Password:') || '';
+  const twofa = prompt('Nhập 2FA:') || '';
+  const country = prompt('Nhập Country:') || '';
+  const address = prompt('Nhập Address:') || '';
+  const state = prompt('Nhập State:') || '';
+  const timeState = prompt('Nhập Time State:') || '';
+  
+  ccnData.push({ email, pass, twofa, country, address, state, timeState });
+  saveCcnData();
+  renderCcnTable();
+  toast('Đã thêm dòng mới', 'success');
+}
+
+function editCcnRow(idx) {
+  const row = ccnData[idx];
+  const email = prompt('Sửa Email:', row.email);
+  if (email === null) return;
+  row.email = email;
+  row.pass = prompt('Sửa Password:', row.pass) || '';
+  row.twofa = prompt('Sửa 2FA:', row.twofa) || '';
+  row.country = prompt('Sửa Country:', row.country) || '';
+  row.address = prompt('Sửa Address:', row.address) || '';
+  row.state = prompt('Sửa State:', row.state) || '';
+  row.timeState = prompt('Sửa Time State:', row.timeState) || '';
+  
+  saveCcnData();
+  renderCcnTable();
+  toast('Đã cập nhật', 'success');
+}
+
+function deleteCcnRow(idx) {
+  if (!confirm('Bạn có chắc muốn xóa dòng này?')) return;
+  ccnData.splice(idx, 1);
+  saveCcnData();
+  renderCcnTable();
+  toast('Đã xóa', 'success');
+}
+
+function clearAllCcn() {
+  if (!confirm('CHÚ Ý: Xóa toàn bộ dữ liệu trong bảng CCN?')) return;
+  ccnData = [];
+  saveCcnData();
+  renderCcnTable();
+  toast('Đã xóa toàn bộ dữ liệu', 'success');
+}
+
+function parseCcnSource(text) {
+  const lines = text.split('\n');
+  let count = 0;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    // Tách bằng | hoặc tab, phẩy
+    let parts = line.split('|');
+    if (parts.length < 2) parts = line.split('\t');
+    if (parts.length < 2) parts = line.split(',');
+    
+    ccnData.push({
+      email: parts[0]?.trim() || '',
+      pass: parts[1]?.trim() || '',
+      twofa: parts[2]?.trim() || '',
+      country: parts[3]?.trim() || '',
+      address: parts[4]?.trim() || '',
+      state: parts[5]?.trim() || '',
+      timeState: parts[6]?.trim() || ''
+    });
+    count++;
+  }
+  saveCcnData();
+  renderCcnTable();
+  if (count > 0) toast(`Đã nhập ${count} dòng`, 'success');
+}
+
+function importCcnFromPaste() {
+  const text = prompt('Dán dữ liệu vào đây (Mỗi dòng 1 ác, ngăn cách bằng dấu | hoặc Tab):');
+  if (!text) return;
+  parseCcnSource(text);
+}
+
+function importCcnFromFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    parseCcnSource(e.target.result);
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(renderCcnTable, 300);
+});
+</script>
 </head>
 <body>
 <div class="app-layout">
@@ -1485,36 +1619,38 @@
 
   <!-- Tab: Accounts CCN -->
     <div id="tab-ccn" class="tab-pane">
-      <div style="width:100%; max-width: 900px;">
+      <div style="width:100%;">
         <div class="main-card">
           <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <h2>💳 Trích Xuất Tài Khoản CCN</h2>
-          </div>
-          <div class="card-body">
-            <div style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 20px;">
-              <div style="flex: 1;">
-                <label style="font-size: 13px; color: var(--text-muted); margin-bottom: 6px; display: block;">Chọn State (Bang)</label>
-                <select id="ccnStateSelect" class="proxy-select" style="width: 100%;">
-                  <option value="CA">California (CA)</option>
-                  <option value="NY">New York (NY)</option>
-                  <option value="TX">Texas (TX)</option>
-                  <option value="FL">Florida (FL)</option>
-                  <option value="IL">Illinois (IL)</option>
-                  <option value="PA">Pennsylvania (PA)</option>
-                  <option value="OH">Ohio (OH)</option>
-                  <option value="GA">Georgia (GA)</option>
-                  <option value="NC">North Carolina (NC)</option>
-                  <option value="MI">Michigan (MI)</option>
-                </select>
-              </div>
-              <button class="btn btn-primary" id="btnFetchCcn" onclick="fetchFakeProfile()" style="padding: 10px 20px; height: 42px;">
-                🔄 Lấy Fake Profile
-              </button>
+            <h2>💳 Quản lý Accounts CCN</h2>
+            <div class="btn-group">
+              <button class="btn btn-secondary btn-sm" onclick="addCcnRow()">➕ Thêm dòng</button>
+              <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ccnFileInput').click()">📂 Tải từ File</button>
+              <input type="file" id="ccnFileInput" accept=".txt,.csv" style="display:none" onchange="importCcnFromFile(event)">
+              <button class="btn btn-secondary btn-sm" onclick="importCcnFromPaste()">📋 Nhập từ Text</button>
+              <button class="btn btn-secondary btn-sm" style="color:var(--error); border-color:var(--error);" onclick="clearAllCcn()">🗑 Xóa tất cả</button>
             </div>
-            
-            <div id="ccnResultArea" style="display:none; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
-              <h3 style="font-size: 15px; margin-bottom: 12px; color: var(--shopee-light); border-bottom: 1px dashed var(--border); padding-bottom: 8px;">📋 Thông tin Profile</h3>
-              <div id="ccnResultContent" style="font-size: 13px; line-height: 1.6; word-break: break-all; white-space: pre-wrap; font-family: monospace;"></div>
+          </div>
+          <div class="card-body" style="padding: 0;">
+            <div class="table-container" style="max-height: calc(100vh - 180px); overflow-y: auto; overflow-x: auto;">
+              <table class="compact-table" style="width:100%; min-width: 1000px; border-collapse: collapse; text-align: left; font-size: 13px;">
+                <thead>
+                  <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                    <th style="padding: 10px 8px; width: 40px; text-align: center;">#</th>
+                    <th style="padding: 10px 8px;">Email</th>
+                    <th style="padding: 10px 8px;">Pass</th>
+                    <th style="padding: 10px 8px;">2FA</th>
+                    <th style="padding: 10px 8px;">Country</th>
+                    <th style="padding: 10px 8px;">Address</th>
+                    <th style="padding: 10px 8px;">State</th>
+                    <th style="padding: 10px 8px;">Time State</th>
+                    <th style="padding: 10px 8px; width: 80px; text-align: center;">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="ccnTableBody">
+                  <!-- Rows -->
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
