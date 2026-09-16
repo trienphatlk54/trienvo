@@ -891,141 +891,7 @@
       }
     }
 </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
-// ──────────────────────────────────────────────────────────────────────────
-// ACCOUNTS CCN CRUD
-let ccnData = JSON.parse(localStorage.getItem('ccnData') || '[]');
-
-function saveCcnData() {
-  localStorage.setItem('ccnData', JSON.stringify(ccnData));
-}
-
-function renderCcnTable() {
-  const tbody = document.getElementById('ccnTableBody');
-  if (!tbody) return;
-  if (ccnData.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu. Hãy thêm mới hoặc nhập từ file/text.</td></tr>';
-    return;
-  }
-  
-  let rows = '';
-  ccnData.forEach((row, idx) => {
-    rows += `
-      <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-        <td style="padding: 10px 8px; text-align: center; color: var(--text-muted);">${idx + 1}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.email || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.pass || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer; font-family: monospace;" onclick="copyText(this.innerText)">${escapeHtml(row.twofa || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.country || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.address || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.state || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.timeState || '')}</td>
-        <td style="padding: 10px 8px; text-align: center;">
-          <span class="action-edit" onclick="editCcnRow(${idx})" style="cursor:pointer; margin-right:8px;" title="Sửa">✏️</span>
-          <span class="action-delete" onclick="deleteCcnRow(${idx})" style="cursor:pointer;" title="Xóa">❌</span>
-        </td>
-      </tr>
-    `;
-  });
-  tbody.innerHTML = rows;
-}
-
-function addCcnRow() {
-  const email = prompt('Nhập Email:');
-  if (email === null) return;
-  const pass = prompt('Nhập Password:') || '';
-  const twofa = prompt('Nhập 2FA:') || '';
-  const country = prompt('Nhập Country:') || '';
-  const address = prompt('Nhập Address:') || '';
-  const state = prompt('Nhập State:') || '';
-  const timeState = prompt('Nhập Time State:') || '';
-  
-  ccnData.push({ email, pass, twofa, country, address, state, timeState });
-  saveCcnData();
-  renderCcnTable();
-  toast('Đã thêm dòng mới', 'success');
-}
-
-function editCcnRow(idx) {
-  const row = ccnData[idx];
-  const email = prompt('Sửa Email:', row.email);
-  if (email === null) return;
-  row.email = email;
-  row.pass = prompt('Sửa Password:', row.pass) || '';
-  row.twofa = prompt('Sửa 2FA:', row.twofa) || '';
-  row.country = prompt('Sửa Country:', row.country) || '';
-  row.address = prompt('Sửa Address:', row.address) || '';
-  row.state = prompt('Sửa State:', row.state) || '';
-  row.timeState = prompt('Sửa Time State:', row.timeState) || '';
-  
-  saveCcnData();
-  renderCcnTable();
-  toast('Đã cập nhật', 'success');
-}
-
-function deleteCcnRow(idx) {
-  if (!confirm('Bạn có chắc muốn xóa dòng này?')) return;
-  ccnData.splice(idx, 1);
-  saveCcnData();
-  renderCcnTable();
-  toast('Đã xóa', 'success');
-}
-
-function clearAllCcn() {
-  if (!confirm('CHÚ Ý: Xóa toàn bộ dữ liệu trong bảng CCN?')) return;
-  ccnData = [];
-  saveCcnData();
-  renderCcnTable();
-  toast('Đã xóa toàn bộ dữ liệu', 'success');
-}
-
-function parseCcnSource(text) {
-  const lines = text.split('\n');
-  let count = 0;
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    // Tách bằng | hoặc tab, phẩy
-    let parts = line.split('|');
-    if (parts.length < 2) parts = line.split('\t');
-    if (parts.length < 2) parts = line.split(',');
-    
-    ccnData.push({
-      email: parts[0]?.trim() || '',
-      pass: parts[1]?.trim() || '',
-      twofa: parts[2]?.trim() || '',
-      country: parts[3]?.trim() || '',
-      address: parts[4]?.trim() || '',
-      state: parts[5]?.trim() || '',
-      timeState: parts[6]?.trim() || ''
-    });
-    count++;
-  }
-  saveCcnData();
-  renderCcnTable();
-  if (count > 0) toast(`Đã nhập ${count} dòng`, 'success');
-}
-
-function importCcnFromPaste() {
-  const text = prompt('Dán dữ liệu vào đây (Mỗi dòng 1 ác, ngăn cách bằng dấu | hoặc Tab):');
-  if (!text) return;
-  parseCcnSource(text);
-}
-
-function importCcnFromFile(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    parseCcnSource(e.target.result);
-    event.target.value = '';
-  };
-  reader.readAsText(file);
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(renderCcnTable, 300);
-});
-</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <div class="app-layout">
@@ -1620,7 +1486,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <!-- Tab: Accounts CCN -->
     <div id="tab-ccn" class="tab-pane">
       <div style="width:100%;">
-        <div class="main-card">
+        <div class="main-card" style="max-width: 1800px; width: 100%;">
           <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
             <h2>💳 Quản lý Accounts CCN</h2>
             <div class="btn-group">
@@ -4945,4 +4811,143 @@ async function deleteFloppyProxy(id) {
 </script>
 
 
+
+<script>
+
+// ──────────────────────────────────────────────────────────────────────────
+// ACCOUNTS CCN CRUD
+let ccnData = JSON.parse(localStorage.getItem('ccnData') || '[]');
+
+function saveCcnData() {
+  localStorage.setItem('ccnData', JSON.stringify(ccnData));
+}
+
+function renderCcnTable() {
+  const tbody = document.getElementById('ccnTableBody');
+  if (!tbody) return;
+  if (ccnData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu. Hãy thêm mới hoặc nhập từ file/text.</td></tr>';
+    return;
+  }
+  
+  let rows = '';
+  ccnData.forEach((row, idx) => {
+    rows += `
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+        <td style="padding: 10px 8px; text-align: center; color: var(--text-muted);">${idx + 1}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.email || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.pass || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer; font-family: monospace;" onclick="copyText(this.innerText)">${escapeHtml(row.twofa || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.country || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.address || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.state || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.timeState || '')}</td>
+        <td style="padding: 10px 8px; text-align: center;">
+          <span class="action-edit" onclick="editCcnRow(${idx})" style="cursor:pointer; margin-right:8px;" title="Sửa">✏️</span>
+          <span class="action-delete" onclick="deleteCcnRow(${idx})" style="cursor:pointer;" title="Xóa">❌</span>
+        </td>
+      </tr>
+    `;
+  });
+  tbody.innerHTML = rows;
+}
+
+function addCcnRow() {
+  const email = prompt('Nhập Email:');
+  if (email === null) return;
+  const pass = prompt('Nhập Password:') || '';
+  const twofa = prompt('Nhập 2FA:') || '';
+  const country = prompt('Nhập Country:') || '';
+  const address = prompt('Nhập Address:') || '';
+  const state = prompt('Nhập State:') || '';
+  const timeState = prompt('Nhập Time State:') || '';
+  
+  ccnData.push({ email, pass, twofa, country, address, state, timeState });
+  saveCcnData();
+  renderCcnTable();
+  toast('Đã thêm dòng mới', 'success');
+}
+
+function editCcnRow(idx) {
+  const row = ccnData[idx];
+  const email = prompt('Sửa Email:', row.email);
+  if (email === null) return;
+  row.email = email;
+  row.pass = prompt('Sửa Password:', row.pass) || '';
+  row.twofa = prompt('Sửa 2FA:', row.twofa) || '';
+  row.country = prompt('Sửa Country:', row.country) || '';
+  row.address = prompt('Sửa Address:', row.address) || '';
+  row.state = prompt('Sửa State:', row.state) || '';
+  row.timeState = prompt('Sửa Time State:', row.timeState) || '';
+  
+  saveCcnData();
+  renderCcnTable();
+  toast('Đã cập nhật', 'success');
+}
+
+function deleteCcnRow(idx) {
+  if (!confirm('Bạn có chắc muốn xóa dòng này?')) return;
+  ccnData.splice(idx, 1);
+  saveCcnData();
+  renderCcnTable();
+  toast('Đã xóa', 'success');
+}
+
+function clearAllCcn() {
+  if (!confirm('CHÚ Ý: Xóa toàn bộ dữ liệu trong bảng CCN?')) return;
+  ccnData = [];
+  saveCcnData();
+  renderCcnTable();
+  toast('Đã xóa toàn bộ dữ liệu', 'success');
+}
+
+function parseCcnSource(text) {
+  const lines = text.split('\n');
+  let count = 0;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    // Tách bằng | hoặc tab, phẩy
+    let parts = line.split('|');
+    if (parts.length < 2) parts = line.split('\t');
+    if (parts.length < 2) parts = line.split(',');
+    
+    ccnData.push({
+      email: parts[0]?.trim() || '',
+      pass: parts[1]?.trim() || '',
+      twofa: parts[2]?.trim() || '',
+      country: parts[3]?.trim() || '',
+      address: parts[4]?.trim() || '',
+      state: parts[5]?.trim() || '',
+      timeState: parts[6]?.trim() || ''
+    });
+    count++;
+  }
+  saveCcnData();
+  renderCcnTable();
+  if (count > 0) toast(`Đã nhập ${count} dòng`, 'success');
+}
+
+function importCcnFromPaste() {
+  const text = prompt('Dán dữ liệu vào đây (Mỗi dòng 1 ác, ngăn cách bằng dấu | hoặc Tab):');
+  if (!text) return;
+  parseCcnSource(text);
+}
+
+function importCcnFromFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    parseCcnSource(e.target.result);
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(renderCcnTable, 300);
+});
+
+
+</script>
 </body></html>
