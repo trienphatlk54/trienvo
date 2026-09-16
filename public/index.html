@@ -5320,7 +5320,7 @@ function renderCcnTable() {
     .filter(([id, row]) => (row.status || 0) === currentCcnTab)
     .map(([id, row]) => {
       const computed = processAddress(row.address);
-      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, stateCode: computed.stateCode, status: row.status||0, identity: row.identity || '', linkedProxy: row.linkedProxy || '', bsn: row.bsn || null, assignedCards: row.assignedCards || [] };
+      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, stateCode: computed.stateCode, status: row.status||0, identity: row.identity || '', linkedProxy: row.linkedProxy || '', bsn: row.bsn || null, assignedCards: row.assignedCards || [], extraSlots: row.extraSlots || 0 };
     });
 
   if (searchInput) {
@@ -5425,14 +5425,14 @@ function renderCcnTable() {
        
        // Thêm nút Thêm cột
        cardsHtml += `<div style="flex: 0 0 auto; padding:5px 8px; text-align:center; min-width:0;">
-         <button class="btn btn-ghost btn-sm" style="font-size:11px; padding:2px 6px; color:var(--primary);" onclick="ccnData['${row.id}'].extraSlots = (ccnData['${row.id}'].extraSlots || 0) + 1; renderCcnTable();">+ Thêm cột</button>
+         <button class="btn btn-sm" style="font-size:11px; padding:2px 8px; border: 1px dashed var(--primary); color:var(--primary); background: transparent;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'" onclick="ccnData['${row.id}'].extraSlots = (ccnData['${row.id}'].extraSlots || 0) + 1; renderCcnTable();">+ Thêm cột</button>
        </div>`;
        
        rows += `
          <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.1);">
            <td colspan="11" style="padding:0;">
              <div style="display:flex; width:100%;">
-               <div style="width: ${maxBsnWidth}px; padding: 8px; border-right: 1px solid var(--border); font-weight:bold; color:var(--primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${bsnFullname}">${bsnFullname}</div>
+               <div style="width: ${maxBsnWidth}px; padding: 8px; border-right: 1px solid var(--border); font-weight:bold; color:var(--primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size: 16px;" title="${bsnFullname}">${bsnFullname}</div>
                <div style="display:flex; flex:1; flex-wrap: wrap; overflow-x: auto;">
                  ${cardsHtml}
                </div>
@@ -5920,7 +5920,7 @@ window.removeCardTargetSlot = null;
 window.removeCardTargetText = null;
 
 window.removeAssignedCard = function(accountId, slotIndex) {
-  let row = window.ccnData[accountId];
+  let row = ccnData[accountId];
   if (!row || !row.assignedCards || !row.assignedCards[slotIndex]) return;
   
   window.removeCardTargetId = accountId;
@@ -5936,7 +5936,7 @@ window.confirmRemoveCard = async function(returnToList) {
   const slotIndex = window.removeCardTargetSlot;
   const cardText = window.removeCardTargetText;
   
-  let row = window.ccnData[accountId];
+  let row = ccnData[accountId];
   row.assignedCards[slotIndex] = null;
   
   document.getElementById('removeCardModal').classList.remove('active');
