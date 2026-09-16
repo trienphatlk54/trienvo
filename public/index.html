@@ -5132,7 +5132,21 @@ async function generateCcnProxy(rowId, stateCode) {
   }
 }
 
+const ccnTabNames = ['Chưa làm', 'Success', 'Payment', 'Cancel', 'Check Thẻ', 'Review', 'Lock'];
 function renderCcnTable() {
+
+  const counts = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0};
+  Object.values(ccnData).forEach(row => {
+    const status = row.status || 0;
+    if (counts[status] !== undefined) counts[status]++;
+  });
+  for (let i = 0; i <= 6; i++) {
+    const btn = document.getElementById('btnCcnTab' + i);
+    if (btn) {
+      btn.innerText = counts[i] > 0 ? ccnTabNames[i] + ' (' + counts[i] + ')' : ccnTabNames[i];
+    }
+  }
+
   const tbody = document.getElementById('ccnTableBody');
   if (!tbody) return;
   const searchInput = (document.getElementById('ccnTableSearch')?.value || '').toLowerCase();
