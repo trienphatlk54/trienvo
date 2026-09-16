@@ -1772,6 +1772,24 @@
     </div>
   </div>
 
+
+  <!-- Modal Remove Card -->
+  <div class="modal-overlay" id="removeCardModal">
+    <div class="modal-content" style="max-width: 450px;">
+      <div class="modal-header">
+        <h3>Gỡ thẻ CCN</h3>
+        <button class="close-btn" onclick="document.getElementById('removeCardModal').classList.remove('active')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 20px; line-height: 1.5;">Bạn muốn xử lý thẻ <strong style="color:var(--primary); font-family:monospace;" id="removeCardText"></strong> như thế nào?</p>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <button class="btn btn-primary" style="padding: 12px; justify-content:center;" onclick="confirmRemoveCard(true)">1. Trả lại thẻ vào danh sách CCN Cards</button>
+          <button class="btn btn-secondary" style="padding: 12px; justify-content:center; color:var(--error); border-color:var(--error);" onclick="confirmRemoveCard(false)">2. Xóa vĩnh viễn (KHÔNG hoàn lại)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <script>
 
 function getFormattedTime(dateInput) {
@@ -5890,36 +5908,89 @@ window.renderAssignCardList = function() {
   list.innerHTML = htmlStr;
 };
 
+
+window.removeCardTargetId = null;
+window.removeCardTargetSlot = null;
+window.removeCardTargetText = null;
+
+window.removeAssignedCard = function(accountId, slotIndex) {
+  let row = window.ccnData[accountId];
+  if (!row || !row.assignedCards || !row.assignedCards[slotIndex]) return;
+  
+  window.removeCardTargetId = accountId;
+  window.removeCardTargetSlot = slotIndex;
+  window.removeCardTargetText = row.assignedCards[slotIndex];
+  
+  document.getElementById('removeCardText').innerText = window.removeCardTargetText;
+  document.getElementById('removeCardModal').classList.add('active');
+};
+
+window.confirmRemoveCard = async function(returnToList) {
+  const accountId = window.removeCardTargetId;
+  const slotIndex = window.removeCardTargetSlot;
+  const cardText = window.removeCardTargetText;
+  
+  let row = window.ccnData[accountId];
+  row.assignedCards[slotIndex] = null;
+  
+  document.getElementById('removeCardModal').classList.remove('active');
+  toast('Đang xử lý...', 'info');
+  await window.saveCcnRecord(accountId, row);
+  
+  if (returnToList) {
+    await fetch('/api/ccn-cards/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rawText: cardText })
+    });
+    const bin = cardText.substring(0, 6);
+    if (!window.ccnCardsData[bin]) window.ccnCardsData[bin] = [];
+    if (!window.ccnCardsData[bin].includes(cardText)) {
+      window.ccnCardsData[bin].push(cardText);
+    }
+    window.renderCcnCards();
+  }
+  
+  toast('Đã gỡ thẻ thành công!', 'success');
+  window.renderCcnTable();
+};
+
 window.assignCardToSlot = async function(cardText) {
   if (!window.assignCardAccountId) return;
-  
   const id = window.assignCardAccountId;
   const slot = window.assignCardSlotIndex;
-  
   let row = ccnData[id];
   if (!row) return;
-  
   if (!row.assignedCards) row.assignedCards = [];
   row.assignedCards[slot] = cardText;
-  
   document.getElementById('assignCardModal').classList.remove('active');
   toast('Đang lưu thẻ vào account...', 'info');
   await window.saveCcnRecord(id, row);
+  
+  // Remove from BIN list
+  const bin = cardText.substring(0, 6);
+  if (window.ccnCardsData[bin]) {
+    const idx = window.ccnCardsData[bin].indexOf(cardText);
+    if (idx !== -1) {
+      await fetch('/api/ccn-cards/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bin, index: idx })
+      });
+      window.ccnCardsData[bin].splice(idx, 1);
+      if (window.ccnCardsData[bin].length === 0) {
+        delete window.ccnCardsData[bin];
+      }
+      window.renderCcnCards();
+    }
+  }
+  
   toast('Lưu thẻ thành công!', 'success');
   renderCcnTable();
 };
 
-window.removeAssignedCard = async function(accountId, slotIndex) {
-  if (!confirm('Bạn có chắc muốn gỡ thẻ này khỏi account?')) return;
-  let row = window.ccnData[accountId];
-  if (!row || !row.assignedCards) return;
-  
-  row.assignedCards[slotIndex] = null;
-  toast('Đang gỡ thẻ...', 'info');
-  await window.saveCcnRecord(accountId, row);
-  toast('Gỡ thẻ thành công!', 'success');
-  renderCcnTable();
-};
+
+
 
 window.addSingleCcnCard = async function() {
   const card = prompt('Nhập thông tin thẻ (VD: 4207670337397783|09|2030|123):');
