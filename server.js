@@ -1032,50 +1032,71 @@ app.get('/api/ccn/all', async (req, res) => {
 app.get('/api/npo-lookup', async (req, res) => {
   try {
     const zip = req.query.zip;
-    const state = req.query.state;
     if (!zip) return res.status(400).json({ error: 'Missing zip code' });
     
-    // Use ProPublica API instead of Melissa to avoid IP blocks
-    let orgs = [];
+    const response = await fetch('https://lookups.melissa.com/home/npo/?value=' + zip, {
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9'
+      }
+    });
+    const html = await response.text();
     
-    // First try by exact Zipcode
-    const zipRes = await fetch('https://projects.propublica.org/nonprofits/api/v2/search.json?zipcode=' + zip);
-    const zipData = await zipRes.json();
-    if (zipData.organizations && zipData.organizations.length > 0) {
-      orgs = zipData.organizations;
-    } 
-    // Fallback to State if no orgs in that Zipcode
-    else if (state) {
-      const stateRes = await fetch('https://projects.propublica.org/nonprofits/api/v2/search.json?state%5Bid%5D=' + state);
-      const stateData = await stateRes.json();
-      if (stateData.organizations) orgs = stateData.organizations;
+    let orgs = [];
+    const regex = /<tr class="item"[^>]*>([\s\S]*?)<\/tr>/g;
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      const rowHtml = match[1];
+      const nameMatch = rowHtml.match(/<td class="text-left capitalize">\s*<a href="[^"]*ein=([^"]+)">([^<]+)<\/a>/);
+      const tds = [...rowHtml.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m => m[1].replace(/<[^>]+>/g, '').trim().replace(/\s+/g, ' '));
+      
+      if (nameMatch && tds.length >= 5) {
+        const ein = nameMatch[1].trim();
+        const name = nameMatch[2].trim();
+        const assetsStr = tds[7] || '';
+        const incomeStr = tds[8] || '';
+        
+        orgs.push({
+          ein: ein,
+          name: name,
+          address: tds[1],
+          city: tds[2],
+          state: tds[3],
+          zip: tds[4],
+          inCareOf: tds[5] || '',
+          assets: assetsStr,
+          income: incomeStr
+        });
+      }
     }
     
     if (orgs.length === 0) {
-      return res.json({ success: false, message: 'Không tìm thấy NPO nào cho Zip/State này' });
+      return res.json({ success: false, message: 'Zipcode này vùng sâu xa nên không có công ty/NPO nào đăng ký. Vui lòng tạo Zipcode khác!' });
     }
     
-    // Pick random org and fetch details
-    const randomOrgInfo = orgs[Math.floor(Math.random() * orgs.length)];
-    const detailRes = await fetch('https://projects.propublica.org/nonprofits/api/v2/organizations/' + randomOrgInfo.ein + '.json');
-    const detailData = await detailRes.json();
-    const org = detailData.organization;
+    // Prioritize Assets and Income = 0 or empty
+    orgs.sort((a, b) => {
+      const aEmpty = (!a.assets || a.assets === '$0' || a.assets === '0') && (!a.income || a.income === '$0' || a.income === '0');
+      const bEmpty = (!b.assets || b.assets === '$0' || b.assets === '0') && (!b.income || b.income === '$0' || b.income === '0');
+      if (aEmpty && !bEmpty) return -1;
+      if (!aEmpty && bEmpty) return 1;
+      return 0; // maintain relative order if both are empty or both have money
+    });
     
-    const formattedOrg = {
-      name: org.name || '',
-      address: org.address || '',
-      city: org.city || '',
-      state: org.state || '',
-      zip: org.zipcode || '',
-      inCareOf: org.careofname ? org.careofname.replace('% ', '').trim() : '',
-      assets: org.asset_amount ? '$' + org.asset_amount.toLocaleString() : 'N/A',
-      income: org.income_amount ? '$' + org.income_amount.toLocaleString() : 'N/A'
-    };
+    // Since it's sorted, we pick from the top. To keep it slightly random among the empty ones:
+    const emptyOrgs = orgs.filter(o => (!o.assets || o.assets === '$0') && (!o.income || o.income === '$0'));
+    let selectedOrg = orgs[0];
+    if (emptyOrgs.length > 0) {
+      selectedOrg = emptyOrgs[Math.floor(Math.random() * emptyOrgs.length)];
+    } else {
+      selectedOrg = orgs[Math.floor(Math.random() * orgs.length)];
+    }
     
-    res.json({ success: true, organization: formattedOrg, count: orgs.length });
+    res.json({ success: true, organization: selectedOrg, count: orgs.length });
   } catch (error) {
     console.error('NPO Fetch Error:', error);
-    res.status(500).json({ error: 'Lỗi server khi request ProPublica' });
+    res.status(500).json({ error: 'Lỗi server khi request melissa' });
   }
 });
 

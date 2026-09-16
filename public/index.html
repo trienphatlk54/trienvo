@@ -855,11 +855,18 @@
 }
 .modal-overlay.active { display: flex; }
 .modal-content {
+  border-radius: 16px !important;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.6) !important;
+  background: var(--surface) !important;
+
   background: var(--surface2); width: 100%; max-width: 90vw; max-height: 90vh; overflow-y: auto;
   border-radius: var(--radius); padding: 16px; border: 1px solid var(--border);
   box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
-.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+ display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .modal-header h3 { font-size: 18px; margin: 0; }
 .modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px; }
 .modal-close:hover { color: var(--text); }
@@ -4436,17 +4443,21 @@ async function startVoucherCheck() {
 
 <!-- Modal: Phone Select -->
 <div class="modal-overlay" id="phoneSelectModal">
-  <div class="modal-content" style="max-width: 350px;">
-    <div class="modal-header">
-      <h3 style="font-size: 15px; margin: 0;">🔍 Chọn Máy Lưu Tài Khoản</h3>
-      <button class="modal-close" onclick="closePhoneSelectModal()">x</button>
-    </div>
-    <div class="modal-body" style="padding: 16px;">
-      <input type="text" id="modalPhoneSearch" class="proxy-input" placeholder="Tên định danh hoặc Loại..." onkeyup="renderModalPhoneSelect()" style="width: 100%; margin-bottom: 12px;" autocomplete="off">
-      <div id="modalPhoneList" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin;">
-        <div style="color:var(--text-muted); text-align: center; padding: 10px;">Gõ để tìm kiếm...</div>
+    <div class="modal-content" style="max-width: 400px; padding: 24px;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px;">
+        <h3 style="font-size: 16px; margin: 0; display:flex; align-items:center; gap:8px;">📱 Chọn Máy Lưu Tài Khoản</h3>
+        <button class="modal-close" onclick="closePhoneSelectModal()" style="font-size: 24px;">×</button>
+      </div>
+      <div class="modal-body">
+        <div style="position:relative;">
+            <input type="text" id="modalPhoneSearch" class="proxy-input" placeholder="🔍 Nhập định danh hoặc loại điện thoại..." onkeyup="renderModalPhoneSelect()" style="width: 100%; margin-bottom: 16px; padding: 12px 14px; border-radius: 8px; font-size:14px;" autocomplete="off">
+        </div>
+        <div id="modalPhoneList" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin;">
+          <div style="color:var(--text-muted); text-align: center; padding: 10px; font-style:italic;">Gõ để tìm kiếm...</div>
+        </div>
       </div>
     </div>
+  </div>
   </div>
 </div>
 
@@ -5532,6 +5543,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.success) {
         const org = data.organization;
         document.getElementById('npoNameText').innerText = org.name || 'N/A';
+        document.getElementById('npoEinText').innerText = org.ein || 'N/A';
         document.getElementById('npoCareOfText').innerText = org.inCareOf || 'N/A';
         document.getElementById('npoAddressText').innerText = org.address || 'N/A';
         document.getElementById('npoCszText').innerText = (org.city || '') + ', ' + (org.state || '') + ' ' + (org.zip || '');
