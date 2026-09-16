@@ -1187,6 +1187,25 @@ app.post('/api/ccn/clear', async (req, res) => {
 });
 
 // CCN Cards CRUD
+app.get('/api/ccn-cards-notes/all', async (req, res) => {
+  try {
+    const snap = await db.ref('ccn_cards_notes').once('value');
+    res.json({ status: 1, data: snap.val() || {} });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/ccn-cards-notes/save', async (req, res) => {
+  try {
+    const { bin, note } = req.body;
+    await db.ref(`ccn_cards_notes/${bin}`).set(note);
+    res.json({ status: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/ccn-cards/all', async (req, res) => {
   try {
     const snap = await db.ref('ccn_cards').once('value');

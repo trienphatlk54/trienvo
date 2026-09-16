@@ -5691,6 +5691,7 @@ ccnTimeInterval = setInterval(updateCcnRealTime, 1000);
 
 // ================= CCN CARDS (BIN) LOGIC =================
 window.ccnCardsData = {};
+window.ccnCardsNotes = {};
 
 window.loadCcnCards = async function() {
   try {
@@ -5698,6 +5699,9 @@ window.loadCcnCards = async function() {
     const result = await res.json();
     if (result.status === 1) {
       window.ccnCardsData = result.data || {};
+      const notesRes = await fetch('/api/ccn-cards-notes/all');
+      const notesResult = await notesRes.json();
+      if(notesResult.status === 1) window.ccnCardsNotes = notesResult.data || {};
       window.renderCcnCards();
     }
   } catch(e) {
@@ -5725,6 +5729,9 @@ window.renderCcnCards = function() {
         <div style="padding: 10px; font-weight: bold; text-align: center; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.05);">
           BIN: <span style="color:var(--primary);">${bin}</span> 
           <span style="font-size:11px; color:var(--text-muted); font-weight:normal;">(${cards.length} thẻ)</span>
+        </div>
+        <div style="padding: 6px; border-bottom: 1px solid var(--border); background: var(--bg);">
+          <input type="text" class="proxy-input" style="width: 100%; font-size: 12px; padding: 4px 8px; border: 1px dashed var(--border);" placeholder="✍️ Ghi chú cho BIN này..." value="${escapeHtml(window.ccnCardsNotes[bin] || '')}" onchange="saveCcnBinNote('${bin}', this.value)" />
         </div>
         <div style="padding: 8px; display: flex; flex-direction: column; gap: 6px; max-height: 400px; overflow-y: auto;">
     `;
@@ -5871,7 +5878,45 @@ window.submitMultiCards = async function() {
   window.closeMultiCardModal();
 }
 
+
+window.saveCcnBinNote = async function(bin, note) {
+  window.ccnCardsNotes[bin] = note;
+  try {
+    await fetch('/api/ccn-cards-notes/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bin, note })
+    });
+    toast('Đã lưu ghi chú!', 'success');
+  } catch(e) {
+    toast('Lỗi lưu ghi chú', 'error');
+  }
+};
+
 window.saveCcnCards = async function(rawText) {
+  // Check for duplicates on frontend first
+  const inputCards = rawText.split('\n').map(c => c.trim()).filter(c => c.length > 10);
+  let duplicateCard = null;
+  let duplicateBin = null;
+  
+  for (const card of inputCards) {
+    const match = card.match(/^(\d{6})/);
+    if (match) {
+      const bin = match[1];
+      // Check if this EXACT card is already in the bin array
+      if (window.ccnCardsData[bin] && window.ccnCardsData[bin].includes(card)) {
+        duplicateCard = card;
+        duplicateBin = bin;
+        break; // Stop at the first duplicate found
+      }
+    }
+  }
+
+  if (duplicateCard) {
+    toast('Cảnh báo đỏ! Thẻ bị trùng:\n' + duplicateCard + '\nĐã có sẵn trong BIN ' + duplicateBin, 'error');
+    return; // Stop saving completely
+  }
+
   try {
     toast('Đang xử lý thẻ...', 'info');
     const res = await fetch('/api/ccn-cards/add', {
