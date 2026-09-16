@@ -5538,10 +5538,7 @@ document.addEventListener('DOMContentLoaded', () => {
     toast('Đang dùng Proxy quét tổ chức từ Melissa...', 'info');
     try {
       const state = document.getElementById('bsnState').value.trim();
-      const state = document.getElementById('bsnState').value.trim();
-      const city = document.getElementById('bsnCity').value.trim();
-      const state = document.getElementById('bsnState').value.trim();
-      const city = document.getElementById('bsnCity').value.trim();
+        const city = document.getElementById('bsnCity').value.trim();
       const headers = {};
       const floppyKey = localStorage.getItem('floppyApiKey') || (document.getElementById('floppyApiKeyInput') ? document.getElementById('floppyApiKeyInput').value : '');
       if (floppyKey) headers['X-Floppy-Api-Key'] = floppyKey;
