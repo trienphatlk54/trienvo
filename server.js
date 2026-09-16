@@ -37,74 +37,7 @@ try {
 }
 
 
-// --- FAKE ADDRESS API ---
-app.post('/api/fakeaddress', async (req, res) => {
-  try {
-    const { state } = req.body;
-    
-    // Fetch random US identity
-    const response = await fetch('https://randomuser.me/api/?nat=us');
-    if (!response.ok) return res.status(500).json({ error: 'Failed to fetch identity' });
-    const data = await response.json();
-    const user = data.results[0];
-    
-    // State lookup for overriding
-    const STATE_DATA = {
-      "CA": { name: "California", cities: ["Los Angeles", "San Francisco", "San Diego", "Sacramento", "San Jose"], zipMin: 90001, zipMax: 96162 },
-      "NY": { name: "New York", cities: ["New York", "Buffalo", "Rochester", "Yonkers", "Syracuse"], zipMin: 10001, zipMax: 14925 },
-      "TX": { name: "Texas", cities: ["Houston", "San Antonio", "Dallas", "Austin", "Fort Worth"], zipMin: 73301, zipMax: 79999 },
-      "FL": { name: "Florida", cities: ["Jacksonville", "Miami", "Tampa", "Orlando", "St. Petersburg"], zipMin: 32004, zipMax: 34997 },
-      "IL": { name: "Illinois", cities: ["Chicago", "Aurora", "Naperville", "Joliet", "Rockford"], zipMin: 60001, zipMax: 62999 },
-      "PA": { name: "Pennsylvania", cities: ["Philadelphia", "Pittsburgh", "Allentown", "Erie", "Reading"], zipMin: 15001, zipMax: 19640 },
-      "OH": { name: "Ohio", cities: ["Columbus", "Cleveland", "Cincinnati", "Toledo", "Akron"], zipMin: 43001, zipMax: 45899 },
-      "GA": { name: "Georgia", cities: ["Atlanta", "Augusta", "Columbus", "Macon", "Savannah"], zipMin: 30002, zipMax: 39999 },
-      "NC": { name: "North Carolina", cities: ["Charlotte", "Raleigh", "Greensboro", "Durham", "Winston-Salem"], zipMin: 27006, zipMax: 28909 },
-      "MI": { name: "Michigan", cities: ["Detroit", "Grand Rapids", "Warren", "Sterling Heights", "Ann Arbor"], zipMin: 48001, zipMax: 49971 }
-    };
-    
-    const targetState = STATE_DATA[state] || STATE_DATA["CA"];
-    const city = targetState.cities[Math.floor(Math.random() * targetState.cities.length)];
-    const zip = Math.floor(Math.random() * (targetState.zipMax - targetState.zipMin + 1)) + targetState.zipMin;
-    
-    // Generate CCN (Luhn valid)
-    const prefix = Math.random() > 0.5 ? '4' : '5';
-    let ccn = prefix;
-    for(let i=0; i<14; i++) ccn += Math.floor(Math.random() * 10);
-    let sum = 0;
-    for(let i=0; i<15; i++) {
-      let digit = parseInt(ccn[i]);
-      if (i % 2 === 0) digit *= 2;
-      if (digit > 9) digit -= 9;
-      sum += digit;
-    }
-    ccn += (10 - (sum % 10)) % 10;
-    
-    const expMonth = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
-    const expYear = String(Math.floor(Math.random() * 6) + 2025);
-    const cvv = String(Math.floor(Math.random() * 900) + 100);
-    
-    const profile = {
-      "Full Name": user.name.first + ' ' + user.name.last,
-      "Gender": user.gender,
-      "Date of Birth": new Date(user.dob.date).toLocaleDateString('vi-VN'),
-      "Phone": user.phone,
-      "Email": user.email,
-      "Address": user.location.street.number + ' ' + user.location.street.name,
-      "City": city,
-      "State": targetState.name,
-      "State Code": state,
-      "Zipcode": zip,
-      "SSN": user.id.value,
-      "Credit Card (CCN)": ccn,
-      "EXP": expMonth + '/' + expYear,
-      "CVV": cvv
-    };
-    
-    res.json(profile);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+
 
 // Initialize Firebase
 const appFirebase = initializeApp({
@@ -117,6 +50,8 @@ const PORT   = process.env.PORT || 3000;
 const QR_TTL = 3 * 60 * 1000;
 
 const app = express();
+
+
 app.get('/api/logs', (req, res) => res.type('text/plain').send(sysLogs.join('\n')));
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -568,6 +503,75 @@ async function fetchUserInfo(page) {
 // (Old startPoll removed - replaced by startApiPoll above)
 
 // ─── POST /api/proxy/save ──────────────────────────────────────────
+// --- FAKE ADDRESS API ---
+app.post('/api/fakeaddress', async (req, res) => {
+  try {
+    const { state } = req.body;
+    
+    // Fetch random US identity
+    const response = await fetch('https://randomuser.me/api/?nat=us');
+    if (!response.ok) return res.status(500).json({ error: 'Failed to fetch identity' });
+    const data = await response.json();
+    const user = data.results[0];
+    
+    // State lookup for overriding
+    const STATE_DATA = {
+      "CA": { name: "California", cities: ["Los Angeles", "San Francisco", "San Diego", "Sacramento", "San Jose"], zipMin: 90001, zipMax: 96162 },
+      "NY": { name: "New York", cities: ["New York", "Buffalo", "Rochester", "Yonkers", "Syracuse"], zipMin: 10001, zipMax: 14925 },
+      "TX": { name: "Texas", cities: ["Houston", "San Antonio", "Dallas", "Austin", "Fort Worth"], zipMin: 73301, zipMax: 79999 },
+      "FL": { name: "Florida", cities: ["Jacksonville", "Miami", "Tampa", "Orlando", "St. Petersburg"], zipMin: 32004, zipMax: 34997 },
+      "IL": { name: "Illinois", cities: ["Chicago", "Aurora", "Naperville", "Joliet", "Rockford"], zipMin: 60001, zipMax: 62999 },
+      "PA": { name: "Pennsylvania", cities: ["Philadelphia", "Pittsburgh", "Allentown", "Erie", "Reading"], zipMin: 15001, zipMax: 19640 },
+      "OH": { name: "Ohio", cities: ["Columbus", "Cleveland", "Cincinnati", "Toledo", "Akron"], zipMin: 43001, zipMax: 45899 },
+      "GA": { name: "Georgia", cities: ["Atlanta", "Augusta", "Columbus", "Macon", "Savannah"], zipMin: 30002, zipMax: 39999 },
+      "NC": { name: "North Carolina", cities: ["Charlotte", "Raleigh", "Greensboro", "Durham", "Winston-Salem"], zipMin: 27006, zipMax: 28909 },
+      "MI": { name: "Michigan", cities: ["Detroit", "Grand Rapids", "Warren", "Sterling Heights", "Ann Arbor"], zipMin: 48001, zipMax: 49971 }
+    };
+    
+    const targetState = STATE_DATA[state] || STATE_DATA["CA"];
+    const city = targetState.cities[Math.floor(Math.random() * targetState.cities.length)];
+    const zip = Math.floor(Math.random() * (targetState.zipMax - targetState.zipMin + 1)) + targetState.zipMin;
+    
+    // Generate CCN (Luhn valid)
+    const prefix = Math.random() > 0.5 ? '4' : '5';
+    let ccn = prefix;
+    for(let i=0; i<14; i++) ccn += Math.floor(Math.random() * 10);
+    let sum = 0;
+    for(let i=0; i<15; i++) {
+      let digit = parseInt(ccn[i]);
+      if (i % 2 === 0) digit *= 2;
+      if (digit > 9) digit -= 9;
+      sum += digit;
+    }
+    ccn += (10 - (sum % 10)) % 10;
+    
+    const expMonth = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
+    const expYear = String(Math.floor(Math.random() * 6) + 2025);
+    const cvv = String(Math.floor(Math.random() * 900) + 100);
+    
+    const profile = {
+      "Full Name": user.name.first + ' ' + user.name.last,
+      "Gender": user.gender,
+      "Date of Birth": new Date(user.dob.date).toLocaleDateString('vi-VN'),
+      "Phone": user.phone,
+      "Email": user.email,
+      "Address": user.location.street.number + ' ' + user.location.street.name,
+      "City": city,
+      "State": targetState.name,
+      "State Code": state,
+      "Zipcode": zip,
+      "SSN": user.id.value,
+      "Credit Card (CCN)": ccn,
+      "EXP": expMonth + '/' + expYear,
+      "CVV": cvv
+    };
+    
+    res.json(profile);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/proxy/save', async (req, res) => {
   await reset();
   const { type, raw } = req.body;
