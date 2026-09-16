@@ -1,7 +1,41 @@
 <!DOCTYPE html><html lang="vi"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shopee QR Login — Trích xuất Cookie</title>
+  <title>Shopee QR Login — Trích xuất Cookie</
+
+          <!-- Bảng Quản lý CCN (Thẻ) -->
+          <div class="main-card" style="max-width: 100%; width: 100%; margin-top: 20px;">
+            <div class="card-header" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px;">
+              <h2>💳 Quản lý Thẻ CCN (Theo BIN)</h2>
+              <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                <button class="btn btn-secondary btn-sm" onclick="addSingleCcnCard()">➕ Thêm thẻ đơn</button>
+                <button class="btn btn-secondary btn-sm" onclick="openMultiCardModal()">📄 Thêm nhiều thẻ</button>
+                <button class="btn btn-secondary btn-sm" style="color:var(--error); border-color:var(--error);" onclick="clearAllCcnCards()">🗑 Xóa tất cả</button>
+              </div>
+            </div>
+            <div class="card-body" style="padding: 16px;">
+              <div id="ccnCardsContainer" style="display: flex; gap: 16px; overflow-x: auto; padding-bottom: 10px;">
+                 <!-- JS will inject columns here -->
+              </div>
+            </div>
+          </div>
+          
+          <!-- Modal Thêm Nhiều Thẻ -->
+          <div class="modal-overlay" id="multiCardModal">
+            <div class="modal-content" style="max-width: 500px;">
+              <div class="modal-header">
+                <h3 style="font-size: 17px; margin: 0;">📄 Thêm nhiều thẻ CCN</h3>
+                <button class="modal-close" onclick="closeMultiCardModal()">x</button>
+              </div>
+              <div class="modal-body" style="padding: 16px;">
+                <p style="margin-top:0; font-size:13px; color:var(--text-muted);">Dán danh sách thẻ vào đây (mỗi thẻ 1 dòng). Hệ thống sẽ tự động lọc theo 6 số BIN đầu tiên.</p>
+                <textarea id="multiCardTextarea" class="proxy-input" style="height: 200px; resize: vertical; font-family: monospace; font-size: 13px;" placeholder="4207670337397783|09|2030
+4411037143464011|07|2030"></textarea>
+                <button class="btn btn-primary" onclick="submitMultiCards()" style="width: 100%; margin-top: 12px;">💾 Lưu danh sách thẻ</button>
+              </div>
+            </div>
+          </div>
+title>
   <meta name="description" content="Đăng nhập Shopee bằng mã QR và trích xuất cookie phiên SPC_ST, SPC_F">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
@@ -1155,14 +1189,11 @@
                 </tr>
               </thead>
               <tbody id="allCookiesTbody"></tbody>
-                </table>
-              </div>
-            </div>
+            </table>
           </div>
+        </div>
 
-          
-          </div>
-<!-- /info-panel -->
+      </div><!-- /info-panel -->
     </div><!-- /card-body -->
   </div><!-- /main-card -->
   </div><!-- /tab-shopee -->
@@ -1569,40 +1600,6 @@
             </div>
           </div>
         </div>
-
-          <!-- Bảng Quản lý CCN (Thẻ) -->
-          <div class="main-card" style="max-width: 100%; width: 100%; margin-top: 20px;">
-            <div class="card-header" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px;">
-              <h2>💳 Quản lý Thẻ CCN (Theo BIN)</h2>
-              <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
-                <button class="btn btn-secondary btn-sm" onclick="addSingleCcnCard()">➕ Thêm thẻ đơn</button>
-                <button class="btn btn-secondary btn-sm" onclick="openMultiCardModal()">📄 Thêm nhiều thẻ</button>
-                <button class="btn btn-secondary btn-sm" style="color:var(--error); border-color:var(--error);" onclick="clearAllCcnCards()">🗑 Xóa tất cả</button>
-              </div>
-            </div>
-            <div class="card-body" style="padding: 16px;">
-              <div id="ccnCardsContainer" style="display: flex; gap: 16px; overflow-x: auto; padding-bottom: 10px;">
-                 <!-- JS will inject columns here -->
-              </div>
-            </div>
-          </div>
-          
-          <!-- Modal Thêm Nhiều Thẻ -->
-          <div class="modal-overlay" id="multiCardModal">
-            <div class="modal-content" style="max-width: 500px;">
-              <div class="modal-header">
-                <h3 style="font-size: 17px; margin: 0;">📄 Thêm nhiều thẻ CCN</h3>
-                <button class="modal-close" onclick="closeMultiCardModal()">x</button>
-              </div>
-              <div class="modal-body" style="padding: 16px;">
-                <p style="margin-top:0; font-size:13px; color:var(--text-muted);">Dán danh sách thẻ vào đây (mỗi thẻ 1 dòng). Hệ thống sẽ tự động lọc theo 6 số BIN đầu tiên.</p>
-                <textarea id="multiCardTextarea" class="proxy-input" style="height: 200px; resize: vertical; font-family: monospace; font-size: 13px;" placeholder="4207670337397783|09|2030
-4411037143464011|07|2030"></textarea>
-                <button class="btn btn-primary" onclick="submitMultiCards()" style="width: 100%; margin-top: 12px;">💾 Lưu danh sách thẻ</button>
-              </div>
-            </div>
-          </div>
-
       </div>
     </div>
     
@@ -5499,6 +5496,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!row || !row.address) {
       toast('Tài khoản này không có dữ liệu địa chỉ!', 'error');
       return;
+    }
+    
+        // Check if there is already existing data
+    const currentFullname = document.getElementById('bsnFullname').value.trim();
+    if (currentFullname) {
+      const confirmChange = confirm('Profile này đã có dữ liệu. Bạn có chắc chắn muốn tạo ngẫu nhiên đè lên dữ liệu cũ không?');
+      if (!confirmChange) return;
     }
     
     // Process address to get stateCode
