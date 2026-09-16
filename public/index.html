@@ -1516,6 +1516,7 @@
                   <th data-col="email" onclick="setCcnSort('email')" style="padding: 10px 8px; cursor:pointer;">Email ↕</th>
                   <th data-col="pass" onclick="setCcnSort('pass')" style="padding: 10px 8px; cursor:pointer;">Pass ↕</th>
                   <th data-col="twofa" onclick="setCcnSort('twofa')" style="padding: 10px 8px; width: 140px; cursor:pointer;">2FA ↕</th>
+                  <th data-col="identity" onclick="setCcnSort('identity')" style="padding: 10px 8px; width: 120px; cursor:pointer;">Định danh ↕</th>
                   <th data-col="country" onclick="setCcnSort('country')" style="padding: 10px 8px; cursor:pointer;">Country ↕</th>
                   <th data-col="address" onclick="setCcnSort('address')" style="padding: 10px 8px; cursor:pointer;">Address ↕</th>
                   <th data-col="state" onclick="setCcnSort('state')" style="padding: 10px 8px; cursor:pointer;">State ↕</th>
@@ -4832,6 +4833,42 @@ let ccnSortCol = '';
 let ccnSortAsc = true;
 let currentCcnTab = 0;
 
+let ccnEditIdentityId = null;
+function renderCcnIdentityCell(row) {
+  if (row.identity && ccnEditIdentityId !== row.id) {
+    return `
+      <div style="display:flex; align-items:center; gap:4px;">
+        <span style="font-weight:bold; cursor:pointer; color: var(--primary);" onclick="copyText(this.innerText)">${escapeHtml(row.identity)}</span>
+        <button class="btn btn-sm btn-ghost" onclick="ccnEditIdentityId='${row.id}'; renderCcnTable();" style="padding:0 4px;" title="Sửa">\u270F\uFE0F</button>
+      </div>
+    `;
+  } else {
+    let options = `<option value="">Chọn ĐD</option>`;
+    if (typeof phoneData !== 'undefined') {
+      Object.values(phoneData).forEach(p => {
+        if (p.identifier) {
+          options += `<option value="${escapeHtml(p.identifier)}" ${row.identity === p.identifier ? 'selected' : ''}>${escapeHtml(p.identifier)}</option>`;
+        }
+      });
+    }
+    return `
+      <select onchange="updateCcnIdentity('${row.id}', this.value)" style="font-size:11px; padding: 2px; width:100px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
+        ${options}
+      </select>
+    `;
+  }
+}
+
+async function updateCcnIdentity(id, identity) {
+  ccnEditIdentityId = null;
+  const row = ccnData[id];
+  if (!row) return;
+  row.identity = identity;
+  await saveCcnRecord(id, row);
+  toast('Đã cập nhật định danh', 'success');
+}
+
+
 const STATE_MAP = {
   "AL": { name: "Alabama", tz: "America/Chicago" }, "AK": { name: "Alaska", tz: "America/Anchorage" }, "AZ": { name: "Arizona", tz: "America/Phoenix" }, "AR": { name: "Arkansas", tz: "America/Chicago" },
   "CA": { name: "California", tz: "America/Los_Angeles" }, "CO": { name: "Colorado", tz: "America/Denver" }, "CT": { name: "Connecticut", tz: "America/New_York" }, "DE": { name: "Delaware", tz: "America/New_York" },
@@ -5023,7 +5060,7 @@ function renderCcnTable() {
     .filter(([id, row]) => (row.status || 0) === currentCcnTab)
     .map(([id, row]) => {
       const computed = processAddress(row.address);
-      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, status: row.status||0 };
+      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, status: row.status||0, identity: row.identity || '' };
     });
 
   if (searchInput) {
@@ -5090,7 +5127,7 @@ async function addCcnRow() {
   const country = prompt('Nhập Country:') || '';
   const address = prompt('Nhập Address:') || '';
   
-  await saveCcnRecord(null, { email, pass, twofa, country, address, status: currentCcnTab });
+  await saveCcnRecord(null, { email, pass, twofa, country, address, status: currentCcnTab, identity: '' });
   toast('Đã thêm dòng mới vào Tab hiện tại', 'success');
 }
 
