@@ -1181,8 +1181,11 @@ app.post('/api/ccn/clear', async (req, res) => {
   try {
     await db.ref('ccn_accounts').remove();
     res.json({ status: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
-﻿// Add this below the /api/ccn endpoints
 // CCN Cards CRUD
 app.get('/api/ccn-cards/all', async (req, res) => {
   try {
@@ -1255,11 +1258,6 @@ app.post('/api/ccn-cards/delete', async (req, res) => {
       }
     }
     res.json({ status: 1 });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
