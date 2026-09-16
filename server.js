@@ -1041,7 +1041,7 @@ app.get('/api/npo-lookup', async (req, res) => {
     
     if (floppyKey) {
       try {
-        const body = { description: "Melissa Puppeteer Scraper", country: "US", protocol: "HTTP" };
+        const body = { description: "Melissa Scraper", country: "US", protocol: "HTTP" };
         const pRes = await fetch(FLOPPY_BASE_URL + '/v2/proxy/rotating/connections', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Api-Key': floppyKey },
@@ -1063,31 +1063,42 @@ app.get('/api/npo-lookup', async (req, res) => {
       } catch (e) { console.error('Proxy Error:', e); }
     }
     
-    const args = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'];
+    const args = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--window-size=1280,800'];
     if (proxyHostPort) {
       args.push('--proxy-server=http://' + proxyHostPort);
     }
     
     let browser;
     let html = '';
+    let pageTitle = '';
+    
     try {
-      browser = await puppeteer.launch({ headless: 'new', args });
+      browser = await puppeteer.launch({ headless: 'new', args, defaultViewport: null });
       const page = await browser.newPage();
+      
+      // Fake User Agent explicitly to be safe
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      
       if (proxyAuth) {
         await page.authenticate(proxyAuth);
       }
       
-      await page.setRequestInterception(true);
-      page.on('request', (req) => {
-        const rType = req.resourceType();
-        if (rType === 'image' || rType === 'stylesheet' || rType === 'font' || rType === 'media') {
-          req.abort();
-        } else {
-          req.continue();
-        }
-      });
+      // Do NOT abort requests, let Cloudflare Turnstile run its JS & load images
       
-      await page.goto('https://lookups.melissa.com/home/npo/?value=' + zip, { waitUntil: 'networkidle2', timeout: 35000 });
+      const response = await page.goto('https://lookups.melissa.com/home/npo/?value=' + zip, { waitUntil: 'networkidle2', timeout: 45000 });
+      pageTitle = await page.title();
+      
+      if (response && response.status() === 407) {
+        return res.json({ success: false, message: 'Proxy FloppyData yêu cầu xác thực hoặc bị lỗi (407). Vui lòng thử lại!' });
+      }
+      
+      try {
+        // Đợi bảng kết quả hoặc dấu hiệu form disable
+        await page.waitForFunction(() => {
+          return document.querySelector('.item') || document.body.innerHTML.includes('FormDisabled') || document.querySelector('.h-captcha') || document.title.includes('Moment');
+        }, { timeout: 10000 });
+      } catch(e) {} // timeout is fine, we will grab html anyway
+      
       html = await page.content();
     } catch (e) {
       console.error('Puppeteer error:', e);
@@ -1099,8 +1110,12 @@ app.get('/api/npo-lookup', async (req, res) => {
       return res.status(500).json({ error: 'Lỗi khi tải trang Melissa qua Puppeteer' });
     }
     
-    if (html.includes('FormDisabled') || html.includes('captcha') || html.includes('Cloudflare')) {
-      return res.json({ success: false, message: 'Melissa đang chặn (Yêu cầu xác thực Cloudflare hoặc IP bị block).' });
+    if (pageTitle.includes('Just a moment') || html.includes('captcha') || html.includes('Cloudflare')) {
+      return res.json({ success: false, message: 'Melissa đang bật cảnh báo bảo mật (Cloudflare Turnstile) chặn chống Bot. Đổi IP proxy khác hặc thử lại.' });
+    }
+    
+    if (html.includes('FormDisabled')) {
+      return res.json({ success: false, message: 'Melissa block tạm thời tài khoản / IP này (FormDisabled). Vui lòng đổi Proxy hoặc chờ vài phút.' });
     }
     
     let orgs = [];
