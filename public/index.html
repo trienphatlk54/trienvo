@@ -4464,7 +4464,10 @@ async function startVoucherCheck() {
         </div>
         <input type="hidden" id="bsnRowId">
         <div class="form-group">
-          <label>Fullname</label>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label>Fullname / Organization</label>
+            <button class="btn btn-ghost btn-sm" onclick="extractNPO()" style="font-size:10px; padding:2px 6px; color:var(--shopee);">🏢 Tìm NPO từ Zip</button>
+          </div>
           <input type="text" id="bsnFullname" class="proxy-input">
         </div>
         <div class="form-group">
@@ -5493,6 +5496,28 @@ document.addEventListener('DOMContentLoaded', () => {
     toast('Đã lưu BSN Profile thành công', 'success');
     closeBsnModal();
     renderCcnTable();
+  }
+
+  
+  window.extractNPO = async function() {
+    const zip = document.getElementById('bsnZip').value.trim();
+    if (!zip) {
+      toast('Vui lòng điền Zip Code trước!', 'error');
+      return;
+    }
+    toast('Đang tìm tổ chức (NPO) từ Melissa...', 'info');
+    try {
+      const res = await fetch('/api/npo-lookup?zip=' + zip);
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById('bsnFullname').value = data.organization;
+        toast('Đã lấy thành công: ' + data.organization, 'success');
+      } else {
+        toast(data.message || 'Không tìm thấy NPO!', 'error');
+      }
+    } catch (e) {
+      toast('Lỗi kết nối API', 'error');
+    }
   }
 
   // Real-time CCN clock & TOTP Generator
