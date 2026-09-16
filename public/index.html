@@ -143,7 +143,7 @@
     /* ── Tab Layout Overrides ─────────────────────── */
     /* ── Header ───────────────────────────────────── */
     header {
-      width: 100%; max-width: 900px;
+      width: 100%; max-width: 100%;
       display: flex;
       align-items: center;
       gap: 14px;
@@ -184,7 +184,7 @@
     }
 
     .placeholder-content {
-      width: 100%; max-width: 900px;
+      width: 100%; max-width: 100%;
       background: rgba(18,18,26,0.5);
       border: 1px dashed var(--border);
       border-radius: 24px;
@@ -231,7 +231,7 @@
 
     /* ── Main Card ────────────────────────────────── */
     .main-card {
-      width: 100%; max-width: 900px;
+      width: 100%; max-width: 100%;
       background: rgba(18,18,26,0.8);
       backdrop-filter: blur(20px) saturate(180%);
       border: 1px solid var(--border);
@@ -730,7 +730,7 @@
 
     /* ── Proxy Section ────────────────────────── */
     .proxy-section {
-      width: 100%; max-width: 900px;
+      width: 100%; max-width: 100%;
       background: rgba(18,18,26,0.8);
       backdrop-filter: blur(20px);
       border: 1px solid var(--border);
@@ -1458,7 +1458,7 @@
 
     <!-- Tab 6: Voucher Checking -->
     <div id="tab-vouchercheck" class="tab-pane">
-      <div class="main-card" style="max-width: 900px; margin: 0 auto;">
+      <div class="main-card" style="max-width: 100%; margin: 0 auto;">
         <div class="card-header">
           <h2>🎫 Kiểm tra Voucher hàng loạt</h2>
           <p style="color:var(--text-muted); font-size:13px; margin-top:8px;">Tự động đăng nhập và check danh sách mã voucher trên ví Shopee.</p>
@@ -1531,7 +1531,9 @@
                 <button id="btnCcnTab1" class="btn btn-ghost btn-sm" onclick="setCcnTab(1)">Success</button>
                 <button id="btnCcnTab2" class="btn btn-ghost btn-sm" onclick="setCcnTab(2)">Payment</button>
                 <button id="btnCcnTab3" class="btn btn-ghost btn-sm" onclick="setCcnTab(3)">Cancel</button>
-                <button id="btnCcnTab4" class="btn btn-ghost btn-sm" onclick="setCcnTab(4)">Check Thẻ / Review / Lock</button>
+                <button id="btnCcnTab4" class="btn btn-ghost btn-sm" onclick="setCcnTab(4)">Check Thẻ</button>
+                <button id="btnCcnTab5" class="btn btn-ghost btn-sm" onclick="setCcnTab(5)">Review</button>
+                <button id="btnCcnTab6" class="btn btn-ghost btn-sm" onclick="setCcnTab(6)">Lock</button>
               </div>
             <div class="table-container" style="max-height: calc(100vh - 180px); overflow-y: auto; overflow-x: auto; width: 100%;">
               <table class="compact-table" style="width:100%; min-width: 1000px; border-collapse: collapse; text-align: left; font-size: 13px;">
@@ -1561,7 +1563,7 @@
     
     <!-- Tab: Floppydata Proxy -->
   <div id="tab-floppyproxy" class="tab-pane">
-    <div style="width:100%; max-width: 900px;">
+    <div style="width:100%; max-width: 100%;">
 
       
       <!-- API Key Section -->
@@ -5050,7 +5052,7 @@ function setCcnSort(col) {
 
 function setCcnTab(tabIndex) {
   currentCcnTab = tabIndex;
-  for (let i = 0; i <= 4; i++) {
+  for (let i = 0; i <= 6; i++) {
     const btn = document.getElementById('btnCcnTab' + i);
     if (btn) btn.className = tabIndex === i ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
   }
@@ -5187,7 +5189,9 @@ function renderCcnTable() {
             <option value="1" ${row.status === 1 ? 'disabled' : ''}>Success</option>
             <option value="2" ${row.status === 2 ? 'disabled' : ''}>Payment</option>
             <option value="3" ${row.status === 3 ? 'disabled' : ''}>Cancel</option>
-            <option value="4" ${row.status === 4 ? 'disabled' : ''}>Check Thẻ / Review / Lock</option>
+            <option value="4" ${row.status === 4 ? 'disabled' : ''}>Check Thẻ</option>
+            <option value="5" ${row.status === 5 ? 'disabled' : ''}>Review</option>
+            <option value="6" ${row.status === 6 ? 'disabled' : ''}>Lock</option>
           </select>
         </td>
         <td style="padding: 10px 8px; text-align: center;">
