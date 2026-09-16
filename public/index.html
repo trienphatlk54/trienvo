@@ -1543,7 +1543,7 @@
                   <th data-col="email" onclick="setCcnSort('email')" style="padding: 10px 8px; cursor:pointer;">Email ↕</th>
                   <th data-col="pass" onclick="setCcnSort('pass')" style="padding: 10px 8px; cursor:pointer;">Pass ↕</th>
                   <th data-col="twofa" onclick="setCcnSort('twofa')" style="padding: 10px 8px; width: 80px; cursor:pointer;">2FA ↕</th>
-                  <th data-col="identity" onclick="setCcnSort('identity')" style="padding: 10px 8px; width: 120px; cursor:pointer;">Định danh ↕</th>
+                  <th data-col="identity" onclick="setCcnSort('identity')" style="padding: 10px 8px; white-space: nowrap; cursor:pointer;">Định danh ↕</th>
                   
                   <th data-col="address" onclick="setCcnSort('address')" style="padding: 10px 8px; cursor:pointer;">Address ↕</th>
                   <th data-col="state" onclick="setCcnSort('state')" style="padding: 10px 8px; cursor:pointer;">State ↕</th>
@@ -4871,7 +4871,7 @@ function renderCcnIdentityCell(row) {
       }
     }
     return `
-      <div style="display:flex; align-items:center; gap:4px;">
+      <div style="display:flex; align-items:center; gap:4px; white-space: nowrap;">
         <span style="font-weight:bold; cursor:pointer; color: var(--primary);" onclick="copyText('${escapeHtml(row.identity)}')">${escapeHtml(displayStr)}</span>
         <button class="btn btn-sm btn-ghost" onclick="ccnEditIdentityId='${row.id}'; renderCcnTable();" style="padding:0 4px;" title="Sửa">✏️</button>
       </div>
@@ -4887,7 +4887,7 @@ function renderCcnIdentityCell(row) {
       });
     }
     return `
-      <input list="identity-list-${row.id}" value="${escapeHtml(row.identity || '')}" onchange="updateCcnIdentity('${row.id}', this.value)" placeholder="Lọc/Chọn ĐD..." style="font-size:11px; padding: 3px; width:100px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
+      <input list="identity-list-${row.id}" value="${escapeHtml(row.identity || '')}" onchange="updateCcnIdentity('${row.id}', this.value)" placeholder="Lọc/Chọn ĐD..." style="font-size:11px; padding: 3px; min-width:130px; width:100%; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
       <datalist id="identity-list-${row.id}">
         ${options}
       </datalist>
