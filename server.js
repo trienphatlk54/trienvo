@@ -1029,15 +1029,15 @@ app.get('/api/ccn/all', async (req, res) => {
 });
 
 app.post('/api/ccn/save', async (req, res) => {
-  const { id, email, pass, twofa, country, address, status, identity, linkedProxy } = req.body;
+  const { id, email, pass, twofa, country, address, status, identity, linkedProxy, bsn } = req.body;
   try {
     const ref = db.ref('ccn_accounts');
     if (id) {
-      await ref.child(id).update({ email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '' });
+      await ref.child(id).update({ email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '', bsn: bsn || null });
       res.json({ status: 1, id });
     } else {
       const newEntry = ref.push();
-      await newEntry.set({ email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '' });
+      await newEntry.set({ email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '', bsn: bsn || null });
       res.json({ status: 1, id: newEntry.key });
     }
   } catch (e) {

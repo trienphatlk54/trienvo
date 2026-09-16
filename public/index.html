@@ -1548,7 +1548,8 @@
                   <th data-col="address" onclick="setCcnSort('address')" style="padding: 10px 8px; cursor:pointer;">Address ↕</th>
                   <th data-col="state" onclick="setCcnSort('state')" style="padding: 10px 8px; cursor:pointer;">State ↕</th>
                   <th data-col="timeState" onclick="setCcnSort('timeState')" style="padding: 10px 8px; cursor:pointer;">Time State ↕</th>
-                  <th style="padding: 10px 8px; width: 140px; text-align: center;">Thao tác</th>
+                  <th style="padding: 10px 8px; text-align: center;">BSN</th>
+                    <th style="padding: 10px 8px; width: 140px; text-align: center;">Thao tác</th>
                 </tr>
               </thead>
                 <tbody id="ccnTableBody">
@@ -4449,7 +4450,45 @@ async function startVoucherCheck() {
   </div>
 </div>
 
-<!-- Tiktok Modal -->
+
+  <!-- BSN Modal -->
+  <div class="modal-overlay" id="bsnModal">
+    <div class="modal-content" style="max-width: 450px;">
+      <div class="modal-header">
+        <h3 style="font-size: 15px; margin: 0;">👤 Thông tin BSN Profile</h3>
+        <button class="modal-close" onclick="closeBsnModal()">x</button>
+      </div>
+      <div class="modal-body" style="padding: 16px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; justify-content:flex-end;">
+          <button class="btn btn-primary btn-sm" onclick="generateBsnProfile()">⚡ Tạo Profile ngẫu nhiên</button>
+        </div>
+        <input type="hidden" id="bsnRowId">
+        <div class="form-group">
+          <label>Fullname</label>
+          <input type="text" id="bsnFullname" class="proxy-input">
+        </div>
+        <div class="form-group">
+          <label>Phone Number</label>
+          <input type="text" id="bsnPhone" class="proxy-input">
+        </div>
+        <div class="form-group">
+          <label>Zip/Postal Code</label>
+          <input type="text" id="bsnZip" class="proxy-input">
+        </div>
+        <div class="form-group">
+          <label>City/Town</label>
+          <input type="text" id="bsnCity" class="proxy-input">
+        </div>
+        <div class="form-group">
+          <label>State/Province/Region</label>
+          <input type="text" id="bsnState" class="proxy-input">
+        </div>
+        <button class="btn btn-primary" onclick="saveBsnProfile()" style="margin-top:10px;">💾 Lưu Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tiktok Modal -->
 <div id="tiktokModal" class="modal-overlay">
   <div class="modal-content" style="max-width: 500px;">
     <div class="modal-header">
@@ -5170,7 +5209,7 @@ function renderCcnTable() {
     .filter(([id, row]) => (row.status || 0) === currentCcnTab)
     .map(([id, row]) => {
       const computed = processAddress(row.address);
-      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, stateCode: computed.stateCode, status: row.status||0, identity: row.identity || '', linkedProxy: row.linkedProxy || '' };
+      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, stateCode: computed.stateCode, status: row.status||0, identity: row.identity || '', linkedProxy: row.linkedProxy || '', bsn: row.bsn || null };
     });
 
   if (searchInput) {
@@ -5332,7 +5371,74 @@ function importCcnFromFile(event) {
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(loadCcnData, 300);
 
-// Real-time CCN clock & TOTP Generator
+
+  // BSN Logic
+  function openBsnModal(rowId) {
+    const row = ccnData[rowId];
+    if (!row) return;
+    document.getElementById('bsnRowId').value = rowId;
+    
+    if (row.bsn) {
+      document.getElementById('bsnFullname').value = row.bsn.fullname || '';
+      document.getElementById('bsnPhone').value = row.bsn.phone || '';
+      document.getElementById('bsnZip').value = row.bsn.zip || '';
+      document.getElementById('bsnCity').value = row.bsn.city || '';
+      document.getElementById('bsnState').value = row.bsn.state || '';
+    } else {
+      document.getElementById('bsnFullname').value = '';
+      document.getElementById('bsnPhone').value = '';
+      document.getElementById('bsnZip').value = '';
+      document.getElementById('bsnCity').value = '';
+      document.getElementById('bsnState').value = '';
+    }
+    
+    document.getElementById('bsnModal').classList.add('active');
+  }
+  
+  function closeBsnModal() {
+    document.getElementById('bsnModal').classList.remove('active');
+  }
+  
+  async function generateBsnProfile() {
+    toast('Đang tạo profile ngẫu nhiên từ randomuser.me...', 'info');
+    try {
+      const res = await fetch('https://randomuser.me/api/?nat=us');
+      const data = await res.json();
+      const user = data.results[0];
+      
+      document.getElementById('bsnFullname').value = user.name.first + ' ' + user.name.last;
+      document.getElementById('bsnPhone').value = user.phone;
+      document.getElementById('bsnZip').value = user.location.postcode;
+      document.getElementById('bsnCity').value = user.location.city;
+      document.getElementById('bsnState').value = user.location.state;
+      toast('Tạo profile thành công!', 'success');
+    } catch(e) {
+      toast('Lỗi kết nối tạo profile', 'error');
+    }
+  }
+  
+  async function saveBsnProfile() {
+    const rowId = document.getElementById('bsnRowId').value;
+    const row = ccnData[rowId];
+    if (!row) return;
+    
+    const bsnData = {
+      fullname: document.getElementById('bsnFullname').value.trim(),
+      phone: document.getElementById('bsnPhone').value.trim(),
+      zip: document.getElementById('bsnZip').value.trim(),
+      city: document.getElementById('bsnCity').value.trim(),
+      state: document.getElementById('bsnState').value.trim()
+    };
+    
+    row.bsn = bsnData;
+    toast('Đang lưu...', 'info');
+    await saveCcnRecord(rowId, row);
+    toast('Đã lưu BSN Profile thành công', 'success');
+    closeBsnModal();
+    renderCcnTable();
+  }
+
+  // Real-time CCN clock & TOTP Generator
 let ccnTimeInterval = null;
 let lastTotpWindow = 0;
 
