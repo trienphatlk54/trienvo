@@ -1151,15 +1151,15 @@ app.get('/api/npo-lookup', async (req, res) => {
 
 
 app.post('/api/ccn/save', async (req, res) => {
-  const { id, email, pass, twofa, country, address, status, identity, linkedProxy, bsn } = req.body;
+  const { id, email, pass, twofa, country, address, status, identity, linkedProxy, bsn, assignedCards } = req.body;
   try {
     const ref = db.ref('ccn_accounts');
     if (id) {
-      await ref.child(id).update({ email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '', bsn: bsn || null });
+      await ref.child(id).update({ email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '', bsn: bsn || null, assignedCards: assignedCards || null });
       res.json({ status: 1, id });
     } else {
       const newEntry = ref.push();
-      await newEntry.set({ email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '', bsn: bsn || null });
+      await newEntry.set({ email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '', bsn: bsn || null, assignedCards: assignedCards || null });
       res.json({ status: 1, id: newEntry.key });
     }
   } catch (e) {
