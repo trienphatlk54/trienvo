@@ -1035,12 +1035,13 @@ app.get('/api/npo-lookup', async (req, res) => {
     if (!zip) return res.status(400).json({ error: 'Missing zip code' });
     
     const floppyKey = req.headers['x-floppy-api-key'];
-    let proxyAgent = null;
+    let proxyHostPort = null;
+    let proxyAuth = null;
+    let usedProxy = false;
     
-    // Tự động tạo proxy qua FloppyData nếu có key (vượt giới hạn Melissa)
     if (floppyKey) {
       try {
-        const body = { description: "Melissa Scraper", country: "US", protocol: "HTTP" };
+        const body = { description: "Melissa Puppeteer Scraper", country: "US", protocol: "HTTP" };
         const pRes = await fetch(FLOPPY_BASE_URL + '/v2/proxy/rotating/connections', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Api-Key': floppyKey },
@@ -1048,22 +1049,59 @@ app.get('/api/npo-lookup', async (req, res) => {
         });
         const pData = await pRes.json();
         if (pData.success && pData.data && pData.data.connection) {
-          proxyAgent = new HttpsProxyAgent('http://' + pData.data.connection);
+          const conn = pData.data.connection;
+          usedProxy = true;
+          if (conn.includes('@')) {
+            const [authPart, serverPart] = conn.split('@');
+            proxyHostPort = serverPart;
+            const [username, password] = authPart.split(':');
+            proxyAuth = { username, password };
+          } else {
+            proxyHostPort = conn;
+          }
         }
       } catch (e) { console.error('Proxy Error:', e); }
     }
     
-    const fetchOptions = {
-      headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'en-US,en;q=0.9'
+    const args = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'];
+    if (proxyHostPort) {
+      args.push('--proxy-server=http://' + proxyHostPort);
+    }
+    
+    let browser;
+    let html = '';
+    try {
+      browser = await puppeteer.launch({ headless: 'new', args });
+      const page = await browser.newPage();
+      if (proxyAuth) {
+        await page.authenticate(proxyAuth);
       }
-    };
-    if (proxyAgent) fetchOptions.agent = proxyAgent;
-
-    const response = await fetch('https://lookups.melissa.com/home/npo/?value=' + zip, fetchOptions);
-    const html = await response.text();
+      
+      await page.setRequestInterception(true);
+      page.on('request', (req) => {
+        const rType = req.resourceType();
+        if (rType === 'image' || rType === 'stylesheet' || rType === 'font' || rType === 'media') {
+          req.abort();
+        } else {
+          req.continue();
+        }
+      });
+      
+      await page.goto('https://lookups.melissa.com/home/npo/?value=' + zip, { waitUntil: 'networkidle2', timeout: 35000 });
+      html = await page.content();
+    } catch (e) {
+      console.error('Puppeteer error:', e);
+    } finally {
+      if (browser) await browser.close();
+    }
+    
+    if (!html) {
+      return res.status(500).json({ error: 'Lỗi khi tải trang Melissa qua Puppeteer' });
+    }
+    
+    if (html.includes('FormDisabled') || html.includes('captcha') || html.includes('Cloudflare')) {
+      return res.json({ success: false, message: 'Melissa đang chặn (Yêu cầu xác thực Cloudflare hoặc IP bị block).' });
+    }
     
     let orgs = [];
     const regex = /<tr class="item"[^>]*>([\s\S]*?)<\/tr>/g;
@@ -1089,7 +1127,7 @@ app.get('/api/npo-lookup', async (req, res) => {
     }
     
     if (orgs.length === 0) {
-      return res.json({ success: false, message: 'Melissa báo không tìm thấy NPO nào ở Zipcode này.' });
+      return res.json({ success: false, message: 'Không tìm thấy NPO nào ở Zipcode này.' });
     }
     
     // Ưu tiên Assets & Income = 0
@@ -1109,10 +1147,10 @@ app.get('/api/npo-lookup', async (req, res) => {
       selectedOrg = orgs[Math.floor(Math.random() * orgs.length)];
     }
     
-    res.json({ success: true, organization: selectedOrg, count: orgs.length, usedProxy: !!proxyAgent });
+    res.json({ success: true, organization: selectedOrg, count: orgs.length, usedProxy });
   } catch (error) {
     console.error('NPO Fetch Error:', error);
-    res.status(500).json({ error: 'Lỗi server khi request Melissa' });
+    res.status(500).json({ error: 'Lỗi server khi request Melissa qua Puppeteer' });
   }
 });
 
