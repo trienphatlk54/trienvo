@@ -1042,34 +1042,51 @@ async function fetchIrsBmf(stateCode) {
   // Cache for 24 hours
   const cached = irsBmfCache[stateCode];
   if (cached && (Date.now() - cached.fetchedAt) < 24 * 60 * 60 * 1000) {
+    console.log('[NPO] Using cached data for', stateCode, '(' + cached.data.length + ' orgs)');
     return cached.data;
   }
   const url = 'https://www.irs.gov/pub/irs-soi/eo_' + stateCode.toLowerCase() + '.csv';
-  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
-  if (!res.ok) throw new Error('IRS BMF download failed: ' + res.status);
-  const text = await res.text();
-  const lines = text.split('\n');
-  // Skip header (line 0), parse each line
-  // Columns: EIN,NAME,ICO,STREET,CITY,STATE,ZIP,GROUP,SUBSECTION,AFFILIATION,CLASSIFICATION,RULING,DEDUCTIBILITY,FOUNDATION,ACTIVITY,ORGANIZATION,STATUS,TAX_PERIOD,ASSET_CD,INCOME_CD,FILING_REQ_CD,PF_FILING_REQ_CD,ACCT_PD,ASSET_AMT,INCOME_AMT,REVENUE_AMT,NTEE_CD,SORT_NAME
-  const data = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',');
-    if (cols.length < 7) continue;
-    data.push({
-      ein: cols[0],
-      name: cols[1],
-      ico: cols[2],
-      street: cols[3],
-      city: cols[4],
-      state: cols[5],
-      zip: cols[6],
-      assetAmt: cols[23] || '0',
-      incomeAmt: cols[24] || '0',
-      ntee: cols[26] || ''
+  console.log('[NPO] Downloading IRS BMF CSV:', url);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      signal: controller.signal
     });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error('IRS BMF download failed: ' + res.status);
+    const text = await res.text();
+    console.log('[NPO] Downloaded', (text.length / 1024 / 1024).toFixed(1), 'MB for', stateCode);
+    const lines = text.split('\n');
+    // Columns: EIN,NAME,ICO,STREET,CITY,STATE,ZIP,...,ASSET_AMT(23),INCOME_AMT(24),...,NTEE_CD(26),SORT_NAME
+    const data = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',');
+      if (cols.length < 7) continue;
+      data.push({
+        ein: cols[0],
+        name: cols[1],
+        ico: cols[2],
+        street: cols[3],
+        city: cols[4],
+        state: cols[5],
+        zip: cols[6],
+        assetAmt: cols[23] || '0',
+        incomeAmt: cols[24] || '0',
+        ntee: cols[26] || ''
+      });
+    }
+    console.log('[NPO] Parsed', data.length, 'orgs for', stateCode);
+    irsBmfCache[stateCode] = { data, fetchedAt: Date.now() };
+    return data;
+  } catch (e) {
+    clearTimeout(timeout);
+    if (e.name === 'AbortError') {
+      throw new Error('Tải dữ liệu IRS quá chậm (timeout 30s). Thử lại!');
+    }
+    throw e;
   }
-  irsBmfCache[stateCode] = { data, fetchedAt: Date.now() };
-  return data;
 }
 
 app.get('/api/npo-lookup', async (req, res) => {
