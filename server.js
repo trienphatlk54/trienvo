@@ -1032,65 +1032,87 @@ app.get('/api/ccn/all', async (req, res) => {
 app.get('/api/npo-lookup', async (req, res) => {
   try {
     const zip = req.query.zip;
-    const state = req.query.state;
-    const city = req.query.city || '';
     if (!zip) return res.status(400).json({ error: 'Missing zip code' });
     
-    // ProPublica API: Lấy 100 tổ chức trong Bang để tránh bị chặn như Melissa
-    const stateRes = await fetch('https://projects.propublica.org/nonprofits/api/v2/search.json?state%5Bid%5D=' + state);
-    const stateData = await stateRes.json();
-    let orgs = stateData.organizations || [];
+    const floppyKey = req.headers['x-floppy-api-key'];
+    let proxyAgent = null;
     
-    if (orgs.length === 0) {
-      return res.json({ success: false, message: 'Không tìm thấy NPO nào cho Bang này trên ProPublica' });
+    // Tự động tạo proxy qua FloppyData nếu có key (vượt giới hạn Melissa)
+    if (floppyKey) {
+      try {
+        const body = { description: "Melissa Scraper", country: "US", protocol: "HTTP" };
+        const pRes = await fetch(FLOPPY_BASE_URL + '/v2/proxy/rotating/connections', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Api-Key': floppyKey },
+          body: JSON.stringify(body)
+        });
+        const pData = await pRes.json();
+        if (pData.success && pData.data && pData.data.connection) {
+          proxyAgent = new HttpsProxyAgent('http://' + pData.data.connection);
+        }
+      } catch (e) { console.error('Proxy Error:', e); }
     }
     
-    // Chọn ngẫu nhiên 10 NPO để kiểm tra chi tiết (tối ưu tốc độ)
-    const shuffled = orgs.sort(() => 0.5 - Math.random());
-    const sampleOrgs = shuffled.slice(0, 10);
+    const fetchOptions = {
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9'
+      }
+    };
+    if (proxyAgent) fetchOptions.agent = proxyAgent;
+
+    const response = await fetch('https://lookups.melissa.com/home/npo/?value=' + zip, fetchOptions);
+    const html = await response.text();
     
-    // Fetch chi tiết song song để lấy Assets & Income
-    const details = await Promise.all(sampleOrgs.map(async (o) => {
-      try {
-        const dRes = await fetch('https://projects.propublica.org/nonprofits/api/v2/organizations/' + o.ein + '.json');
-        return await dRes.json();
-      } catch (e) { return null; }
-    }));
+    let orgs = [];
+    const regex = /<tr class="item"[^>]*>([\s\S]*?)<\/tr>/g;
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      const rowHtml = match[1];
+      const nameMatch = rowHtml.match(/<td class="text-left capitalize">\s*<a href="[^"]*ein=([^"]+)">([^<]+)<\/a>/);
+      const tds = [...rowHtml.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m => m[1].replace(/<[^>]+>/g, '').trim().replace(/\s+/g, ' '));
+      
+      if (nameMatch && tds.length >= 5) {
+        orgs.push({
+          ein: nameMatch[1].trim(),
+          name: nameMatch[2].trim(),
+          address: tds[1],
+          city: tds[2],
+          state: tds[3],
+          zip: tds[4],
+          inCareOf: tds[5] || '',
+          assets: tds[7] || '',
+          income: tds[8] || ''
+        });
+      }
+    }
     
-    let validDetails = details.filter(d => d && d.organization).map(d => d.organization);
+    if (orgs.length === 0) {
+      return res.json({ success: false, message: 'Melissa báo không tìm thấy NPO nào ở Zipcode này.' });
+    }
     
-    // Ưu tiên tổ chức có Assets / Income bằng 0 hoặc null
-    validDetails.sort((a, b) => {
-      const aEmpty = (!a.asset_amount || a.asset_amount === 0) && (!a.income_amount || a.income_amount === 0);
-      const bEmpty = (!b.asset_amount || b.asset_amount === 0) && (!b.income_amount || b.income_amount === 0);
+    // Ưu tiên Assets & Income = 0
+    orgs.sort((a, b) => {
+      const aEmpty = (!a.assets || a.assets === '$0' || a.assets === '0') && (!a.income || a.income === '$0' || a.income === '0');
+      const bEmpty = (!b.assets || b.assets === '$0' || b.assets === '0') && (!b.income || b.income === '$0' || b.income === '0');
       if (aEmpty && !bEmpty) return -1;
       if (!aEmpty && bEmpty) return 1;
       return 0;
     });
     
-    if (validDetails.length === 0) {
-      return res.json({ success: false, message: 'Không thể tải chi tiết NPO' });
+    const emptyOrgs = orgs.filter(o => (!o.assets || o.assets === '$0') && (!o.income || o.income === '$0'));
+    let selectedOrg = orgs[0];
+    if (emptyOrgs.length > 0) {
+      selectedOrg = emptyOrgs[Math.floor(Math.random() * emptyOrgs.length)];
+    } else {
+      selectedOrg = orgs[Math.floor(Math.random() * orgs.length)];
     }
     
-    const org = validDetails[0];
-    
-    const formattedOrg = {
-      ein: org.ein || '',
-      name: org.name || '',
-      address: org.address || '',
-      // Ghi đè City và Zip để khớp tuyệt đối với yêu cầu của user
-      city: city || org.city || '',
-      state: state || org.state || '',
-      zip: zip || org.zipcode || '',
-      inCareOf: org.careofname ? org.careofname.replace('% ', '').trim() : '',
-      assets: org.asset_amount ? '$' + org.asset_amount.toLocaleString() : 'N/A',
-      income: org.income_amount ? '$' + org.income_amount.toLocaleString() : 'N/A'
-    };
-    
-    res.json({ success: true, organization: formattedOrg, count: validDetails.length });
+    res.json({ success: true, organization: selectedOrg, count: orgs.length, usedProxy: !!proxyAgent });
   } catch (error) {
     console.error('NPO Fetch Error:', error);
-    res.status(500).json({ error: 'Lỗi server khi request ProPublica' });
+    res.status(500).json({ error: 'Lỗi server khi request Melissa' });
   }
 });
 
