@@ -1670,6 +1670,19 @@
     </div>
   </div>
   <script>
+
+function getFormattedTime(dateInput) {
+  const date = dateInput ? new Date(dateInput) : new Date();
+  const d = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+  const DD = d.getDate().toString().padStart(2, '0');
+  const MM = (d.getMonth() + 1).toString().padStart(2, '0');
+  const YYYY = d.getFullYear();
+  const HH = d.getHours().toString().padStart(2, '0');
+  const mm = d.getMinutes().toString().padStart(2, '0');
+  const ss = d.getSeconds().toString().padStart(2, '0');
+  return `${HH}:${mm}:${ss} ${DD}/${MM}/${YYYY}`;
+}
+
 // ── State ──────────────────────────────────────────────────────────────────────
 function formatElapsed(timeStr) {
   if (!timeStr) return '-';
@@ -1838,7 +1851,7 @@ async function syncFirebaseData() {
           phone: p.shopeePhone || p.shopeeUsername || '',
           password: p.shopeePassword || '',
           provider: 'Shopee QR (Đồng bộ)',
-          time: p.shopeeCreatedAt || p.shopeeSessionTime || new Date().toLocaleString('vi-VN'),
+          time: p.shopeeCreatedAt || p.shopeeSessionTime || getFormattedTime(),
           note: p.note || '',
           ipProxy: p.ipProxy || '',
           simSource: p.simSource || '',
@@ -1865,7 +1878,7 @@ async function syncFirebaseData() {
               phone: h.shopeePhone || h.shopeeUsername || '',
               password: h.shopeePassword || '',
               provider: 'Lịch sử Phone',
-              time: h.shopeeSessionTime || new Date(h.completedAt).toLocaleString('vi-VN') || new Date().toLocaleString('vi-VN'),
+              time: h.shopeeSessionTime || getFormattedTime(h.completedAt) || getFormattedTime(),
               note: h.note || '',
               ipProxy: h.ipProxy || '',
               simSource: h.simSource || '',
@@ -2838,10 +2851,7 @@ function displayUserInfo(info) {
     const ts = typeof ctime === 'number' && ctime < 2000000000 ? ctime * 1000 : ctime;
     const d = new Date(ts);
     if (!isNaN(d.getTime())) {
-      $('infoCreated').textContent = d.toLocaleDateString('vi-VN', {
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit'
-      });
+      $('infoCreated').textContent = getFormattedTime(d);
     } else {
       $('infoCreated').textContent = String(ctime);
     }
@@ -3490,7 +3500,7 @@ function openPhoneModal(id = null) {
       });
       for (const k of histKeys) {
         const h = p.history[k];
-        const dateStr = h.completedAt ? new Date(h.completedAt).toLocaleString('vi-VN') : '';
+        const dateStr = h.completedAt ? getFormattedTime(h.completedAt) : '';
         html += `
           <tr>
             <td>${escapeHtml(dateStr)}</td>
@@ -3818,7 +3828,7 @@ async function saveAccountToPhone() {
   const ctime = user.createdAt || (user.raw && (user.raw.ctime || user.raw.created_at || user.raw.create_time));
   if (ctime) {
     const ts = typeof ctime === 'number' && ctime < 2000000000 ? ctime * 1000 : ctime;
-    finalCreated = new Date(ts).toLocaleDateString('vi-VN');
+    finalCreated = getFormattedTime(ts);
   } else {
     const createdDOM = $('infoCreated')?.textContent || '';
     if (createdDOM && createdDOM !== '—' && createdDOM !== '--') finalCreated = createdDOM;
@@ -3840,7 +3850,7 @@ async function saveAccountToPhone() {
   // Session Time
   let finalSessionTime = p.shopeeSessionTime || '';
   if (cookies.SPC_F || cookies.SPC_ST) {
-    finalSessionTime = new Date().toLocaleString('vi-VN');
+    finalSessionTime = getFormattedTime();
   }
 
   const finalIpProxy = $('proxyIp')?.textContent || '';
@@ -3953,7 +3963,7 @@ async function executeSaveRequest(payload, currentSaveFields) {
               phone: payload.shopeePhone || payload.shopeeUsername || '',
               password: payload.shopeePassword || '',
               provider: 'Shopee QR',
-              time: payload.shopeeCreatedAt || payload.shopeeSessionTime || new Date().toLocaleString('vi-VN'),
+              time: payload.shopeeCreatedAt || payload.shopeeSessionTime || getFormattedTime(),
               note: payload.note || '',
               ipProxy: payload.ipProxy || '',
               simSource: payload.simSource || '',

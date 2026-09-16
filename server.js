@@ -1,3 +1,16 @@
+
+function getFormattedTime(dateInput) {
+  const date = dateInput ? new Date(dateInput) : new Date();
+  const d = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+  const DD = d.getDate().toString().padStart(2, '0');
+  const MM = (d.getMonth() + 1).toString().padStart(2, '0');
+  const YYYY = d.getFullYear();
+  const HH = d.getHours().toString().padStart(2, '0');
+  const mm = d.getMinutes().toString().padStart(2, '0');
+  const ss = d.getSeconds().toString().padStart(2, '0');
+  return `${HH}:${mm}:${ss} ${DD}/${MM}/${YYYY}`;
+}
+
 const express = require('express');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
@@ -955,7 +968,7 @@ app.post('/api/ips/add', async (req, res) => {
   const { ip } = req.body;
   try {
     if (ip) {
-      const time = new Date().toLocaleString('vi-VN');
+      const time = getFormattedTime();
       await db.ref('used_ips').push().set({ ip, time });
     }
     res.json({ status: 1 });
@@ -1436,7 +1449,7 @@ app.post('/api/tiktok/save', async (req, res) => {
     if (id) {
       await ref.child(id).update({ identifier, mail, username, password, session, status, result });
     } else {
-      const time = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+      const time = getFormattedTime();
       await ref.push().set({ identifier, mail, username, password, session, status, result, time });
     }
     res.json({ success: true });
@@ -1529,7 +1542,7 @@ app.get('/api/floppydata/proxies', async (_req, res) => {
 app.post('/api/floppydata/proxies/save', async (req, res) => {
   const { country, state, connectionString, protocol, host, port, username, password } = req.body;
   try {
-    const time = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const time = getFormattedTime();
     await db.ref('floppydata-proxies').push().set({
       country, state: state || '', connectionString, protocol, host, port, username, password, time
     });
