@@ -1558,6 +1558,7 @@
                   <th data-col="timeState" onclick="setCcnSort('timeState')" style="padding: 10px 8px; cursor:pointer;">Time State ↕</th>
                   <th style="padding: 10px 8px; text-align: center;">BSN</th>
                     <th style="padding: 10px 8px; width: 140px; text-align: center;">Thao tác</th>
+                    <th style="padding: 10px 8px; width: 40px; text-align: center;"></th>
                 </tr>
               </thead>
                 <tbody id="ccnTableBody">
@@ -5398,8 +5399,10 @@ function renderCcnTable() {
           ` : `
             <button class="btn btn-sm btn-primary" onclick="generateCcnProxy('${row.id}', '${row.stateCode}')" style="font-size:11px; padding:3px 6px;">🌐 Tạo Proxy</button>
           `}
-            <button class="btn btn-sm btn-ghost" onclick="openDeleteRowModal('${row.id}')" style="padding:2px; font-size:14px; color:var(--error);" title="Xóa dòng">🗑️</button>
           </div>
+        </td>
+        <td style="padding: 10px 4px; text-align: right; width: 40px; vertical-align: middle;">
+            <button class="btn btn-sm btn-ghost" onclick="openDeleteRowModal('${row.id}')" style="padding:2px; font-size:16px; color:var(--error);" title="Xóa dòng">🗑️</button>
         </td>
       </tr>
     `;
@@ -5455,7 +5458,7 @@ function renderCcnTable() {
        
        rows += `
          <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.1);">
-           <td colspan="11" style="padding:0;">
+           <td colspan="12" style="padding:0;">
              <div style="display:flex; width:100%;">
                <div style="width: ${maxBsnWidth}px; padding: 8px; border-right: 1px solid var(--border); font-weight:bold; color:var(--primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size: 16px;" title="${bsnFullname}">${bsnFullname}</div>
                <div style="display:flex; flex:1; flex-wrap: wrap; overflow-x: auto;">
