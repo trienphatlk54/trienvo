@@ -1503,11 +1503,13 @@
             </div>
           </div>
           <div class="card-body" style="display: block; padding: 0;">
-            <div style="display:flex; gap:10px; padding: 10px; border-bottom: 1px solid var(--border);">
-              <button id="btnCcnTab0" class="btn btn-primary btn-sm" onclick="setCcnTab(0)">Chưa Làm</button>
-              <button id="btnCcnTab1" class="btn btn-ghost btn-sm" onclick="setCcnTab(1)">OK / Treo / Payment</button>
-              <button id="btnCcnTab2" class="btn btn-ghost btn-sm" onclick="setCcnTab(2)">Lock / Validate / Die</button>
-            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:10px; padding: 10px; border-bottom: 1px solid var(--border);">
+                <button id="btnCcnTab0" class="btn btn-primary btn-sm" onclick="setCcnTab(0)">Chưa làm</button>
+                <button id="btnCcnTab1" class="btn btn-ghost btn-sm" onclick="setCcnTab(1)">Success</button>
+                <button id="btnCcnTab2" class="btn btn-ghost btn-sm" onclick="setCcnTab(2)">Payment</button>
+                <button id="btnCcnTab3" class="btn btn-ghost btn-sm" onclick="setCcnTab(3)">Cancel</button>
+                <button id="btnCcnTab4" class="btn btn-ghost btn-sm" onclick="setCcnTab(4)">Check Thẻ / Review / Lock</button>
+              </div>
             <div class="table-container" style="max-height: calc(100vh - 180px); overflow-y: auto; overflow-x: auto; width: 100%;">
               <table class="compact-table" style="width:100%; min-width: 1000px; border-collapse: collapse; text-align: left; font-size: 13px;">
                 <thead>
@@ -4839,22 +4841,24 @@ function renderCcnIdentityCell(row) {
     return `
       <div style="display:flex; align-items:center; gap:4px;">
         <span style="font-weight:bold; cursor:pointer; color: var(--primary);" onclick="copyText(this.innerText)">${escapeHtml(row.identity)}</span>
-        <button class="btn btn-sm btn-ghost" onclick="ccnEditIdentityId='${row.id}'; renderCcnTable();" style="padding:0 4px;" title="Sửa">\u270F\uFE0F</button>
+        <button class="btn btn-sm btn-ghost" onclick="ccnEditIdentityId='${row.id}'; renderCcnTable();" style="padding:0 4px;" title="Sửa">✏️</button>
       </div>
     `;
   } else {
-    let options = `<option value="">Chọn ĐD</option>`;
+    let options = '';
     if (typeof phonesData !== 'undefined') {
       Object.values(phonesData).forEach(p => {
         if (p.identifier) {
-          options += `<option value="${escapeHtml(p.identifier)}" ${row.identity === p.identifier ? 'selected' : ''}>${escapeHtml(p.identifier)}</option>`;
+          const typeStr = p.type ? ` (${escapeHtml(p.type)})` : '';
+          options += `<option value="${escapeHtml(p.identifier)}">${escapeHtml(p.identifier)}${typeStr}</option>`;
         }
       });
     }
     return `
-      <select onchange="updateCcnIdentity('${row.id}', this.value)" style="font-size:11px; padding: 2px; width:100px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
+      <input list="identity-list-${row.id}" value="${escapeHtml(row.identity || '')}" onchange="updateCcnIdentity('${row.id}', this.value)" placeholder="Lọc/Chọn ĐD..." style="font-size:11px; padding: 3px; width:100px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
+      <datalist id="identity-list-${row.id}">
         ${options}
-      </select>
+      </datalist>
     `;
   }
 }
@@ -5016,9 +5020,10 @@ function setCcnSort(col) {
 
 function setCcnTab(tabIndex) {
   currentCcnTab = tabIndex;
-  document.getElementById('btnCcnTab0').className = tabIndex === 0 ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
-  document.getElementById('btnCcnTab1').className = tabIndex === 1 ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
-  document.getElementById('btnCcnTab2').className = tabIndex === 2 ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  for (let i = 0; i <= 4; i++) {
+    const btn = document.getElementById('btnCcnTab' + i);
+    if (btn) btn.className = tabIndex === i ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  }
   renderCcnTable();
 }
 
@@ -5148,9 +5153,11 @@ function renderCcnTable() {
         <td style="padding: 10px 8px; text-align: center;">
           <select onchange="moveCcnRow('${row.id}', parseInt(this.value))" style="font-size:11px; padding: 4px 6px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; width: 100%; cursor: pointer;">
             <option value="" disabled selected>Chuyển Tab...</option>
-            <option value="0" ${row.status === 0 ? 'disabled' : ''}>Chưa Làm</option>
-            <option value="1" ${row.status === 1 ? 'disabled' : ''}>OK / Treo</option>
-            <option value="2" ${row.status === 2 ? 'disabled' : ''}>Lock / Die</option>
+            <option value="0" ${row.status === 0 ? 'disabled' : ''}>Chưa làm</option>
+            <option value="1" ${row.status === 1 ? 'disabled' : ''}>Success</option>
+            <option value="2" ${row.status === 2 ? 'disabled' : ''}>Payment</option>
+            <option value="3" ${row.status === 3 ? 'disabled' : ''}>Cancel</option>
+            <option value="4" ${row.status === 4 ? 'disabled' : ''}>Check Thẻ / Review / Lock</option>
           </select>
         </td>
         <td style="padding: 10px 8px; text-align: center;">
