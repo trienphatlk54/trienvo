@@ -1751,7 +1751,28 @@
 
     </div>
   </div>
-  <script>
+  
+  <!-- Modal Assign Card -->
+  <div class="modal-overlay" id="assignCardModal">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3>Chọn thẻ CCN</h3>
+        <button class="close-btn" onclick="document.getElementById('assignCardModal').classList.remove('active')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:10px;">
+          <select id="assignCardBinSelect" class="proxy-input" style="width:100%;" onchange="window.renderAssignCardList()">
+            <option value="">-- Chọn BIN --</option>
+          </select>
+        </div>
+        <div id="assignCardList" style="max-height: 400px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+          <!-- Card list will be rendered here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
 
 function getFormattedTime(dateInput) {
   const date = dateInput ? new Date(dateInput) : new Date();
