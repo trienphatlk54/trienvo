@@ -5354,7 +5354,7 @@ function renderCcnTable() {
     if (window.isAddCcnMode) {
        const bsnFullname = row.bsn ? escapeHtml(row.bsn.fullname || '') : '<span style="color:var(--text-muted)">Chưa tạo BSN</span>';
        let cardsHtml = '';
-       for(let i=0; i<5; i++) {
+       for(let i=0; i<6; i++) {
          const card = (row.assignedCards && row.assignedCards[i]) ? escapeHtml(row.assignedCards[i]) : null;
          if (card) {
            cardsHtml += `<div style="flex:1; border-right:1px solid var(--border); padding:5px; text-align:center; position:relative; min-width:0;">
