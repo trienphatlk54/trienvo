@@ -1038,8 +1038,18 @@ app.get('/api/npo-lookup', async (req, res) => {
     let proxyHostPort = null;
     let proxyAuth = null;
     let usedProxy = false;
+    const clientProxy = req.query.proxy;
     
-    if (floppyKey) {
+    if (clientProxy) {
+      usedProxy = true;
+      try {
+        const url = new URL(clientProxy);
+        proxyHostPort = url.hostname + ':' + url.port;
+        if (url.username && url.password) {
+           proxyAuth = { username: url.username, password: url.password };
+        }
+      } catch(e) { console.error('Invalid client proxy URL', e); }
+    } else if (floppyKey) {
       try {
         const body = { description: "Melissa Scraper", country: "US", protocol: "HTTP" };
         const pRes = await fetch(FLOPPY_BASE_URL + '/v2/proxy/rotating/connections', {

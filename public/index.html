@@ -4477,7 +4477,11 @@ async function startVoucherCheck() {
         <div class="form-group">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <label>Fullname</label>
-            <button class="btn btn-ghost btn-sm" onclick="extractNPO()" style="font-size:10px; padding:2px 6px; color:var(--shopee);">🏢 Tìm NPO từ Zip</button>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <span id="npoProxyDisplay" style="font-size:9px; color:var(--success); max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+              <button class="btn btn-ghost btn-sm" onclick="generateNpoProxy()" style="font-size:10px; padding:2px 6px; color:var(--primary); border: 1px solid var(--primary);">🌐 Tạo Proxy US</button>
+              <button class="btn btn-ghost btn-sm" onclick="extractNPO()" style="font-size:10px; padding:2px 6px; color:var(--shopee); background:rgba(238, 77, 45, 0.1);">🏢 Tìm NPO từ Zip</button>
+            </div>
           </div>
           <input type="text" id="bsnFullname" class="proxy-input">
         </div>
@@ -5529,6 +5533,30 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   
+  
+  window.npoProxy = '';
+  window.generateNpoProxy = async function() {
+    toast('Đang tạo Proxy US cho NPO...', 'info');
+    try {
+      const r = await fetch('/api/floppydata/create-proxy', {
+        method: 'POST',
+        headers: { ...getFloppyHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ country: 'US' })
+      });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.error || 'Lỗi tạo Proxy');
+      
+      const conn = d.connection;
+      window.npoProxy = conn.protocol + '://' + conn.username + ':' + conn.password + '@' + conn.host + ':' + conn.port;
+      document.getElementById('npoProxyDisplay').innerText = conn.host + ':' + conn.port;
+      document.getElementById('npoProxyDisplay').title = window.npoProxy;
+      toast('Tạo Proxy US thành công!', 'success');
+      if (typeof loadFloppyBalance === 'function') loadFloppyBalance();
+    } catch(e) {
+      toast(e.message || 'Lỗi kết nối FloppyData', 'error');
+    }
+  };
+  
   window.extractNPO = async function() {
     const zip = document.getElementById('bsnZip').value.trim();
     if (!zip) {
@@ -5543,7 +5571,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const floppyKey = localStorage.getItem('floppyApiKey') || (document.getElementById('floppyApiKeyInput') ? document.getElementById('floppyApiKeyInput').value : '');
       if (floppyKey) headers['X-Floppy-Api-Key'] = floppyKey;
       
-      const res = await fetch('/api/npo-lookup?zip=' + zip, { headers });
+      let url = '/api/npo-lookup?zip=' + zip;
+        if (window.npoProxy) url += '&proxy=' + encodeURIComponent(window.npoProxy);
+        const res = await fetch(url, { headers });
       const data = await res.json();
       if (data.success) {
         const org = data.organization;
