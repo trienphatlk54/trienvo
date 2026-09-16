@@ -5410,31 +5410,43 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    // Extract ZIP from address
-    const match = row.address.match(/\b([A-Z]{2})\s+(\d{5})\b/);
-    if (!match) {
-      toast('Không tìm thấy Zip Code trong địa chỉ!', 'error');
+    // Process address to get stateCode
+    const computed = processAddress(row.address);
+    const stateCode = computed.stateCode ? computed.stateCode.toUpperCase() : '';
+    if (!stateCode || !ZIP_PREFIXES[stateCode]) {
+      toast('Không tìm thấy State hợp lệ trong địa chỉ!', 'error');
       return;
     }
-    const stateCode = match[1];
-    const zipCode = match[2];
 
-    toast('Đang tạo profile dựa trên State và Zip của địa chỉ...', 'info');
+    toast('Đang tạo profile ngẫu nhiên cùng State...', 'info');
     try {
-      // 1. Fetch exact City and State from ZIP
+      // 1. Generate random valid Zip and City for this State
       let cityName = '';
-      let stateName = '';
-      try {
-        const zipRes = await fetch('https://api.zippopotam.us/us/' + zipCode);
-        const zipData = await zipRes.json();
-        if (zipData.places && zipData.places.length > 0) {
-          cityName = zipData.places[0]['place name'];
-          stateName = zipData.places[0]['state'];
-        }
-      } catch(e) {}
+      let zipCode = '';
+      let stateName = computed.state || stateCode;
       
-      // Fallback if zippopotam fails
-      if (!stateName) stateName = stateCode; 
+      const prefixes = ZIP_PREFIXES[stateCode];
+      for (let i = 0; i < 15; i++) {
+        const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+        const suffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        const testZip = prefix + suffix;
+        try {
+          const zipRes = await fetch('https://api.zippopotam.us/us/' + testZip);
+          if (zipRes.status === 200) {
+            const zipData = await zipRes.json();
+            zipCode = testZip;
+            cityName = zipData.places[0]['place name'];
+            stateName = zipData.places[0]['state'];
+            break;
+          }
+        } catch(e) {}
+      }
+      
+      // Fallback if random zip fails
+      if (!zipCode) {
+        toast('Cảnh báo: Dùng zip mặc định vì random lỗi.', 'info');
+        zipCode = row.address.match(/\b\d{5}\b/)?.[0] || '10001';
+      }
       
       // 2. Fetch random name
       const nameRes = await fetch('https://randomuser.me/api/?nat=us');
