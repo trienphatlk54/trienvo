@@ -1071,34 +1071,6 @@ app.get('/api/npo-lookup', async (req, res) => {
     res.status(500).json({ error: 'Lỗi server khi request melissa' });
   }
 });
-    
-    const response = await fetch('https://lookups.melissa.com/home/npo/?value=' + zip, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-    });
-    const html = await response.text();
-    
-    // Quick regex parsing to find all organization names
-    const orgs = [];
-    // The HTML has <tr class="item"...> ... <td class="text-left capitalize"> <a href="...">NAME</a> </td>
-    const regex = /<td class="text-left capitalize">\s*<a href="[^"]+">([^<]+)<\/a>/g;
-    let match;
-    while ((match = regex.exec(html)) !== null) {
-      const name = match[1].trim();
-      if (name) orgs.push(name);
-    }
-    
-    if (orgs.length === 0) {
-      return res.json({ success: false, message: 'Không tìm thấy tổ chức nào cho Zip này' });
-    }
-    
-    // Pick a random organization
-    const randomOrg = orgs[Math.floor(Math.random() * orgs.length)];
-    res.json({ success: true, organization: randomOrg, count: orgs.length });
-  } catch (error) {
-    console.error('NPO Fetch Error:', error);
-    res.status(500).json({ error: 'Lỗi server khi request melissa' });
-  }
-});
 
 
 app.post('/api/ccn/save', async (req, res) => {
