@@ -5946,7 +5946,8 @@ window.removeAssignedCard = function(accountId, slotIndex) {
   
   window.removeCardTargetId = accountId;
   window.removeCardTargetSlot = slotIndex;
-  window.removeCardTargetText = row.assignedCards[slotIndex];
+  let cardData = row.assignedCards[slotIndex];
+  window.removeCardTargetText = typeof cardData === 'string' ? cardData : cardData.card;
   
   document.getElementById('removeCardText').innerText = window.removeCardTargetText;
   document.getElementById('removeCardModal').classList.add('active');
@@ -5989,7 +5990,7 @@ window.assignCardToSlot = async function(cardText) {
   let row = ccnData[id];
   if (!row) return;
   if (!row.assignedCards) row.assignedCards = [];
-  row.assignedCards[slot] = cardText;
+  row.assignedCards[slot] = { card: cardText, timestamp: Date.now() };
   document.getElementById('assignCardModal').classList.remove('active');
   toast('Đang lưu thẻ vào account...', 'info');
   await window.saveCcnRecord(id, row);
