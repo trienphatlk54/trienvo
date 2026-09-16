@@ -5161,8 +5161,9 @@ function renderCcnTable() {
         <td style="padding: 10px 8px; text-align: center;">
           ${row.linkedProxy ? `
             <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
-              <span style="font-size:10px; font-family:monospace; color:var(--success); max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="copyText('${row.linkedProxy}')">${row.linkedProxy}</span>
+              <span style="font-size:10px; font-family:monospace; color:var(--success); max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="copyText('${row.linkedProxy}')" title="${row.linkedProxy}">${row.linkedProxy}</span>
               <button class="btn btn-sm btn-ghost" onclick="showProxyQR('${row.linkedProxy}')" style="padding:2px; font-size:14px;" title="Xem QR">📱</button>
+              <button class="btn btn-sm btn-ghost" onclick="generateCcnProxy('${row.id}', '${row.stateCode}')" style="padding:2px; font-size:14px;" title="Tạo Proxy mới">🔄</button>
             </div>
           ` : `
             <button class="btn btn-sm btn-primary" onclick="generateCcnProxy('${row.id}', '${row.stateCode}')" style="font-size:11px; padding:3px 6px;">🌐 Tạo Proxy</button>
