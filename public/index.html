@@ -5403,31 +5403,59 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   window.generateBsnProfile = async function() {
-    toast('Đang tạo profile ngẫu nhiên từ randomuser.me...', 'info');
+    const rowId = document.getElementById('bsnRowId').value;
+    const row = ccnData[rowId];
+    if (!row || !row.address) {
+      toast('Tài khoản này không có dữ liệu địa chỉ!', 'error');
+      return;
+    }
+    
+    // Extract ZIP from address
+    const match = row.address.match(/\b([A-Z]{2})\s+(\d{5})\b/);
+    if (!match) {
+      toast('Không tìm thấy Zip Code trong địa chỉ!', 'error');
+      return;
+    }
+    const stateCode = match[1];
+    const zipCode = match[2];
+
+    toast('Đang tạo profile dựa trên State và Zip của địa chỉ...', 'info');
     try {
-      const res = await fetch('https://randomuser.me/api/?nat=us');
-      const data = await res.json();
-      const user = data.results[0];
+      // 1. Fetch exact City and State from ZIP
+      let cityName = '';
+      let stateName = '';
+      try {
+        const zipRes = await fetch('https://api.zippopotam.us/us/' + zipCode);
+        const zipData = await zipRes.json();
+        if (zipData.places && zipData.places.length > 0) {
+          cityName = zipData.places[0]['place name'];
+          stateName = zipData.places[0]['state'];
+        }
+      } catch(e) {}
       
+      // Fallback if zippopotam fails
+      if (!stateName) stateName = stateCode; 
+      
+      // 2. Fetch random name
+      const nameRes = await fetch('https://randomuser.me/api/?nat=us');
+      const nameData = await nameRes.json();
+      const user = nameData.results[0];
+      
+      // 3. Generate correct Area Code
       const areaCodes = {"Alabama":["205","251","334","938"],"Alaska":["907"],"Arizona":["480","520","602","623","928"],"Arkansas":["479","501","870"],"California":["209","213","310","323","408","415","510","530","559","562","619","626","650","661","707","714","760","805","818","831","858","909","916","925","949"],"Colorado":["303","719","970"],"Connecticut":["203","860"],"Delaware":["302"],"Florida":["239","305","321","352","386","407","561","727","772","813","850","863","904","941","954"],"Georgia":["229","404","478","706","770","912"],"Hawaii":["808"],"Idaho":["208"],"Illinois":["217","309","312","618","630","708","773","815","847"],"Indiana":["219","260","317","574","765","812"],"Iowa":["319","515","563","641","712"],"Kansas":["316","620","785","913"],"Kentucky":["270","502","606","859"],"Louisiana":["225","318","337","504","985"],"Maine":["207"],"Maryland":["301","410","443"],"Massachusetts":["413","508","617","781","978"],"Michigan":["231","248","269","313","517","586","616","734","810","906","989"],"Minnesota":["218","320","507","612","651","763","952"],"Mississippi":["228","662","601"],"Missouri":["314","417","573","636","816"],"Montana":["406"],"Nebraska":["308","402"],"Nevada":["702","775"],"New Hampshire":["603"],"New Jersey":["201","609","732","856","908","973"],"New Mexico":["505","575"],"New York":["212","315","516","518","607","716","718","845","914","917","929","930"],"North Carolina":["252","336","704","828","910","919"],"North Dakota":["701"],"Ohio":["216","234","330","419","440","513","614","740","937"],"Oklahoma":["405","580","918"],"Oregon":["503","541"],"Pennsylvania":["215","412","570","610","717","724","814"],"Rhode Island":["401"],"South Carolina":["803","843","864"],"South Dakota":["605"],"Tennessee":["423","615","731","865","901","931"],"Texas":["210","214","254","281","361","409","432","512","713","806","817","830","903","915","936","940","956","972"],"Utah":["435","801"],"Vermont":["802"],"Virginia":["276","434","540","703","757","804"],"Washington":["206","253","360","425","509"],"West Virginia":["304"],"Wisconsin":["262","414","608","715","920"],"Wyoming":["307"]};
-      
-      const stateName = user.location.state;
       let phone = user.phone;
-      
-      // Auto-correct phone area code to match the state
-      // randomuser.me capitalizes the state, e.g. "New York"
       const codes = areaCodes[stateName] || areaCodes[Object.keys(areaCodes).find(k => k.toLowerCase() === stateName.toLowerCase())];
       if (codes && codes.length > 0) {
         const randomAreaCode = codes[Math.floor(Math.random() * codes.length)];
-        const suffix = Math.floor(1000000 + Math.random() * 9000000).toString(); // 7 digit number
+        const suffix = Math.floor(1000000 + Math.random() * 9000000).toString();
         phone = `(${randomAreaCode}) ${suffix.substring(0,3)}-${suffix.substring(3)}`;
       }
       
       document.getElementById('bsnFullname').value = user.name.first + ' ' + user.name.last;
       document.getElementById('bsnPhone').value = phone;
-      document.getElementById('bsnZip').value = user.location.postcode;
-      document.getElementById('bsnCity').value = user.location.city;
-      document.getElementById('bsnState').value = user.location.state;
+      document.getElementById('bsnZip').value = zipCode;
+      document.getElementById('bsnCity').value = cityName || user.location.city;
+      document.getElementById('bsnState').value = stateName;
       toast('Tạo profile thành công!', 'success');
     } catch(e) {
       toast('Lỗi kết nối tạo profile', 'error');
