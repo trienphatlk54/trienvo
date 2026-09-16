@@ -1305,6 +1305,42 @@
 
       
 </div></div></div>
+
+
+          <!-- Bảng Quản lý CCN (Thẻ) -->
+          <div class="main-card" style="max-width: 100%; width: 100%; margin-top: 20px;">
+            <div class="card-header" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px;">
+              <h2>💳 Quản lý Thẻ CCN (Theo BIN)</h2>
+              <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                <button class="btn btn-secondary btn-sm" onclick="addSingleCcnCard()">➕ Thêm thẻ đơn</button>
+                <button class="btn btn-secondary btn-sm" onclick="openMultiCardModal()">📄 Thêm nhiều thẻ</button>
+                <button class="btn btn-secondary btn-sm" style="color:var(--error); border-color:var(--error);" onclick="clearAllCcnCards()">🗑 Xóa tất cả</button>
+              </div>
+            </div>
+            <div class="card-body" style="padding: 16px;">
+              <div id="ccnCardsContainer" style="display: flex; gap: 16px; overflow-x: auto; padding-bottom: 10px;">
+                 <!-- JS will inject columns here -->
+              </div>
+            </div>
+          </div>
+          
+          <!-- Modal Thêm Nhiều Thẻ -->
+          <div class="modal-overlay" id="multiCardModal">
+            <div class="modal-content" style="max-width: 500px;">
+              <div class="modal-header">
+                <h3 style="font-size: 17px; margin: 0;">📄 Thêm nhiều thẻ CCN</h3>
+                <button class="modal-close" onclick="closeMultiCardModal()">x</button>
+              </div>
+              <div class="modal-body" style="padding: 16px;">
+                <p style="margin-top:0; font-size:13px; color:var(--text-muted);">Dán danh sách thẻ vào đây (mỗi thẻ 1 dòng). Hệ thống sẽ tự động lọc theo 6 số BIN đầu tiên.</p>
+                <textarea id="multiCardTextarea" class="proxy-input" style="height: 200px; resize: vertical; font-family: monospace; font-size: 13px;" placeholder="4207670337397783|09|2030
+4411037143464011|07|2030"></textarea>
+                <button class="btn btn-primary" onclick="submitMultiCards()" style="width: 100%; margin-top: 12px;">💾 Lưu danh sách thẻ</button>
+              </div>
+            </div>
+          </div>
+    </div> <!-- Close tab-ccn properly, the new main-card goes inside it -->
+
     
     <!-- Phone Selection Section -->
     
@@ -5411,6 +5447,310 @@ function importCcnFromFile(event) {
 
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(loadCcnData, 300);
+    setTimeout(loadCcnCards, 400);
+
+
+  // ================= CCN CARDS (BIN) LOGIC =================
+  let ccnCardsData = {};
+
+  async function loadCcnCards() {
+    try {
+      const res = await fetch('/api/ccn-cards/all');
+      const result = await res.json();
+      if (result.status === 1) {
+        ccnCardsData = result.data || {};
+        renderCcnCards();
+      }
+    } catch(e) {
+      console.error('Lỗi tải danh sách thẻ CCN', e);
+    }
+  }
+
+  function renderCcnCards() {
+    const container = document.getElementById('ccnCardsContainer');
+    if (!container) return;
+    
+    if (Object.keys(ccnCardsData).length === 0) {
+      container.innerHTML = '<div style="width:100%; text-align:center; padding: 20px; color: var(--text-muted);">Chưa có thẻ nào. Hãy thêm thẻ mới!</div>';
+      return;
+    }
+    
+    let html = '';
+    const bins = Object.keys(ccnCardsData).sort();
+    for (const bin of bins) {
+      const cards = ccnCardsData[bin];
+      if (!cards || cards.length === 0) continue;
+      
+      html += `
+        <div style="min-width: 280px; flex-shrink: 0; background: rgba(0,0,0,0.02); border: 1px solid var(--border); border-radius: 8px; display:flex; flex-direction:column;">
+          <div style="padding: 10px; font-weight: bold; text-align: center; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.05);">
+            BIN: <span style="color:var(--primary);">${bin}</span> 
+            <span style="font-size:11px; color:var(--text-muted); font-weight:normal;">(${cards.length} thẻ)</span>
+          </div>
+          <div style="padding: 8px; display: flex; flex-direction: column; gap: 6px; max-height: 400px; overflow-y: auto;">
+      `;
+      
+      cards.forEach((card, idx) => {
+        let displayCard = card;
+        if (card.includes('|')) {
+           const parts = card.split('|');
+           displayCard = `<strong>${parts[0]}</strong>` + (parts.length > 1 ? `<span style="color:var(--text-muted)">|${parts.slice(1).join('|')}</span>` : '');
+        } else {
+           displayCard = `<strong>${card}</strong>`;
+        }
+        
+        html += `
+            <div style="font-family: monospace; font-size: 13px; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; display:flex; justify-content:space-between; align-items:center;">
+               <span>${displayCard}</span>
+               <button onclick="deleteCcnCard('${bin}', ${idx})" style="background:none; border:none; color:var(--error); cursor:pointer; padding:2px 6px; font-size:16px; line-height:1; opacity:0.7;" title="Xóa" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">&times;</button>
+            </div>
+        `;
+      });
+      
+      html += `
+          </div>
+        </div>
+      `;
+    }
+    
+    container.innerHTML = html;
+  }
+
+  async function addSingleCcnCard() {
+    const card = prompt('Nhập thông tin thẻ (VD: 4207670337397783|09|2030|123):');
+    if (!card) return;
+    await saveCcnCards(card);
+  }
+
+  window.openMultiCardModal = function() {
+    document.getElementById('multiCardTextarea').value = '';
+    document.getElementById('multiCardModal').classList.add('active');
+  }
+
+  window.closeMultiCardModal = function() {
+    document.getElementById('multiCardModal').classList.remove('active');
+  }
+
+  window.submitMultiCards = async function() {
+    const rawText = document.getElementById('multiCardTextarea').value;
+    if (!rawText.trim()) {
+      toast('Vui lòng dán danh sách thẻ!', 'error');
+      return;
+    }
+    await saveCcnCards(rawText);
+    closeMultiCardModal();
+  }
+
+  async function saveCcnCards(rawText) {
+    try {
+      toast('Đang xử lý thẻ...', 'info');
+      const res = await fetch('/api/ccn-cards/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rawText })
+      });
+      const result = await res.json();
+      if (result.status === 1) {
+        ccnCardsData = result.data;
+        renderCcnCards();
+        toast(`Đã thêm ${result.added} thẻ thành công!`, 'success');
+      } else {
+        toast(result.message || 'Lỗi thêm thẻ', 'error');
+      }
+    } catch(e) {
+      toast('Lỗi kết nối khi lưu thẻ', 'error');
+    }
+  }
+
+  async function deleteCcnCard(bin, index) {
+    if (!confirm('Xóa thẻ này?')) return;
+    try {
+      const res = await fetch('/api/ccn-cards/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bin, index })
+      });
+      const result = await res.json();
+      if (result.status === 1) {
+         ccnCardsData[bin].splice(index, 1);
+         if (ccnCardsData[bin].length === 0) delete ccnCardsData[bin];
+         renderCcnCards();
+         toast('Đã xóa thẻ', 'success');
+      }
+    } catch(e) {
+      toast('Lỗi khi xóa thẻ', 'error');
+    }
+  }
+
+  async function clearAllCcnCards() {
+    if (!confirm('Bạn có chắc chắn muốn XÓA TẤT CẢ thẻ? Hành động này không thể hoàn tác!')) return;
+    try {
+      const res = await fetch('/api/ccn-cards/clear', { method: 'POST' });
+      const result = await res.json();
+      if (result.status === 1) {
+        ccnCardsData = {};
+        renderCcnCards();
+        toast('Đã xóa tất cả thẻ', 'success');
+      }
+    } catch(e) {
+      toast('Lỗi xóa danh sách', 'error');
+    }
+  }
+
+
+
+  // ================= CCN CARDS (BIN) LOGIC =================
+  let ccnCardsData = {};
+
+  async function loadCcnCards() {
+    try {
+      const res = await fetch('/api/ccn-cards/all');
+      const result = await res.json();
+      if (result.status === 1) {
+        ccnCardsData = result.data || {};
+        renderCcnCards();
+      }
+    } catch(e) {
+      console.error('Lỗi tải danh sách thẻ CCN', e);
+    }
+  }
+
+  function renderCcnCards() {
+    const container = document.getElementById('ccnCardsContainer');
+    if (!container) return;
+    
+    if (Object.keys(ccnCardsData).length === 0) {
+      container.innerHTML = '<div style="width:100%; text-align:center; padding: 20px; color: var(--text-muted);">Chưa có thẻ nào. Hãy thêm thẻ mới!</div>';
+      return;
+    }
+    
+    let html = '';
+    const bins = Object.keys(ccnCardsData).sort();
+    for (const bin of bins) {
+      const cards = ccnCardsData[bin];
+      if (!cards || cards.length === 0) continue;
+      
+      html += `
+        <div style="min-width: 280px; flex-shrink: 0; background: rgba(0,0,0,0.02); border: 1px solid var(--border); border-radius: 8px; display:flex; flex-direction:column;">
+          <div style="padding: 10px; font-weight: bold; text-align: center; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.05);">
+            BIN: <span style="color:var(--primary);">${bin}</span> 
+            <span style="font-size:11px; color:var(--text-muted); font-weight:normal;">(${cards.length} thẻ)</span>
+          </div>
+          <div style="padding: 8px; display: flex; flex-direction: column; gap: 6px; max-height: 400px; overflow-y: auto;">
+      `;
+      
+      cards.forEach((card, idx) => {
+        let displayCard = card;
+        if (card.includes('|')) {
+           const parts = card.split('|');
+           displayCard = `<strong>${parts[0]}</strong>` + (parts.length > 1 ? `<span style="color:var(--text-muted)">|${parts.slice(1).join('|')}</span>` : '');
+        } else {
+           displayCard = `<strong>${card}</strong>`;
+        }
+        
+        html += `
+            <div style="font-family: monospace; font-size: 13px; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; display:flex; justify-content:space-between; align-items:center;">
+               <span>${displayCard}</span>
+               <button onclick="deleteCcnCard('${bin}', ${idx})" style="background:none; border:none; color:var(--error); cursor:pointer; padding:2px 6px; font-size:16px; line-height:1; opacity:0.7;" title="Xóa" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">&times;</button>
+            </div>
+        `;
+      });
+      
+      html += `
+          </div>
+        </div>
+      `;
+    }
+    
+    container.innerHTML = html;
+  }
+
+  async function addSingleCcnCard() {
+    const card = prompt('Nhập thông tin thẻ (VD: 4207670337397783|09|2030|123):');
+    if (!card) return;
+    await saveCcnCards(card);
+  }
+
+  function openMultiCardModal() {
+    document.getElementById('multiCardTextarea').value = '';
+    document.getElementById('multiCardModal').classList.add('active');
+  }
+
+  function closeMultiCardModal() {
+    document.getElementById('multiCardModal').classList.remove('active');
+  }
+
+  async function submitMultiCards() {
+    const rawText = document.getElementById('multiCardTextarea').value;
+    if (!rawText.trim()) {
+      toast('Vui lòng dán danh sách thẻ!', 'error');
+      return;
+    }
+    await saveCcnCards(rawText);
+    closeMultiCardModal();
+  }
+
+  async function saveCcnCards(rawText) {
+    try {
+      toast('Đang xử lý thẻ...', 'info');
+      const res = await fetch('/api/ccn-cards/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rawText })
+      });
+      const result = await res.json();
+      if (result.status === 1) {
+        ccnCardsData = result.data;
+        renderCcnCards();
+        toast(`Đã thêm ${result.added} thẻ thành công!`, 'success');
+      } else {
+        toast(result.message || 'Lỗi thêm thẻ', 'error');
+      }
+    } catch(e) {
+      toast('Lỗi kết nối khi lưu thẻ', 'error');
+    }
+  }
+
+  async function deleteCcnCard(bin, index) {
+    if (!confirm('Xóa thẻ này?')) return;
+    try {
+      const res = await fetch('/api/ccn-cards/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bin, index })
+      });
+      const result = await res.json();
+      if (result.status === 1) {
+         ccnCardsData[bin].splice(index, 1);
+         if (ccnCardsData[bin].length === 0) delete ccnCardsData[bin];
+         renderCcnCards();
+         toast('Đã xóa thẻ', 'success');
+      }
+    } catch(e) {
+      toast('Lỗi khi xóa thẻ', 'error');
+    }
+  }
+
+  async function clearAllCcnCards() {
+    if (!confirm('Bạn có chắc chắn muốn XÓA TẤT CẢ thẻ? Hành động này không thể hoàn tác!')) return;
+    try {
+      const res = await fetch('/api/ccn-cards/clear', { method: 'POST' });
+      const result = await res.json();
+      if (result.status === 1) {
+        ccnCardsData = {};
+        renderCcnCards();
+        toast('Đã xóa tất cả thẻ', 'success');
+      }
+    } catch(e) {
+      toast('Lỗi xóa danh sách', 'error');
+    }
+  }
+
+  // Load cards on init
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(loadCcnCards, 500);
+  });
+
 
 
   // BSN Logic

@@ -1181,6 +1181,85 @@ app.post('/api/ccn/clear', async (req, res) => {
   try {
     await db.ref('ccn_accounts').remove();
     res.json({ status: 1 });
+
+﻿// Add this below the /api/ccn endpoints
+// CCN Cards CRUD
+app.get('/api/ccn-cards/all', async (req, res) => {
+  try {
+    const snap = await db.ref('ccn_cards').once('value');
+    res.json({ status: 1, data: snap.val() || {} });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/ccn-cards/add', async (req, res) => {
+  try {
+    // rawText could be single line or multiline string of cards
+    const { rawText } = req.body;
+    if (!rawText) return res.json({ status: 1, message: 'No data' });
+    
+    // Parse the text into individual card strings (split by newline, remove empty)
+    const cards = rawText.split('\n').map(c => c.trim()).filter(c => c.length > 10);
+    
+    const ref = db.ref('ccn_cards');
+    const snap = await ref.once('value');
+    let currentData = snap.val() || {};
+    
+    let addedCount = 0;
+    
+    for (const card of cards) {
+      // Extract the first 6 digits (BIN)
+      const match = card.match(/^(\d{6})/);
+      if (match) {
+        const bin = match[1];
+        if (!currentData[bin]) {
+          currentData[bin] = [];
+        }
+        // Avoid exact duplicates
+        if (!currentData[bin].includes(card)) {
+          currentData[bin].push(card);
+          addedCount++;
+        }
+      }
+    }
+    
+    await ref.set(currentData);
+    res.json({ status: 1, added: addedCount, data: currentData });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/ccn-cards/clear', async (req, res) => {
+  try {
+    await db.ref('ccn_cards').remove();
+    res.json({ status: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/ccn-cards/delete', async (req, res) => {
+  try {
+    const { bin, index } = req.body;
+    const ref = db.ref(`ccn_cards/${bin}`);
+    const snap = await ref.once('value');
+    let cards = snap.val() || [];
+    if (cards.length > index) {
+      cards.splice(index, 1);
+      if (cards.length === 0) {
+        await ref.remove(); // Remove bin if empty
+      } else {
+        await ref.set(cards);
+      }
+    }
+    res.json({ status: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
