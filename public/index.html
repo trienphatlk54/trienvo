@@ -1505,7 +1505,7 @@
                     <th style="padding: 10px 8px; width: 40px; text-align: center;">#</th>
                     <th style="padding: 10px 8px;">Email</th>
                     <th style="padding: 10px 8px;">Pass</th>
-                    <th style="padding: 10px 8px;">2FA</th>
+                    <th style="padding: 10px 8px; width: 80px;">2FA</th>
                     <th style="padding: 10px 8px;">Country</th>
                     <th style="padding: 10px 8px;">Address</th>
                     <th style="padding: 10px 8px;">State</th>
@@ -4816,35 +4816,170 @@ async function deleteFloppyProxy(id) {
 
 // ──────────────────────────────────────────────────────────────────────────
 // ACCOUNTS CCN CRUD
-let ccnData = JSON.parse(localStorage.getItem('ccnData') || '[]');
+let ccnData = {}; 
 
-function saveCcnData() {
-  localStorage.setItem('ccnData', JSON.stringify(ccnData));
+const STATE_MAP = {
+  "AL": { name: "Alabama", tz: "America/Chicago" }, "AK": { name: "Alaska", tz: "America/Anchorage" }, "AZ": { name: "Arizona", tz: "America/Phoenix" }, "AR": { name: "Arkansas", tz: "America/Chicago" },
+  "CA": { name: "California", tz: "America/Los_Angeles" }, "CO": { name: "Colorado", tz: "America/Denver" }, "CT": { name: "Connecticut", tz: "America/New_York" }, "DE": { name: "Delaware", tz: "America/New_York" },
+  "FL": { name: "Florida", tz: "America/New_York" }, "GA": { name: "Georgia", tz: "America/New_York" }, "HI": { name: "Hawaii", tz: "Pacific/Honolulu" }, "ID": { name: "Idaho", tz: "America/Boise" },
+  "IL": { name: "Illinois", tz: "America/Chicago" }, "IN": { name: "Indiana", tz: "America/Indiana/Indianapolis" }, "IA": { name: "Iowa", tz: "America/Chicago" }, "KS": { name: "Kansas", tz: "America/Chicago" },
+  "KY": { name: "Kentucky", tz: "America/New_York" }, "LA": { name: "Louisiana", tz: "America/Chicago" }, "ME": { name: "Maine", tz: "America/New_York" }, "MD": { name: "Maryland", tz: "America/New_York" },
+  "MA": { name: "Massachusetts", tz: "America/New_York" }, "MI": { name: "Michigan", tz: "America/Detroit" }, "MN": { name: "Minnesota", tz: "America/Chicago" }, "MS": { name: "Mississippi", tz: "America/Chicago" },
+  "MO": { name: "Missouri", tz: "America/Chicago" }, "MT": { name: "Montana", tz: "America/Denver" }, "NE": { name: "Nebraska", tz: "America/Chicago" }, "NV": { name: "Nevada", tz: "America/Los_Angeles" },
+  "NH": { name: "New Hampshire", tz: "America/New_York" }, "NJ": { name: "New Jersey", tz: "America/New_York" }, "NM": { name: "New Mexico", tz: "America/Denver" }, "NY": { name: "New York", tz: "America/New_York" },
+  "NC": { name: "North Carolina", tz: "America/New_York" }, "ND": { name: "North Dakota", tz: "America/Chicago" }, "OH": { name: "Ohio", tz: "America/New_York" }, "OK": { name: "Oklahoma", tz: "America/Chicago" },
+  "OR": { name: "Oregon", tz: "America/Los_Angeles" }, "PA": { name: "Pennsylvania", tz: "America/New_York" }, "RI": { name: "Rhode Island", tz: "America/New_York" }, "SC": { name: "South Carolina", tz: "America/New_York" },
+  "SD": { name: "South Dakota", tz: "America/Chicago" }, "TN": { name: "Tennessee", tz: "America/Chicago" }, "TX": { name: "Texas", tz: "America/Chicago" }, "UT": { name: "Utah", tz: "America/Denver" },
+  "VT": { name: "Vermont", tz: "America/New_York" }, "VA": { name: "Virginia", tz: "America/New_York" }, "WA": { name: "Washington", tz: "America/Los_Angeles" }, "WV": { name: "West Virginia", tz: "America/New_York" },
+  "WI": { name: "Wisconsin", tz: "America/Chicago" }, "WY": { name: "Wyoming", tz: "America/Denver" }, "DC": { name: "District of Columbia", tz: "America/New_York" }
+};
+
+const ZIP_PREFIXES = {
+  "AL": ["35", "36"], "AK": ["99"], "AZ": ["85", "86"], "AR": ["71", "72"],
+  "CA": ["90", "91", "92", "93", "94", "95", "96"], "CO": ["80", "81"],
+  "CT": ["06"], "DE": ["19"], "FL": ["32", "33", "34"], "GA": ["30", "31"],
+  "HI": ["96"], "ID": ["83"], "IL": ["60", "61", "62"], "IN": ["46", "47"],
+  "IA": ["50", "51", "52"], "KS": ["66", "67"], "KY": ["40", "41", "42"],
+  "LA": ["70", "71"], "ME": ["04"], "MD": ["20", "21"], "MA": ["01", "02"],
+  "MI": ["48", "49"], "MN": ["55", "56"], "MS": ["38", "39"], "MO": ["63", "64", "65"],
+  "MT": ["59"], "NE": ["68", "69"], "NV": ["88", "89"], "NH": ["03"],
+  "NJ": ["07", "08"], "NM": ["87"], "NY": ["10", "11", "12", "13", "14"],
+  "NC": ["27", "28"], "ND": ["58"], "OH": ["43", "44", "45"], "OK": ["73", "74"],
+  "OR": ["97"], "PA": ["15", "16", "17", "18", "19"], "RI": ["02"], "SC": ["29"],
+  "SD": ["57"], "TN": ["37", "38"], "TX": ["75", "76", "77", "78", "79"],
+  "UT": ["84"], "VT": ["05"], "VA": ["22", "23", "24"], "WA": ["98"],
+  "WV": ["24", "25", "26"], "WI": ["53", "54"], "WY": ["82"], "DC": ["20"]
+};
+
+function processAddress(address) {
+  if (!address) return { state: '', time: '' };
+  const match = address.match(/\b([A-Z]{2})\s+(\d{5})\b/);
+  if (!match) return { state: '', time: '' };
+  
+  const stateCode = match[1];
+  const zipCode = match[2];
+  
+  const stateInfo = STATE_MAP[stateCode];
+  if (!stateInfo) return { state: '', time: '' };
+  
+  const zipPrefix = zipCode.substring(0, 2);
+  const validPrefixes = ZIP_PREFIXES[stateCode];
+  if (validPrefixes && !validPrefixes.includes(zipPrefix)) {
+    return { state: 'Invalid Zip', time: '' };
+  }
+  
+  let timeStr = '';
+  try {
+    timeStr = new Date().toLocaleString('vi-VN', { timeZone: stateInfo.tz });
+  } catch(e) { timeStr = 'N/A'; }
+  
+  return { state: stateInfo.name, time: timeStr };
+}
+
+async function getTOTP(secret) {
+  if (!secret) return '---';
+  secret = secret.replace(/\s+/g, '').toUpperCase();
+  try {
+    const base32chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    let bits = '';
+    for (let i = 0; i < secret.length; i++) {
+      const val = base32chars.indexOf(secret.charAt(i));
+      if (val === -1) continue;
+      bits += val.toString(2).padStart(5, '0');
+    }
+    let hex = '';
+    for (let i = 0; i < bits.length - 7; i += 8) {
+      hex += parseInt(bits.substr(i, 8), 2).toString(16).padStart(2, '0');
+    }
+    if (hex.length % 2 !== 0) hex += '0';
+    const key = new Uint8Array(hex.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)));
+    const epoch = Math.floor(Date.now() / 1000);
+    const time = Math.floor(epoch / 30);
+    const timeBuffer = new ArrayBuffer(8);
+    const timeView = new DataView(timeBuffer);
+    timeView.setUint32(4, time, false);
+    const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, timeBuffer);
+    const hmac = new Uint8Array(signature);
+    const offset = hmac[hmac.length - 1] & 0x0f;
+    const code = (((hmac[offset] & 0x7f) << 24) | ((hmac[offset + 1] & 0xff) << 16) | ((hmac[offset + 2] & 0xff) << 8) | (hmac[offset + 3] & 0xff)) % 1000000;
+    return code.toString().padStart(6, '0');
+  } catch(e) {
+    return 'Lỗi';
+  }
+}
+
+async function generateAndCopyTOTP(btn, secret) {
+  const oldText = btn.innerText;
+  btn.innerText = '⏳...';
+  const code = await getTOTP(secret);
+  if (code && code !== 'Lỗi' && code !== '---') {
+    safeCopy(code);
+    btn.innerText = '✅ ' + code;
+    toast('Đã copy 2FA: ' + code, 'success');
+  } else {
+    btn.innerText = '❌ Lỗi';
+  }
+  setTimeout(() => { btn.innerText = oldText; }, 3000);
+}
+
+async function loadCcnData() {
+  const tbody = document.getElementById('ccnTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 16px;">Đang tải từ Cloud...</td></tr>';
+  try {
+    const res = await fetch('/api/ccn/all');
+    const result = await res.json();
+    if (result.status === 1) {
+      ccnData = result.data || {};
+      renderCcnTable();
+    }
+  } catch(e) {
+    toast('Lỗi tải dữ liệu CCN', 'error');
+  }
+}
+
+async function saveCcnRecord(id, row) {
+  try {
+    const res = await fetch('/api/ccn/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ id, ...row })
+    });
+    const result = await res.json();
+    if(result.status === 1) {
+      if (!id) id = result.id;
+      ccnData[id] = row;
+      renderCcnTable();
+    }
+  } catch(e) {}
 }
 
 function renderCcnTable() {
   const tbody = document.getElementById('ccnTableBody');
   if (!tbody) return;
-  if (ccnData.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu. Hãy thêm mới hoặc nhập từ file/text.</td></tr>';
+  const entries = Object.entries(ccnData);
+  if (entries.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu.</td></tr>';
     return;
   }
   
   let rows = '';
-  ccnData.forEach((row, idx) => {
+  entries.forEach(([id, row], idx) => {
+    const computed = processAddress(row.address);
     rows += `
       <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
         <td style="padding: 10px 8px; text-align: center; color: var(--text-muted);">${idx + 1}</td>
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.email || '')}</td>
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.pass || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer; font-family: monospace;" onclick="copyText(this.innerText)">${escapeHtml(row.twofa || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer; font-family: monospace; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(row.twofa || '')}" onclick="copyText(this.innerText)">${escapeHtml(row.twofa || '')}</td>
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.country || '')}</td>
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.address || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.state || '')}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.timeState || '')}</td>
-        <td style="padding: 10px 8px; text-align: center;">
-          <span class="action-edit" onclick="editCcnRow(${idx})" style="cursor:pointer; margin-right:8px;" title="Sửa">✏️</span>
-          <span class="action-delete" onclick="deleteCcnRow(${idx})" style="cursor:pointer;" title="Xóa">❌</span>
+        <td style="padding: 10px 8px; cursor: pointer; color: var(--success);" onclick="copyText(this.innerText)">${escapeHtml(computed.state || '')}</td>
+        <td style="padding: 10px 8px; cursor: pointer; color: var(--shopee-light);" onclick="copyText(this.innerText)">${escapeHtml(computed.time || '')}</td>
+        <td style="padding: 10px 8px; text-align: center; display: flex; gap: 4px; justify-content: center;">
+          <button class="btn btn-secondary btn-sm" onclick="generateAndCopyTOTP(this, '${escapeHtml(row.twofa || '')}')" title="Tạo và Copy code 6 số" style="font-size:11px; padding:4px 8px;">🗝 Lấy Code</button>
+          <button class="btn btn-secondary btn-sm" onclick="editCcnRow('${id}')" title="Sửa" style="font-size:11px; padding:4px 8px;">✏️</button>
+          <button class="btn btn-secondary btn-sm" onclick="deleteCcnRow('${id}')" title="Xóa" style="font-size:11px; padding:4px 8px;">❌</button>
         </td>
       </tr>
     `;
@@ -4852,79 +4987,73 @@ function renderCcnTable() {
   tbody.innerHTML = rows;
 }
 
-function addCcnRow() {
+async function addCcnRow() {
   const email = prompt('Nhập Email:');
   if (email === null) return;
   const pass = prompt('Nhập Password:') || '';
   const twofa = prompt('Nhập 2FA:') || '';
   const country = prompt('Nhập Country:') || '';
   const address = prompt('Nhập Address:') || '';
-  const state = prompt('Nhập State:') || '';
-  const timeState = prompt('Nhập Time State:') || '';
   
-  ccnData.push({ email, pass, twofa, country, address, state, timeState });
-  saveCcnData();
-  renderCcnTable();
+  await saveCcnRecord(null, { email, pass, twofa, country, address });
   toast('Đã thêm dòng mới', 'success');
 }
 
-function editCcnRow(idx) {
-  const row = ccnData[idx];
+async function editCcnRow(id) {
+  const row = ccnData[id];
   const email = prompt('Sửa Email:', row.email);
   if (email === null) return;
-  row.email = email;
-  row.pass = prompt('Sửa Password:', row.pass) || '';
-  row.twofa = prompt('Sửa 2FA:', row.twofa) || '';
-  row.country = prompt('Sửa Country:', row.country) || '';
-  row.address = prompt('Sửa Address:', row.address) || '';
-  row.state = prompt('Sửa State:', row.state) || '';
-  row.timeState = prompt('Sửa Time State:', row.timeState) || '';
-  
-  saveCcnData();
-  renderCcnTable();
+  const newRow = {
+    email: email,
+    pass: prompt('Sửa Password:', row.pass) || '',
+    twofa: prompt('Sửa 2FA:', row.twofa) || '',
+    country: prompt('Sửa Country:', row.country) || '',
+    address: prompt('Sửa Address:', row.address) || ''
+  };
+  await saveCcnRecord(id, newRow);
   toast('Đã cập nhật', 'success');
 }
 
-function deleteCcnRow(idx) {
+async function deleteCcnRow(id) {
   if (!confirm('Bạn có chắc muốn xóa dòng này?')) return;
-  ccnData.splice(idx, 1);
-  saveCcnData();
-  renderCcnTable();
-  toast('Đã xóa', 'success');
+  try {
+    await fetch('/api/ccn/delete', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id}) });
+    delete ccnData[id];
+    renderCcnTable();
+    toast('Đã xóa', 'success');
+  } catch(e) {}
 }
 
-function clearAllCcn() {
+async function clearAllCcn() {
   if (!confirm('CHÚ Ý: Xóa toàn bộ dữ liệu trong bảng CCN?')) return;
-  ccnData = [];
-  saveCcnData();
-  renderCcnTable();
-  toast('Đã xóa toàn bộ dữ liệu', 'success');
+  try {
+    await fetch('/api/ccn/clear', { method: 'POST' });
+    ccnData = {};
+    renderCcnTable();
+    toast('Đã xóa toàn bộ dữ liệu', 'success');
+  } catch(e) {}
 }
 
-function parseCcnSource(text) {
+async function parseCcnSource(text) {
   const lines = text.split('\n');
   let count = 0;
+  toast('Đang đồng bộ lên Cloud...', 'info');
   for (const line of lines) {
     if (!line.trim()) continue;
-    // Tách bằng | hoặc tab, phẩy
     let parts = line.split('|');
     if (parts.length < 2) parts = line.split('\t');
     if (parts.length < 2) parts = line.split(',');
     
-    ccnData.push({
+    await saveCcnRecord(null, {
       email: parts[0]?.trim() || '',
       pass: parts[1]?.trim() || '',
       twofa: parts[2]?.trim() || '',
       country: parts[3]?.trim() || '',
-      address: parts[4]?.trim() || '',
-      state: parts[5]?.trim() || '',
-      timeState: parts[6]?.trim() || ''
+      address: parts[4]?.trim() || ''
     });
     count++;
   }
-  saveCcnData();
-  renderCcnTable();
-  if (count > 0) toast(`Đã nhập ${count} dòng`, 'success');
+  if (count > 0) toast(`Đã nhập ${count} dòng vào Cloud`, 'success');
 }
 
 function importCcnFromPaste() {
@@ -4945,7 +5074,7 @@ function importCcnFromFile(event) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(renderCcnTable, 300);
+  setTimeout(loadCcnData, 300);
 });
 
 

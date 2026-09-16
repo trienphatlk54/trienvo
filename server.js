@@ -1018,6 +1018,52 @@ app.post('/api/sync/status', async (req, res) => {
   }
 });
 
+
+app.get('/api/ccn/all', async (req, res) => {
+  try {
+    const snap = await db.ref('ccn_accounts').once('value');
+    res.json({ status: 1, data: snap.val() || {} });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/ccn/save', async (req, res) => {
+  const { id, email, pass, twofa, country, address } = req.body;
+  try {
+    const ref = db.ref('ccn_accounts');
+    if (id) {
+      await ref.child(id).update({ email, pass, twofa, country, address });
+      res.json({ status: 1, id });
+    } else {
+      const newEntry = ref.push();
+      await newEntry.set({ email, pass, twofa, country, address });
+      res.json({ status: 1, id: newEntry.key });
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/ccn/delete', async (req, res) => {
+  const { id } = req.body;
+  try {
+    await db.ref('ccn_accounts').child(id).remove();
+    res.json({ status: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/ccn/clear', async (req, res) => {
+  try {
+    await db.ref('ccn_accounts').remove();
+    res.json({ status: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/data/all', async (req, res) => {
   try {
     const ref = db.ref('shopee_accounts');
