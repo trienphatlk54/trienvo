@@ -5376,7 +5376,12 @@ function renderCcnTable() {
        const bsnFullname = row.bsn ? escapeHtml(row.bsn.fullname || '') : '<span style="color:var(--text-muted)">Chưa tạo BSN</span>';
        let cardsHtml = '';
        for(let i=0; i<6; i++) {
-         const card = (row.assignedCards && row.assignedCards[i]) ? escapeHtml(row.assignedCards[i]) : null;
+         let card = null;
+         if (row.assignedCards && row.assignedCards[i]) {
+            let parts = row.assignedCards[i].split('|');
+            parts[0] = parts[0].replace(/(.{4})/g, '$1 ').trim();
+            card = escapeHtml(parts.join('|'));
+         }
          if (card) {
            cardsHtml += `<div style="flex:1; border-right:1px solid var(--border); padding:5px; text-align:center; position:relative; min-width:0;">
              <div style="font-family:monospace; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${card}">${card}</div>
@@ -5839,7 +5844,8 @@ window.openAssignCardModal = function(accountId, slotIndex) {
   const bins = Object.keys(window.ccnCardsData || {}).sort();
   bins.forEach(bin => {
     const count = window.ccnCardsData[bin].length;
-    binSelect.innerHTML += `<option value="${bin}">${bin} (${count} thẻ)</option>`;
+    const note = (window.ccnCardsNotes && window.ccnCardsNotes[bin]) ? ' - ' + escapeHtml(window.ccnCardsNotes[bin]) : '';
+    binSelect.innerHTML += `<option value="${bin}">${bin}${note} (${count} thẻ)</option>`;
   });
   
   document.getElementById('assignCardList').innerHTML = '<div style="text-align:center; padding: 20px; color:var(--text-muted);">Vui lòng chọn BIN</div>';
@@ -5880,7 +5886,7 @@ window.assignCardToSlot = async function(cardText) {
   const id = window.assignCardAccountId;
   const slot = window.assignCardSlotIndex;
   
-  let row = window.ccnData[id];
+  let row = ccnData[id];
   if (!row) return;
   
   if (!row.assignedCards) row.assignedCards = [];
