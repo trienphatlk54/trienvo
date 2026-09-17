@@ -5586,7 +5586,7 @@ function renderCcnTable() {
           Object.keys(row.assignedCards).forEach(k => { arr[parseInt(k)] = row.assignedCards[k]; });
           row.assignedCards = arr;
        }
-       const numSlots = Math.max(6, (row.assignedCards ? row.assignedCards.length : 0)) + (row.extraSlots || 0);
+       const numSlots = Math.max(3, (row.assignedCards ? row.assignedCards.length : 0)) + (row.extraSlots || 0);
        for(let i=0; i<numSlots; i++) {
          let card = null;
          let timeHtml = '';
