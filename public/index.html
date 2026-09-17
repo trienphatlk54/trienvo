@@ -5216,8 +5216,8 @@ function formatAddressForDisplay(fullAddress) {
   if (!fullAddress) return '';
   const match = fullAddress.match(/\b([A-Z]{2})\s+(\d{5})\b/);
   if (match) return match[0];
-  const zipMatch = fullAddress.match(/\b(\d{5})\b/);
-  if (zipMatch) return zipMatch[0];
+  const zipMatches = [...fullAddress.matchAll(/\b(\d{5})\b/g)];
+  if (zipMatches.length > 0) return zipMatches[zipMatches.length - 1][0];
   return fullAddress.length > 15 ? fullAddress.substring(0, 15) + '...' : fullAddress;
 }
 
@@ -5251,13 +5251,24 @@ function processAddress(address) {
   let stateCode = null;
   let zipCode = null;
   
-  // 1. Try to extract Zip Code (5 digits)
-  const zipMatch = address.match(/\b(\d{5})\b/);
-  if (zipMatch) {
-    zipCode = zipMatch[1];
-    const prefix = zipCode.substring(0, 2);
-    if (ZIP_TO_STATE[prefix]) {
-      stateCode = ZIP_TO_STATE[prefix];
+  // 1. Try exact State Code + Zip combo (e.g. "OH 44044")
+  const comboMatch = address.match(/\b([A-Z]{2})\s+(\d{5})\b/);
+  if (comboMatch && STATE_MAP[comboMatch[1]]) {
+      stateCode = comboMatch[1];
+  }
+
+  // 2. Try to extract Zip Code (5 digits). Search backwards to avoid street numbers.
+  if (!stateCode) {
+    const zipMatches = [...address.matchAll(/\b(\d{5})\b/g)];
+    if (zipMatches.length > 0) {
+      for (let i = zipMatches.length - 1; i >= 0; i--) {
+        const zip = zipMatches[i][1];
+        const prefix = zip.substring(0, 2);
+        if (ZIP_TO_STATE[prefix]) {
+           stateCode = ZIP_TO_STATE[prefix];
+           break;
+        }
+      }
     }
   }
   
