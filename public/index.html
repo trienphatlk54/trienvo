@@ -1538,7 +1538,7 @@
                 <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ccnFileInput').click()">📂 Tải từ File</button>
                 <input type="file" id="ccnFileInput" accept=".txt,.csv" style="display:none" onchange="importCcnFromFile(event)">
                 <button class="btn btn-secondary btn-sm" onclick="importCcnFromPaste()">📋 Nhập từ Text</button>
-                <button class="btn btn-secondary btn-sm" style="color:var(--error); border-color:var(--error);" onclick="clearAllCcn()">🗑 Xóa tất cả</button>
+                <button class="btn btn-secondary btn-sm" style="color:var(--error); border-color:var(--error);" onclick="clearAllCcn()">🗑️ Xóa Tab này</button>
               </div>
             </div>
           </div>
@@ -5699,13 +5699,28 @@ async function deleteCcnRow(id) {
 }
 
 async function clearAllCcn() {
-  if (!confirm('CHÚ Ý: Xóa toàn bộ dữ liệu trong tất cả các Tab CCN?')) return;
+  const tabNames = ['Chưa làm', 'Success', 'Payment', 'Cancel', 'Check Thẻ', 'Review', 'Lock'];
+  const tabName = tabNames[currentCcnTab];
+  if (!confirm(`CHÚ Ý: Bạn có chắc chắn muốn xóa TOÀN BỘ dữ liệu đang hiển thị trong Tab "${tabName}" không?`)) return;
   try {
-    await fetch('/api/ccn/clear', { method: 'POST' });
-    ccnData = {};
+    toast('Đang xóa dữ liệu...', 'info');
+    await fetch('/api/ccn/clear-tab', { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: currentCcnTab })
+    });
+    for (let key in ccnData) {
+      if (ccnData[key].status == currentCcnTab) {
+        delete ccnData[key];
+      }
+    }
     renderCcnTable();
-    toast('Đã xóa toàn bộ dữ liệu', 'success');
-  } catch(e) {}
+    toast(`Đã xóa toàn bộ dữ liệu Tab ${tabName}`, 'success');
+  } catch(e) {
+    toast('Lỗi xóa dữ liệu', 'error');
+  }
+}
+
 }
 
 async function parseCcnSource(text) {

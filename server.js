@@ -1177,6 +1177,26 @@ app.post('/api/ccn/delete', async (req, res) => {
   }
 });
 
+
+app.post('/api/ccn/clear-tab', async (req, res) => {
+  const { status } = req.body;
+  if (status === undefined) return res.status(400).json({ error: 'Missing status' });
+  try {
+    const snap = await db.ref('ccn_accounts').once('value');
+    const data = snap.val() || {};
+    const updates = {};
+    for (let key in data) {
+      if (data[key].status == status) {
+        updates[key] = null;
+      }
+    }
+    await db.ref('ccn_accounts').update(updates);
+    res.json({ status: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/ccn/clear', async (req, res) => {
   try {
     await db.ref('ccn_accounts').remove();
