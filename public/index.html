@@ -5645,8 +5645,10 @@ function renderCcnTable() {
             let timestamp = typeof cardObj === 'object' && cardObj.timestamp ? cardObj.timestamp : null;
             
             let parts = rawCard.split('|');
-            parts[0] = parts[0].replace(/(.{4})/g, '$1 ').trim();
-            card = escapeHtml(parts.join('|'));
+            let cardNum = parts[0].replace(/(.{4})/g, '$1 ').trim();
+            let dateStr = (parts[1] && parts[2]) ? ` - ${parts[1]}/${parts[2]}` : (parts[1] ? ` - ${parts[1]}` : '');
+            let cvvStr = parts[3] ? ` - ${parts[3]}` : '';
+            card = escapeHtml(`${cardNum}${dateStr}${cvvStr}`);
             
             if (timestamp) {
                const d = new Date(timestamp);
