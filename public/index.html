@@ -5819,24 +5819,125 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('npoAssetsText').innerText = row.bsn.npoAssets || '';
         document.getElementById('npoIncomeText').innerText = row.bsn.npoIncome || '';
         document.getElementById('npoResultSection').style.display = 'flex';
-        // Duplicate NPO Check
-        let isDuplicate = false;
-        let dupCount = 0;
-        for (let key in ccnData) {
-          if (key !== document.getElementById('bsnRowId').value && ccnData[key] && ccnData[key].bsn && ccnData[key].bsn.npoEin === org.ein) {
-            isDuplicate = true;
-            dupCount++;
+      } else {
+        document.getElementById('npoResultSection').style.display = 'none';
+      }
+    } else {
+      document.getElementById('bsnFullname').value = '';
+      document.getElementById('bsnPhone').value = '';
+      document.getElementById('bsnZip').value = '';
+      document.getElementById('bsnCity').value = '';
+      document.getElementById('bsnState').value = '';
+      document.getElementById('npoResultSection').style.display = 'none';
+    }
+    
+    document.getElementById('bsnModal').classList.add('active');
+  }
+  
+  
+  window.closeBsnModal = function() {
+    document.getElementById('bsnWarningModal').classList.add('active');
+  }
+  
+  window.forceCloseBsnModal = function() {
+    document.getElementById('bsnWarningModal').classList.remove('active');
+    document.getElementById('bsnModal').classList.remove('active');
+  }
+
+  
+  window.generateBsnProfile = async function() {
+    const rowId = document.getElementById('bsnRowId').value;
+    const row = ccnData[rowId];
+    if (!row || !row.address) {
+      toast('Tài khoản này không có dữ liệu địa chỉ!', 'error');
+      return;
+    }
+    
+    // Check if there is already existing data
+    const currentFullname = document.getElementById('bsnFullname').value.trim();
+    if (currentFullname) {
+      const confirmChange = confirm('Profile này đã có dữ liệu. Bạn có chắc chắn muốn tạo ngẫu nhiên đè lên dữ liệu cũ không?');
+      if (!confirmChange) return;
+    }
+    
+    // Process address to get stateCode
+    const computed = processAddress(row.address);
+    const stateCode = computed.stateCode ? computed.stateCode.toUpperCase() : '';
+    if (!stateCode || !ZIP_PREFIXES[stateCode]) {
+      toast('Không tìm thấy State hợp lệ trong địa chỉ!', 'error');
+      return;
+    }
+
+    toast('Đang tạo profile ngẫu nhiên cùng State...', 'info');
+    try {
+      
+      // 1. Generate Zip and City for this State (Priority: Major City Zip)
+      let cityName = '';
+      let zipCode = '';
+      let stateName = computed.state || stateCode;
+      
+      const STATE_MAJOR_ZIPS = {"AL":["35203","36104","36602","35801","35401","35071","36832","35601","36301","35901"],"AK":["99501","99701","99801","99654","99611","99645","99901","99603","99615","99669"],"AZ":["85001","85701","85201","85225","85301","85251","85281","85344","85364","85381"],"AR":["72201","72701","72901","72764","72401","72032","72114","71601","71913","72712"],"CA":["90001","92101","95113","94102","93721","95814","90802","94612","93301","92805"],"CO":["80202","80903","80010","80524","80022","80031","81003","80302","80631","80501"],"CT":["06604","06510","06103","06901","06702","06850","06810","06053","06450","06010"],"DE":["19801","19901","19711","19947","19709","19958","19904","19973","19966","19720"],"FL":["32202","33128","33602","32801","33701","33010","32301","33301","34950","33020"],"GA":["30303","30901","31901","31201","31401","30601","30075","30328","30004","30060"],"HI":["96813","96720","96732","96740","96797","96706","96782","96744","96766","96786"],"ID":["83702","83642","83646","83402","83201","83605","83814","83301","83843","83651"],"IL":["60601","60506","61101","60432","60565","62701","61602","60120","60540","61820"],"IN":["46204","46802","47708","46601","46032","46037","47404","46320","47901","47302"],"IA":["50309","52401","52801","51101","52240","50701","51503","50010","52001","50613"],"KS":["67202","66204","66101","66062","66603","66044","66215","66216","67501","66502"],"KY":["40202","40507","42101","42301","41011","42240","40475","40601","42420","42701"],"LA":["70112","70802","71101","70501","70601","70065","71201","71301","70360","70560"],"ME":["04101","04240","04401","04106","04005","04032","04092","04011","04073","04038"],"MD":["21201","21701","20850","20877","20715","21740","21401","20744","20814","21502"],"MA":["02108","01608","01103","02139","01852","02301","02740","01901","02169","02720"],"MI":["48226","49503","48093","48326","48104","48933","48126","48502","48154","49007"],"MN":["55401","55101","55901","55802","55431","55344","55443","55311","55433","55337"],"MS":["39201","39530","39501","39401","38671","39301","38801","38701","39180","39564"],"MO":["64106","63101","65806","64050","65201","64068","63301","64501","63376","64014"],"MT":["59101","59802","59401","59715","59701","59601","59901","59714","59047","59840"],"NE":["68102","68508","68005","68801","68847","68701","69101","68601","68901","69341"],"NV":["89101","89015","89501","89031","89431","89701","89801","89048","89060","89406"],"NH":["03101","03060","03301","03038","03820","03079","03054","03833","03062","03801"],"NJ":["07102","07302","07505","07201","08753","08817","07018","08102","07055","07083"],"NM":["87102","88001","87124","87501","88201","87401","88101","88220","88240","87031"],"NY":["10001","14201","14604","13202","12207","10701","13501","10801","10550","12305"],"NC":["28202","27601","27401","27701","27101","28301","27511","28401","27262","28027"],"ND":["58102","58501","58201","58701","58078","58601","58554","58801","58401","58270"],"OH":["43215","44114","45202","43604","44308","45402","44107","44702","44503","45502"],"OK":["73102","74103","73069","74012","73501","73034","73110","74006","74055","74801"],"OR":["97204","97301","97401","97030","97124","97005","97702","97477","97504","97330"],"PA":["19102","15219","18101","16501","19601","18503","18018","17602","17101","16602"],"RI":["02903","02886","02920","02860","02816","02895","02840","02914","02806","02864"],"SC":["29401","29201","29406","29464","29732","29601","29483","29150","29445","29306"],"SD":["57104","57701","57401","57006","57301","57783","57201","57042","57069","57078"],"TN":["37201","38103","37902","37402","37042","37130","37064","38301","37660","37075"],"TX":["77002","78205","75201","78701","76102","79901","76010","78401","75074","78040"],"UT":["84101","84119","84601","84084","84081","84095","84057","84020","84401","84070"],"VT":["05401","05403","05701","05602","05641","05301","05468","05452","05477","05346"],"VA":["23456","23510","23320","23219","23607","22314","23666","24011","23704","23434"],"WA":["98101","99201","98402","98660","98004","98032","98201","98052","98023","98225"],"WV":["25301","25701","26505","26101","26003","26554","25801","25401","26301","25414"],"WI":["53202","53703","54301","53142","53403","54911","54901","54701","53186","53545"],"WY":["82001","82601","82070","82716","82901","82801","82301","83001","82520","82414"],"DC":["20001","20002","20003","20009","20011","20016","20019","20020","20024","20032"]};
+
+      if (STATE_MAJOR_ZIPS[stateCode]) {
+        const zips = STATE_MAJOR_ZIPS[stateCode];
+        zipCode = zips[Math.floor(Math.random() * zips.length)];
+        try {
+          const zipRes = await fetch('https://api.zippopotam.us/us/' + zipCode);
+          if (zipRes.status === 200) {
+            const zipData = await zipRes.json();
+            cityName = zipData.places[0]['place name'];
+            stateName = zipData.places[0]['state'];
           }
+        } catch(e) {}
+      }
+
+      // Fallback to random if major zip fetch fails
+      if (!cityName) {
+        const prefixes = ZIP_PREFIXES[stateCode];
+        for (let i = 0; i < 15; i++) {
+          const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+          const suffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+          const testZip = prefix + suffix;
+          try {
+            const zipRes = await fetch('https://api.zippopotam.us/us/' + testZip);
+            if (zipRes.status === 200) {
+              const zipData = await zipRes.json();
+              zipCode = testZip;
+              cityName = zipData.places[0]['place name'];
+              stateName = zipData.places[0]['state'];
+              break;
+            }
+          } catch(e) {}
         }
-        if (isDuplicate) {
-          toast(`⚠️ CẢNH BÁO TRÙNG LẶP: NPO này (${org.ein}) ĐÃ TỒN TẠI ở ${dupCount} thẻ khác! Vui lòng bấm Tìm NPO lần nữa để lấy NPO mới.`, 'error');
-          document.getElementById('npoResultSection').style.border = '2px solid var(--error)';
-          document.getElementById('npoResultSection').style.background = 'rgba(239, 68, 68, 0.1)';
-        } else {
-          document.getElementById('npoResultSection').style.border = '1px solid var(--success)';
-          document.getElementById('npoResultSection').style.background = 'rgba(34, 197, 94, 0.1)';
-          toast('Tìm thấy ' + (data.count || 1) + ' NPO! (Nguồn: ' + (data.source || 'IRS') + ')', 'success');
-        }
+      }
+      if (!zipCode) {
+        toast('Cảnh báo: Dùng zip mặc định vì random lỗi.', 'info');
+        zipCode = row.address.match(/\b\d{5}\b/)?.[0] || '10001';
+      }
+      
+      // 2. Fetch random name
+      const nameRes = await fetch('https://randomuser.me/api/?nat=us');
+      const nameData = await nameRes.json();
+      const user = nameData.results[0];
+      
+      // 3. Generate correct Area Code
+      const areaCodes = {"Alabama":["205","251","334","938"],"Alaska":["907"],"Arizona":["480","520","602","623","928"],"Arkansas":["479","501","870"],"California":["209","213","310","323","408","415","510","530","559","562","619","626","650","661","707","714","760","805","818","831","858","909","916","925","949"],"Colorado":["303","719","970"],"Connecticut":["203","860"],"Delaware":["302"],"Florida":["239","305","321","352","386","407","561","727","772","813","850","863","904","941","954"],"Georgia":["229","404","478","706","770","912"],"Hawaii":["808"],"Idaho":["208"],"Illinois":["217","309","312","618","630","708","773","815","847"],"Indiana":["219","260","317","574","765","812"],"Iowa":["319","515","563","641","712"],"Kansas":["316","620","785","913"],"Kentucky":["270","502","606","859"],"Louisiana":["225","318","337","504","985"],"Maine":["207"],"Maryland":["301","410","443"],"Massachusetts":["413","508","617","781","978"],"Michigan":["231","248","269","313","517","586","616","734","810","906","989"],"Minnesota":["218","320","507","612","651","763","952"],"Mississippi":["228","662","601"],"Missouri":["314","417","573","636","816"],"Montana":["406"],"Nebraska":["308","402"],"Nevada":["702","775"],"New Hampshire":["603"],"New Jersey":["201","609","732","856","908","973"],"New Mexico":["505","575"],"New York":["212","315","516","518","607","716","718","845","914","917","929","930"],"North Carolina":["252","336","704","828","910","919"],"North Dakota":["701"],"Ohio":["216","234","330","419","440","513","614","740","937"],"Oklahoma":["405","580","918"],"Oregon":["503","541"],"Pennsylvania":["215","412","570","610","717","724","814"],"Rhode Island":["401"],"South Carolina":["803","843","864"],"South Dakota":["605"],"Tennessee":["423","615","731","865","901","931"],"Texas":["210","214","254","281","361","409","432","512","713","806","817","830","903","915","936","940","956","972"],"Utah":["435","801"],"Vermont":["802"],"Virginia":["276","434","540","703","757","804"],"Washington":["206","253","360","425","509"],"West Virginia":["304"],"Wisconsin":["262","414","608","715","920"],"Wyoming":["307"]};
+      let phone = user.phone;
+      const codes = areaCodes[stateName] || areaCodes[Object.keys(areaCodes).find(k => k.toLowerCase() === stateName.toLowerCase())];
+      if (codes && codes.length > 0) {
+        const randomAreaCode = codes[Math.floor(Math.random() * codes.length)];
+        const suffix = Math.floor(1000000 + Math.random() * 9000000).toString();
+        phone = `(${randomAreaCode}) ${suffix.substring(0,3)}-${suffix.substring(3)}`;
+      }
+      
+      document.getElementById('bsnFullname').value = user.name.first + ' ' + user.name.last;
+      document.getElementById('bsnPhone').value = phone;
+      document.getElementById('bsnZip').value = zipCode;
+      document.getElementById('bsnCity').value = cityName || user.location.city;
+      document.getElementById('bsnState').value = stateName;
+      
+      // Giữ nguyên NPO nếu đã có, không clear NPO khi random Profile
+      toast('Tạo profile thành công!', 'success');
     } catch(e) {
       toast('Lỗi kết nối tạo profile', 'error');
     }
@@ -5897,7 +5998,24 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('npoIncomeText').innerText = org.income || 'N/A';
         
         document.getElementById('npoResultSection').style.display = 'flex';
-        toast('Tìm thấy ' + (data.count || 1) + ' NPO! (Nguồn: ' + (data.source || 'IRS') + ')', 'success');
+        // Duplicate NPO Check
+        let isDuplicate = false;
+        let dupCount = 0;
+        for (let key in ccnData) {
+          if (key !== document.getElementById('bsnRowId').value && ccnData[key] && ccnData[key].bsn && ccnData[key].bsn.npoEin === org.ein) {
+            isDuplicate = true;
+            dupCount++;
+          }
+        }
+        if (isDuplicate) {
+          toast(`⚠️ CẢNH BÁO TRÙNG LẶP: NPO này (${org.ein}) ĐÃ TỒN TẠI ở ${dupCount} thẻ khác! Vui lòng bấm Tìm NPO lần nữa để lấy NPO mới.`, 'error');
+          document.getElementById('npoResultSection').style.border = '2px solid var(--error)';
+          document.getElementById('npoResultSection').style.background = 'rgba(239, 68, 68, 0.1)';
+        } else {
+          document.getElementById('npoResultSection').style.border = '1px solid var(--success)';
+          document.getElementById('npoResultSection').style.background = 'rgba(34, 197, 94, 0.1)';
+          toast('Tìm thấy ' + (data.count || 1) + ' NPO! (Nguồn: ' + (data.source || 'IRS') + ')', 'success');
+        }
       } else {
         toast(data.message || 'Không tìm thấy NPO!', 'error');
       }
