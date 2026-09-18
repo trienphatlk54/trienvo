@@ -5689,7 +5689,7 @@ function renderCcnTable() {
        // Thêm nút Thêm cột hoặc form Notes
        if (row.status === 6) {
          cardsHtml += `<div style="flex: 1; padding:5px 8px; min-width: 250px; display: flex; flex-direction: column; justify-content: center;">
-           <input type="text" class="proxy-input" style="width:100%; font-size:12px; padding:6px; background: var(--surface2); color: var(--text);" placeholder="Ghi chú admin..." value="${escapeHtml(row.notes || '')}" onchange="updateCcnNotes('${row.id}', this.value)">
+           <input type="text" class="proxy-input" style="width:100%; font-size:12px; padding:6px; background: var(--surface2); color: var(--text);" placeholder="Ghi chú admin..." value="${escapeHtml(row.notes || '')}" oninput="updateCcnNotes('${row.id}', this.value)">
          </div>`;
        } else {
          cardsHtml += `<div style="flex: 0 0 auto; padding:5px 8px; text-align:center; min-width:0; display:flex; align-items:center;">
@@ -5732,6 +5732,7 @@ async function editCcnRow(id) {
   const email = prompt('Sửa Email:', row.email);
   if (email === null) return;
   const newRow = {
+    ...row,
     email: email,
     pass: prompt('Sửa Password:', row.pass) || '',
     twofa: prompt('Sửa 2FA:', row.twofa) || '',
@@ -5744,15 +5745,22 @@ async function editCcnRow(id) {
 }
 
 
+let ccnNotesTimer = {};
 async function updateCcnNotes(id, notes) {
   if (!ccnData[id]) return;
   ccnData[id].notes = notes;
-  try {
-    await saveCcnRecord(id, ccnData[id]);
-    toast('Đã lưu ghi chú', 'success');
-  } catch(e) {
-    toast('Lỗi lưu ghi chú', 'error');
-  }
+  clearTimeout(ccnNotesTimer[id]);
+  ccnNotesTimer[id] = setTimeout(async () => {
+    try {
+      // Direct API call without triggering renderCcnTable so we don't lose focus
+      await fetch('/api/ccn/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ id, ...ccnData[id] })
+      });
+      toast('Đã tự động lưu ghi chú', 'success');
+    } catch(e) {}
+  }, 1000);
 }
 
 async function deleteCcnRow(id) {
