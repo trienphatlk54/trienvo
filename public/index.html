@@ -5568,7 +5568,8 @@ function renderCcnTable() {
           <button class="btn btn-sm ${row.bsn ? 'btn-ghost' : 'btn-primary'}" onclick="openBsnModal('${row.id}')" style="font-size:11px; padding:3px 6px; ${row.bsn ? 'color: var(--success);' : ''}">${row.bsn ? '👤 Xem BSN' : '➕ Tạo BSN'}</button>
         </td>
         <td style="padding: 10px 8px; text-align: center;">
-          <select onchange="moveCcnRow('${row.id}', parseInt(this.value))" style="font-size:11px; padding: 4px 6px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; width: 100%; cursor: pointer;">
+          <div style="display: flex; gap: 4px; align-items: center; justify-content: center;">
+            <select onchange="moveCcnRow('${row.id}', parseInt(this.value))" style="font-size:11px; padding: 4px 6px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; flex-grow: 1; min-width: 0; cursor: pointer;">
             <option value="" disabled selected>Chuyển Tab...</option>
             <option value="0" ${row.status === 0 ? 'disabled' : ''}>Chưa làm</option>
             <option value="1" ${row.status === 1 ? 'disabled' : ''}>Success</option>
@@ -5578,6 +5579,8 @@ function renderCcnTable() {
             <option value="5" ${row.status === 5 ? 'disabled' : ''}>Review</option>
             <option value="6" ${row.status === 6 ? 'disabled' : ''}>Lock</option>
           </select>
+            <button class="btn btn-ghost btn-sm" style="padding: 2px 4px; font-size: 14px; color: var(--error); margin: 0; border: none; background: transparent; cursor: pointer;" onclick="deleteCcnRow('${row.id}')" title="Xóa dòng dữ liệu này">🗑️</button>
+          </div>
         </td>
         <td style="padding: 10px 8px; text-align: center;">
           ${row.linkedProxy ? `
