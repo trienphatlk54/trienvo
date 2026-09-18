@@ -2142,6 +2142,7 @@ function renderFirebaseData() {
   });
   
   let html = '';
+  let idx = 0;
   for (const key of keys) {
     const item = window.shopeeAccountsData[key];
     
@@ -2153,9 +2154,12 @@ function renderFirebaseData() {
       if (!matchStr.includes(searchInput)) continue;
     }
     
+    const isEven = idx % 2 === 0;
+    const bg = isEven ? 'background: transparent;' : 'background: rgba(255, 255, 255, 0.04);';
+    idx++;
     html += `
-      <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-        <td style="padding: 12px 8px; position: sticky; left: 0; z-index: 1; background-color: var(--bg); box-shadow: 1px 0 0 var(--border);"><input type="checkbox" class="shopee-row-checkbox" value="${key}" onchange="updateShopeeSelection()"></td>
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); ${bg}">
+        <td style="padding: 12px 8px; position: sticky; left: 0; z-index: 1; background-color: ${isEven ? 'var(--bg)' : '#1e1e1e'}; box-shadow: 1px 0 0 var(--border);"><input type="checkbox" class="shopee-row-checkbox" value="${key}" onchange="updateShopeeSelection()"></td>
         <td style="padding: 12px 8px; color:var(--text-muted); font-size:12px;">${item.time || '-'}</td>
         <td style="padding: 12px 8px;">${formatElapsed(item.time)}</td>
         <td style="padding: 12px 8px; font-family:monospace; font-weight:bold;">${item.identifier || ''}</td>
@@ -3562,8 +3566,10 @@ function renderPhoneTable() {
       if (!matchStr.includes(searchInput)) continue;
     }
     
+    const isEven = count % 2 === 0;
+    const bg = isEven ? 'background: transparent;' : 'background: rgba(255, 255, 255, 0.04);';
     html += `
-      <tr style="border-bottom: 1px solid rgba(0,0,0,0.05);" title="Click các ô để copy">
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); ${bg}" title="Click các ô để copy">
         <td style="padding: 12px 8px; font-weight:bold; font-size:13px; white-space:nowrap; width:1%; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(p.identifier || '')}</td>
         <td style="padding: 12px 8px; cursor:pointer;" onclick="copyText(this.innerText)">
           <span style="background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 4px; font-size: 11px;">
@@ -5550,8 +5556,11 @@ function renderCcnTable() {
   if (maxBsnWidth > 250) maxBsnWidth = 250;
   
   entries.forEach((row, idx) => {
+    const isEven = idx % 2 === 0;
+    const bgMain = isEven ? 'background: transparent;' : 'background: rgba(255, 255, 255, 0.04);';
+    const bgSub = isEven ? 'background: rgba(255, 255, 255, 0.02);' : 'background: rgba(255, 255, 255, 0.06);';
     rows += `
-      <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); ${bgMain}">
         <td style="padding: 10px 8px; text-align: center; color: var(--text-muted);">${idx + 1}</td>
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.email)}</td>
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.pass)}</td>
@@ -5652,7 +5661,7 @@ function renderCcnTable() {
        }
        
        rows += `
-         <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.1);">
+         <tr style="${bgSub} border-bottom: 1px solid rgba(255,255,255,0.1);">
            <td colspan="13" style="padding:0;">
              <div style="display:flex; width:100%;">
                <div style="width: max-content; min-width: 150px; padding: 8px 16px 8px 8px; border-right: 1px solid var(--border); font-weight:bold; color:var(--primary); white-space:nowrap; font-size: 16px;" title="${bsnFullname}">${bsnFullname}</div>
