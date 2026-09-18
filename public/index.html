@@ -5554,6 +5554,10 @@ function renderCcnTable() {
       return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, stateCode: computed.stateCode, status: row.status||0, identity: row.identity || '', linkedProxy: row.linkedProxy || '', bsn: row.bsn || null, assignedCards: row.assignedCards || [], extraSlots: row.extraSlots || 0, notes: (window.ccnCardsNotes && window.ccnCardsNotes[id] !== undefined) ? window.ccnCardsNotes[id] : (row.notes || '') };
     });
 
+  if (currentCcnTab === 6) {
+    entries.reverse();
+  }
+  
   if (searchInput) {
     entries = entries.filter(r => {
       return r.email.toLowerCase().includes(searchInput) ||
