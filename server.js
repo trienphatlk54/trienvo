@@ -928,7 +928,7 @@ app.post('/api/data/save', async (req, res) => {
       await ref.child(syncId).update({ phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier: identifier || '', phoneId: phoneId || '', shopeeSpcF: shopeeSpcF || '', shopeeSpcSt: shopeeSpcSt || '', shopeeUsername: shopeeUsername || '' });
     } else {
       const newEntry = ref.push();
-      await newEntry.set({ phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier: identifier || '', phoneId: phoneId || '', orderStatus: '', shopeeSpcF: shopeeSpcF || '', shopeeSpcSt: shopeeSpcSt || '', shopeeUsername: shopeeUsername || '' });
+      await newEntry.set({  phone, password, provider, time, note, ipProxy, simSource, simStatus, identifier: identifier || '', phoneId: phoneId || '', orderStatus: '', shopeeSpcF: shopeeSpcF || '', shopeeSpcSt: shopeeSpcSt || '', shopeeUsername: shopeeUsername || '' , notes: notes || '' });
     }
     res.json({ status: 1 });
   } catch (e) {
@@ -1151,11 +1151,11 @@ app.get('/api/npo-lookup', async (req, res) => {
 
 
 app.post('/api/ccn/save', async (req, res) => {
-  const { id, email, pass, twofa, country, address, status, identity, linkedProxy, bsn, assignedCards, extraSlots } = req.body;
+  const {  id, email, pass, twofa, country, address, status, identity, linkedProxy, bsn, assignedCards, extraSlots , notes } = req.body;
   try {
     const ref = db.ref('ccn_accounts');
     if (id) {
-      await ref.child(id).update({ email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '', bsn: bsn || null, assignedCards: assignedCards || null, extraSlots: extraSlots || 0 });
+      await ref.child(id).update({  email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '', bsn: bsn || null, assignedCards: assignedCards || null, extraSlots: extraSlots || 0 , notes: notes || '' });
       res.json({ status: 1, id });
     } else {
       const newEntry = ref.push();
