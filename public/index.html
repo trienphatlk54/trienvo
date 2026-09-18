@@ -5551,7 +5551,7 @@ function renderCcnTable() {
     .filter(([id, row]) => (row.status || 0) === currentCcnTab)
     .map(([id, row]) => {
       const computed = processAddress(row.address);
-      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, stateCode: computed.stateCode, status: row.status||0, identity: row.identity || '', linkedProxy: row.linkedProxy || '', bsn: row.bsn || null, assignedCards: row.assignedCards || [], extraSlots: row.extraSlots || 0, notes: row.notes || '' };
+      return { id, email: row.email||'', pass: row.pass||'', twofa: row.twofa||'', country: row.country||'', address: row.address||'', state: computed.state, timeState: computed.time, tz: computed.tz, stateCode: computed.stateCode, status: row.status||0, identity: row.identity || '', linkedProxy: row.linkedProxy || '', bsn: row.bsn || null, assignedCards: row.assignedCards || [], extraSlots: row.extraSlots || 0, notes: (window.ccnCardsNotes && window.ccnCardsNotes[id] !== undefined) ? window.ccnCardsNotes[id] : (row.notes || '') };
     });
 
   if (searchInput) {
@@ -5749,16 +5749,18 @@ let ccnNotesTimer = {};
 async function updateCcnNotes(id, notes) {
   if (!ccnData[id]) return;
   ccnData[id].notes = notes;
+  if (!window.ccnCardsNotes) window.ccnCardsNotes = {};
+  window.ccnCardsNotes[id] = notes;
+  
   clearTimeout(ccnNotesTimer[id]);
   ccnNotesTimer[id] = setTimeout(async () => {
     try {
-      // Direct API call without triggering renderCcnTable so we don't lose focus
-      await fetch('/api/ccn/save', {
+      await fetch('/api/ccn-cards-notes/save', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ id, ...ccnData[id] })
+        body: JSON.stringify({ bin: id, note: notes })
       });
-      toast('Đã tự động lưu ghi chú', 'success');
+      toast('Đã lưu ghi chú Admin', 'success');
     } catch(e) {}
   }, 1000);
 }
@@ -6137,6 +6139,7 @@ window.loadCcnCards = async function() {
       const notesResult = await notesRes.json();
       if(notesResult.status === 1) window.ccnCardsNotes = notesResult.data || {};
       window.renderCcnCards();
+      if (typeof renderCcnTable === 'function') renderCcnTable();
     }
   } catch(e) {
     console.error('Lỗi tải danh sách thẻ CCN', e);
