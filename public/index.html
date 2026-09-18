@@ -1568,7 +1568,7 @@
                   <th style="padding: 10px 8px; width: 1%; white-space: nowrap; text-align: center;">Time Zone</th>
                   <th style="padding: 10px 8px; text-align: center;">BSN</th>
                     <th style="padding: 10px 8px; width: 100px; text-align: center;">Trạng thái</th>
-                    <th style="padding: 10px 8px; width: 140px; text-align: center;">Thao tác</th>
+                    <th style="padding: 0 4px; width: 1%; text-align: center; white-space: nowrap;">Thao tác</th>
                 </tr>
               </thead>
                 <tbody id="ccnTableBody">
@@ -5582,7 +5582,7 @@ function renderCcnTable() {
             <button class="btn btn-ghost btn-sm" style="padding: 2px 4px; font-size: 14px; color: var(--error); margin: 0; border: none; background: transparent; cursor: pointer;" onclick="deleteCcnRow('${row.id}')" title="Xóa dòng dữ liệu này">🗑️</button>
           </div>
         </td>
-        <td style="padding: 10px 8px; text-align: center;">
+        <td style="padding: 0; width: 1%; text-align: center; white-space: nowrap;">
           ${row.linkedProxy ? `
             <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
               <span style="font-size:10px; font-family:monospace; color:var(--success); max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="copyText('${row.linkedProxy}')" title="${row.linkedProxy}">${row.linkedProxy}</span>
