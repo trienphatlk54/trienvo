@@ -922,7 +922,14 @@
 
     .sidebar.collapsed { display: none !important; }
 
-</style>
+
+    .char-hint {
+      border-bottom: 1px dotted var(--warning);
+      color: var(--warning);
+      cursor: help;
+      font-weight: bold;
+    }
+  </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -5063,6 +5070,21 @@ let ccnSortCol = '';
 let ccnSortAsc = true;
 let currentCcnTab = 0;
 
+function highlightConfusingChars(text) {
+  if (!text) return '';
+  let escaped = escapeHtml(text);
+  escaped = escaped.replace(/([IlO01])/g, function(match) {
+    let hint = '';
+    if (match === 'I') hint = 'Chữ i ngắn IN HOA (I)';
+    if (match === 'l') hint = 'Chữ L in thường (l)';
+    if (match === 'O') hint = 'Chữ O IN HOA (O)';
+    if (match === '0') hint = 'Số KHÔNG (0)';
+    if (match === '1') hint = 'Số MỘT (1)';
+    return `<span class="char-hint" title="${hint}">${match}</span>`;
+  });
+  return escaped;
+}
+
 let ccnEditIdentityId = null;
 function renderCcnIdentityCell(row) {
   if (row.identity && ccnEditIdentityId !== row.id) {
@@ -5562,8 +5584,8 @@ function renderCcnTable() {
     rows += `
       <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); ${bgMain}">
         <td style="padding: 10px 8px; text-align: center; color: var(--text-muted);">${idx + 1}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.email)}</td>
-        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${escapeHtml(row.pass)}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${highlightConfusingChars(row.email)}</td>
+        <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${highlightConfusingChars(row.pass)}</td>
         <td class="totp-cell" data-secret="${escapeHtml(row.twofa)}" style="padding: 10px 8px; cursor: pointer; font-family: monospace; font-size: 14px; font-weight: bold; color: var(--primary); text-align: center; letter-spacing: 2px;" title="Click để Copy Code (Secret: ${escapeHtml(row.twofa)})" onclick="copyText(this.innerText)">------</td>
         <td style="padding: 10px 8px;">${renderCcnIdentityCell(row)}</td>
         
