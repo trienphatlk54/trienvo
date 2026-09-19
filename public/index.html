@@ -1082,7 +1082,7 @@
           <button class="btn btn-secondary btn-sm" id="btnZoomQR" onclick="openQrModal()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; font-size: 12px; font-weight: 500; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); transition: all 0.2s;">
             🔍 Phóng to mã QR
           </button>
-          <button class="btn btn-secondary btn-sm" id="btnProxyQR" onclick="openProxyQrModal()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; font-size: 12px; font-weight: 500; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 6px; color: var(--success); transition: all 0.2s;">
+          <button class="btn btn-secondary btn-sm" id="btnProxyQR" onclick="openMainProxyQR()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; font-size: 12px; font-weight: 500; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 6px; color: var(--success); transition: all 0.2s;">
             📱 QR Proxy
           </button>
         </div>
@@ -4697,31 +4697,21 @@ async function startVoucherCheck() {
   <img id="qrFullscreenImage" src="" style="height:95vh; max-height:95vh; width:auto; max-width:95vw; object-fit:contain; background:white; padding:20px; border-radius:12px; box-sizing: border-box;">
 </div>
 
-<div id="proxyQrFullscreenModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; flex-direction:column; justify-content:center; align-items:center;">
-  <button onclick="closeProxyQrModal()" style="position:absolute; top:20px; right:20px; background:var(--error); color:white; border:none; border-radius:8px; padding:10px 20px; font-size:16px; font-weight:bold; cursor: pointer; z-index:10000;">❌ Đóng</button>
-  <img id="proxyQrFullscreenImage" src="" style="height:80vh; max-height:80vh; width:auto; max-width:90vw; object-fit:contain; background:white; padding:20px; border-radius:12px; box-sizing: border-box;">
-  <div style="margin-top: 20px; color: white; font-size: 16px; font-family: monospace; background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; word-break: break-all; max-width: 90vw;" id="proxyQrText"></div>
-</div>
-
 <script>
-window.currentProxyString = '';
-function openProxyQrModal() {
+function openMainProxyQR() {
   const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
   const suf = isCreate ? '_create' : '';
   const proxyInput = document.getElementById('proxyInput' + suf) || document.getElementById('proxyInput');
-  const val = proxyInput ? proxyInput.value.trim() : window.currentProxyString;
+  const val = proxyInput ? proxyInput.value.trim() : '';
   if (val) {
-    document.getElementById('proxyQrFullscreenImage').src = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=' + encodeURIComponent(val) + '&bgcolor=12121A&color=ffffff&margin=2';
-    document.getElementById('proxyQrText').innerText = val;
-    document.getElementById('proxyQrFullscreenModal').style.display = 'flex';
+    showProxyQR(val);
   } else {
     toast('Chưa có Proxy để tạo QR', 'error');
   }
 }
-function closeProxyQrModal() {
-  document.getElementById('proxyQrFullscreenModal').style.display = 'none';
-}
 </script>
+
+
 
 <script>
 function openQrModal() {
