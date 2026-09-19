@@ -1231,6 +1231,17 @@
 
       </div>
       </div>
+      <!-- 📋 Hàng chờ máy -->
+      <div style="padding: 8px 12px 12px; border-top: 1px dashed var(--border);">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0 8px;">
+          <span style="font-size: 13px; font-weight: 600; color: var(--text);">📋 Hàng chờ (<span id="queueCount">0</span>)</span>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn btn-primary btn-sm" onclick="addToQueue()" style="font-size: 12px; padding: 4px 12px;">+ Thêm vào hàng chờ</button>
+            <button class="btn btn-secondary btn-sm" onclick="clearAllQueue()" style="font-size: 11px; padding: 4px 8px; color: var(--danger); border-color: var(--danger);">Xóa hết</button>
+          </div>
+        </div>
+        <div id="phoneQueueList" style="display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; scrollbar-width: thin;"></div>
+      </div>
     </div>
     
     <div class="main-card" style="margin: 0 16px 16px 16px; border: 1px solid var(--border); padding: 0;">
@@ -1344,6 +1355,7 @@
         <div id="pandaProxyContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 16px;">
            <div style="font-size: 13px; color: var(--text-muted);">Đang tải danh sách Proxy...</div>
         </div>
+
       </div>
     </div>
     </div>
@@ -3433,9 +3445,13 @@ async function loadPandaProxies() {
                 </button>
               </div>
               
-            </div>
+              </div>
           </div>
-        `;
+        </div>
+
+      </div>      </div>
+      </div>
+    </div>`;
         
         container.insertAdjacentHTML('beforeend', cardHtml);
         
@@ -4231,6 +4247,113 @@ function updateSelectedPhoneUI() {
       btnTrigger.innerHTML = `<span>🔍 Chọn máy lưu tài khoản...</span><span style="font-size: 10px; color: var(--text-muted);">▼</span>`;
     }
   }
+}
+
+// ==================== PHONE QUEUE ====================
+let phoneQueue = JSON.parse(localStorage.getItem('phone_queue') || '[]');
+renderQueue();
+
+function saveQueue() {
+  localStorage.setItem('phone_queue', JSON.stringify(phoneQueue));
+}
+
+function addToQueue() {
+  if (!selectedPhoneIdForSave) {
+    toast('Vui lòng chọn máy trước khi thêm vào hàng chờ!', 'warning');
+    return;
+  }
+  const pwd = document.getElementById('generatedPassword')?.value || '';
+  if (!pwd) {
+    toast('Vui lòng tạo mật khẩu trước!', 'warning');
+    return;
+  }
+  const p = phonesData[selectedPhoneIdForSave];
+  if (!p) return;
+
+  // Check duplicate
+  if (phoneQueue.some(q => q.phoneId === selectedPhoneIdForSave)) {
+    toast('Máy này đã có trong hàng chờ!', 'warning');
+    return;
+  }
+
+  phoneQueue.push({
+    phoneId: selectedPhoneIdForSave,
+    phoneName: (p.identifier || '') + ' - ' + (p.type || ''),
+    password: pwd
+  });
+  saveQueue();
+  renderQueue();
+  toast('Đã thêm vào hàng chờ: ' + (p.identifier || selectedPhoneIdForSave), 'success');
+
+  // Clear current selection and generate new password for next pick
+  clearSelectedPhone();
+  generatePassword(true);
+}
+
+function renderQueue() {
+  const list = document.getElementById('phoneQueueList');
+  const countEl = document.getElementById('queueCount');
+  if (countEl) countEl.textContent = phoneQueue.length;
+  if (!list) return;
+
+  if (phoneQueue.length === 0) {
+    list.innerHTML = '<div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 8px;">Chưa có máy nào trong hàng chờ. Chọn máy + tạo mật khẩu rồi bấm "+ Thêm".</div>';
+    return;
+  }
+
+  let html = '';
+  phoneQueue.forEach((item, idx) => {
+    html += `<div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px;">
+      <span style="font-size: 12px; font-weight: 700; color: var(--primary); min-width: 20px;">#${idx + 1}</span>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.phoneName)}</div>
+        <div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">🔑 ${escapeHtml(item.password)}</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="activateQueueItem(${idx})" style="font-size: 11px; padding: 4px 10px; white-space: nowrap;">▶ Kích hoạt</button>
+      <button class="btn btn-secondary btn-sm" onclick="removeQueueItem(${idx})" style="font-size: 11px; padding: 4px 8px; color: var(--danger); border-color: var(--danger);">✕</button>
+    </div>`;
+  });
+  list.innerHTML = html;
+}
+
+function activateQueueItem(idx) {
+  const item = phoneQueue[idx];
+  if (!item) return;
+
+  // Set the phone
+  selectedPhoneIdForSave = item.phoneId;
+  updateSelectedPhoneUI();
+
+  // Set the password
+  const pwdEl = document.getElementById('generatedPassword');
+  if (pwdEl) {
+    pwdEl.value = item.password;
+    updatePasswordQR();
+  }
+
+  // Remove from queue
+  phoneQueue.splice(idx, 1);
+  saveQueue();
+  renderQueue();
+
+  toast('Đã kích hoạt: ' + item.phoneName, 'success');
+}
+
+function removeQueueItem(idx) {
+  const item = phoneQueue[idx];
+  phoneQueue.splice(idx, 1);
+  saveQueue();
+  renderQueue();
+  if (item) toast('Đã xóa khỏi hàng chờ: ' + item.phoneName, 'info');
+}
+
+function clearAllQueue() {
+  if (phoneQueue.length === 0) return;
+  if (!confirm('Xóa toàn bộ ' + phoneQueue.length + ' mục trong hàng chờ?')) return;
+  phoneQueue = [];
+  saveQueue();
+  renderQueue();
+  toast('Đã xóa hết hàng chờ!', 'info');
 }
 
 function updateSummaryUI() { /* Removed */ }
