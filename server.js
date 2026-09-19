@@ -1784,6 +1784,49 @@ app.get('/api/floppydata/balance', async (req, res) => {
     const r = await fetch(FLOPPY_BASE_URL + '/v2/proxy/rotating/balance', {
       headers: { 'X-Api-Key': req.headers['x-floppy-api-key'] || '' }
     });
+
+
+// 🐼 PANDAPROXYS API 🐼
+
+const PANDA_API_URL = 'https://pandaproxys.com/api/v2';
+const PANDA_TOKEN = 'panda645884_eebe80da9de831be996be70d86669cc864ada9f19f035ac1812286690e2bb210';
+const PANDA_MERCHANT_ID = '357e7dcd-d4a0-4ada-96da-c3725d3defa6';
+
+app.get('/api/panda/proxies', async (req, res) => {
+  try {
+    const url = PANDA_API_URL + '/users/proxies?sort=[{"orderBy":"createdAt","order":"desc"}]&filters={"proxy":{"ipaddress":{"categorytype":{"id":2}}}}';
+    const r = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + PANDA_TOKEN,
+        'x-merchant-id': PANDA_MERCHANT_ID
+      }
+    });
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/panda/rotate', async (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ status: 'error', message: 'Thiếu ID proxy' });
+  try {
+    const url = PANDA_API_URL + '/proxies/' + id + '/rotate';
+    const r = await fetch(url, {
+      headers: {
+        'Authorization': 'Bearer ' + PANDA_TOKEN
+      }
+    });
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+});
+
+
     const text = await r.text();
     try {
       res.json(JSON.parse(text));

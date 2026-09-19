@@ -1109,6 +1109,7 @@
         <button class="btn btn-primary btn-sm" id="btnSaveProxy" onclick="saveProxy()">💾 Lưu Proxy</button>
         <button class="btn btn-secondary btn-sm" id="btnAutoVnProxy" onclick="autoSetVnProxy()" style="font-weight: bold; background: rgba(34,197,94,0.15); border: 1px solid var(--success); color: var(--success);">🇻🇳 Lấy Proxy VN</button>
         <button class="btn btn-secondary btn-sm" id="btnAutoVnProxyAndQR" onclick="autoSetVnProxyAndQR()" style="font-weight: bold; background: rgba(59,130,246,0.15); border: 1px solid var(--primary); color: var(--primary);">🇻🇳 Lấy Proxy & QR Code</button>
+        <button class="btn btn-secondary btn-sm" id="btnAutoPandaProxyAndQR" onclick="autoSetPandaProxyAndQR()" style="font-weight: bold; background: rgba(255, 165, 0, 0.15); border: 1px solid orange; color: orange;">🐼 Lấy Panda & QR</button>
         <button class="btn btn-danger btn-sm" id="btnClearProxy" onclick="clearProxy()" style="display:none;">✕</button>
       </div>
     </div>
@@ -3238,6 +3239,119 @@ async function autoSetVnProxyAndQR() {
     if (btn) {
       btn.disabled = false;
       btn.textContent = '🇻🇳 Lấy Proxy & QR Code';
+    }
+  }
+}
+
+
+async function autoSetPandaProxyAndQR() {
+  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
+  const suf = isCreate ? '_create' : '';
+  const btnId = 'btnAutoPandaProxyAndQR' + suf;
+  const btn = document.getElementById(btnId) || $(btnId) || document.getElementById('btnAutoPandaProxyAndQR');
+  
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Đang lấy Panda Proxy...';
+  }
+
+  try {
+    const resList = await fetch('/api/panda/proxies');
+    const dataList = await resList.json();
+    if (!dataList || !dataList.data || dataList.data.length === 0) {
+      throw new Error('Không có proxy Panda nào đang ACTIVE (hoặc chưa mua).');
+    }
+    
+    const proxyItem = dataList.data[0];
+    const proxyId = proxyItem.id;
+    
+    if (btn) btn.textContent = 'Đang xoay IP...';
+    
+    const resRot = await fetch('/api/panda/rotate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: proxyId })
+    });
+    const dataRot = await resRot.json();
+    if (dataRot.status !== 'success') {
+      throw new Error(dataRot.message || 'Lỗi xoay IP PandaProxy');
+    }
+    
+    let rawStr = dataRot.proxy || '';
+    if (!rawStr && dataRot.data && dataRot.data.proxy) rawStr = dataRot.data.proxy;
+    
+    if (!rawStr) throw new Error('Không nhận được chuỗi proxy từ PandaProxy');
+    
+    const parts = rawStr.split(':');
+    let formattedConnString = rawStr;
+    if (parts.length === 4) {
+      formattedConnString = 'http://' + parts[0] + ':' + parts[1] + ':' + parts[2] + ':' + parts[3];
+    } else {
+      formattedConnString = 'http://' + rawStr;
+    }
+
+    const input = $('proxyInput' + suf) || $('proxyInput');
+    input.value = formattedConnString;
+    
+    if (btn) btn.textContent = 'Đang kiểm tra IP...';
+    
+    const type = ($('proxyType' + suf) || $('proxyType')).value;
+    const raw = input.value.trim();
+    const res = await fetch('/api/proxy/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, raw }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      toast('Đã lưu cấu hình proxy PandaProxy', 'success');
+      const pInfo = $('proxyInfo' + suf) || $('proxyInfo');
+      const pIp = $('proxyIp' + suf) || $('proxyIp');
+      const pLoc = $('proxyLoc' + suf) || $('proxyLoc');
+      if(pInfo) {
+        pInfo.style.display = 'flex';
+        pIp.textContent = 'Đang check...';
+        pLoc.textContent = 'Đang check...';
+      }
+
+      try {
+        const checkRes = await fetch('/api/proxy/check');
+        const checkData = await checkRes.json();
+        
+        if (checkData.success) {
+           if(pIp) pIp.textContent = checkData.ip;
+           if(pLoc) pLoc.textContent = checkData.location || 'Unknown';
+           
+           if(checkData.location && (checkData.location.includes('VN') || checkData.location.includes('Vietnam'))) {
+             toast('IP Proxy: ' + checkData.ip + ' (Việt Nam)', 'success');
+           } else {
+             toast('IP Proxy: ' + checkData.ip + ' (' + (checkData.location || 'Unknown') + ')', 'warning');
+           }
+
+           const shopeeQRBtn = $('btnQRProxy' + suf) || $('btnQRProxy') || document.getElementById('btnQRProxy');
+           if (shopeeQRBtn) {
+             shopeeQRBtn.style.display = 'inline-block';
+           }
+        } else {
+           if(pIp) pIp.textContent = 'Lỗi';
+           if(pLoc) pLoc.textContent = 'Lỗi';
+           toast('Lỗi check proxy: ' + (checkData.error || 'Unknown'), 'error');
+        }
+      } catch(err) {
+         if(pIp) pIp.textContent = 'Lỗi';
+         if(pLoc) pLoc.textContent = 'Lỗi';
+         toast('Lỗi khi gọi API check proxy: ' + err.message, 'error');
+      }
+    } else {
+      toast('Lỗi lưu cấu hình: ' + (data.error || 'Unknown'), 'error');
+    }
+  } catch(e) {
+    toast('🐼 ' + e.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🐼 Lấy Panda & QR';
     }
   }
 }
