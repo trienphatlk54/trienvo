@@ -1341,7 +1341,7 @@
         </div>
         
         
-        <div id="pandaProxyContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+        <div id="pandaProxyContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 16px;">
            <div style="font-size: 13px; color: var(--text-muted);">Đang tải danh sách Proxy...</div>
         </div>
       </div>
@@ -2263,9 +2263,7 @@ switchTab = function(tabId) {
     loadFloppyProxies();
     loadFloppyBalance();
   }
-  if (tabId === 'create') {
-    setTimeout(() => { if (typeof loadPandaProxies === 'function') loadPandaProxies(); }, 200);
-  }
+  
 }
 
 // ── Password Generator ─────────────────────────────────────────────────────────
@@ -3394,15 +3392,15 @@ async function loadPandaProxies() {
         }
         
         const cardHtml = `
-          <div class="proxy-card" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; display: flex; overflow: hidden; height: 100%; align-items: stretch;">
+          <div class="proxy-card" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; display: flex; overflow-x: auto; height: 100%; align-items: stretch; scrollbar-width: thin;">
             
             <!-- Left: QR Code Block (Full height) -->
-            <div style="background: white; aspect-ratio: 1/1; display: flex; justify-content: center; align-items: center; padding: 2px; box-sizing: border-box;">
+            <div style="background: white; aspect-ratio: 1/1; display: flex; justify-content: center; align-items: center; padding: 5px; box-sizing: border-box; flex-shrink: 0;">
               <div id="pandaQR_${id}${suf}" class="panda-qr-container" style="width: 100%; height: 100%;"></div>
             </div>
             
             <!-- Right: Info & Actions -->
-            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; padding: 12px;">
+            <div style="flex: 1; min-width: 260px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; padding: 12px;">
               
               <!-- Header / Title -->
               <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px dashed rgba(255,165,0,0.3); padding-bottom: 6px;">
@@ -3654,7 +3652,6 @@ async function startSession() {
       setStatus('ready', 'Chờ quét QR');
       if (data.expiresAt) startTimer(data.expiresAt);
       startPolling();
-  setTimeout(loadPandaProxies, 500);
     } else {
       // Poll chờ QR sẵn sàng (tối đa 3 phút)
       console.log('[startSession] Chờ QR qua polling...');
