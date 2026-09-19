@@ -1784,6 +1784,16 @@ app.get('/api/floppydata/balance', async (req, res) => {
     const r = await fetch(FLOPPY_BASE_URL + '/v2/proxy/rotating/balance', {
       headers: { 'X-Api-Key': req.headers['x-floppy-api-key'] || '' }
     });
+    const text = await r.text();
+    try {
+      res.json(JSON.parse(text));
+    } catch(e) {
+      res.status(r.status).json({ error: text || 'Lỗi không xác định từ API' });
+    }
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 
 // 🐼 PANDAPROXYS API 🐼
@@ -1812,7 +1822,19 @@ app.get('/api/panda/proxies', async (req, res) => {
 app.post('/api/panda/rotate', async (req, res) => {
   const { id } = req.body;
   if (!id) return res.status(400).json({ status: 'error', message: 'Thiếu ID proxy' });
-
+  try {
+    const url = PANDA_API_URL + '/proxies/' + id + '/rotate';
+    const r = await fetch(url, {
+      headers: {
+        'Authorization': 'Bearer ' + PANDA_TOKEN
+      }
+    });
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+});
 
 app.post('/api/panda/check-proxy', async (req, res) => {
   const { proxyStr } = req.body;
@@ -1833,6 +1855,8 @@ app.post('/api/panda/check-proxy', async (req, res) => {
     }
     
     const proxyUri = pUser ? `http://${encodeURIComponent(pUser)}:${encodeURIComponent(pPass)}@${pHost}:${pPort}` : `http://${pHost}:${pPort}`;
+    
+    const HttpsProxyAgent = require('https-proxy-agent').HttpsProxyAgent;
     const agent = new HttpsProxyAgent(proxyUri);
     
     const http = require('http');
@@ -1860,51 +1884,5 @@ app.post('/api/panda/check-proxy', async (req, res) => {
     }
   } catch (e) {
     res.json({ success: false, error: e.message });
-  }
-});
-  try {
-    const HttpsProxyAgent = require('https-proxy-agent').HttpsProxyAgent;
-    const HttpProxyAgent = require('http-proxy-agent').HttpProxyAgent;
-    
-    const isHttpsProxy = proxyStr.startsWith('https');
-    const agent = isHttpsProxy ? new HttpsProxyAgent(proxyStr) : new HttpProxyAgent(proxyStr);
-    
-    const fetch = require('node-fetch');
-    const response = await fetch('http://ip-api.com/json/', { agent, timeout: 10000 });
-    const data = await response.json();
-    
-    if (data && data.status === 'success') {
-      res.json({ success: true, ip: data.query, location: data.country + ' - ' + data.city });
-    } else {
-      res.json({ success: false, error: 'Invalid response from ip-api' });
-    }
-  } catch (e) {
-    res.json({ success: false, error: e.message });
-  }
-});
-
-  try {
-    const url = PANDA_API_URL + '/proxies/' + id + '/rotate';
-    const r = await fetch(url, {
-      headers: {
-        'Authorization': 'Bearer ' + PANDA_TOKEN
-      }
-    });
-    const data = await r.json();
-    res.json(data);
-  } catch (e) {
-    res.status(500).json({ status: 'error', message: e.message });
-  }
-});
-
-
-    const text = await r.text();
-    try {
-      res.json(JSON.parse(text));
-    } catch(e) {
-      res.status(r.status).json({ error: text || 'Lỗi không xác định từ API' });
-    }
-  } catch(e) {
-    res.status(500).json({ error: e.message });
   }
 });
