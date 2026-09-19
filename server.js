@@ -1812,6 +1812,77 @@ app.get('/api/panda/proxies', async (req, res) => {
 app.post('/api/panda/rotate', async (req, res) => {
   const { id } = req.body;
   if (!id) return res.status(400).json({ status: 'error', message: 'Thiếu ID proxy' });
+
+
+app.post('/api/panda/check-proxy', async (req, res) => {
+  const { proxyStr } = req.body;
+  if (!proxyStr) return res.status(400).json({ success: false, error: 'Thiếu proxyStr' });
+  try {
+    let pHost, pPort, pUser, pPass;
+    const parts = proxyStr.split(':');
+    if (proxyStr.startsWith('http')) {
+      const u = new URL(proxyStr);
+      pHost = u.hostname;
+      pPort = u.port;
+      pUser = decodeURIComponent(u.username || '');
+      pPass = decodeURIComponent(u.password || '');
+    } else if (parts.length === 4) {
+      pHost = parts[0]; pPort = parts[1]; pUser = parts[2]; pPass = parts[3];
+    } else {
+      pHost = parts[0]; pPort = parts[1];
+    }
+    
+    const proxyUri = pUser ? `http://${encodeURIComponent(pUser)}:${encodeURIComponent(pPass)}@${pHost}:${pPort}` : `http://${pHost}:${pPort}`;
+    const agent = new HttpsProxyAgent(proxyUri);
+    
+    const http = require('http');
+    const result = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'ip-api.com', port: 80, path: '/json/', method: 'GET',
+        agent: agent, timeout: 10000,
+        headers: { 'User-Agent': 'curl/7.88.0' }
+      };
+      const r = http.request(options, (response) => {
+        let body = '';
+        response.on('data', chunk => body += chunk);
+        response.on('end', () => resolve(body));
+      });
+      r.on('error', reject);
+      r.on('timeout', () => { r.destroy(); reject(new Error('Timeout')); });
+      r.end();
+    });
+    
+    const data = JSON.parse(result);
+    if (data && data.status === 'success') {
+      res.json({ success: true, ip: data.query, location: data.country + ' - ' + data.city });
+    } else {
+      res.json({ success: false, error: 'Invalid response from ip-api' });
+    }
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
+});
+  try {
+    const HttpsProxyAgent = require('https-proxy-agent').HttpsProxyAgent;
+    const HttpProxyAgent = require('http-proxy-agent').HttpProxyAgent;
+    
+    const isHttpsProxy = proxyStr.startsWith('https');
+    const agent = isHttpsProxy ? new HttpsProxyAgent(proxyStr) : new HttpProxyAgent(proxyStr);
+    
+    const fetch = require('node-fetch');
+    const response = await fetch('http://ip-api.com/json/', { agent, timeout: 10000 });
+    const data = await response.json();
+    
+    if (data && data.status === 'success') {
+      res.json({ success: true, ip: data.query, location: data.country + ' - ' + data.city });
+    } else {
+      res.json({ success: false, error: 'Invalid response from ip-api' });
+    }
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
+});
+
   try {
     const url = PANDA_API_URL + '/proxies/' + id + '/rotate';
     const r = await fetch(url, {

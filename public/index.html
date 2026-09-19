@@ -1325,31 +1325,22 @@
       
 </div></div>
     <div class="main-card" style="margin: 0 16px 16px 16px; border: 1px solid var(--border); padding: 0;">
+      <div class="main-card" style="margin: 0 16px 16px 16px; border: 1px solid var(--border); padding: 0;">
       <!-- 🐼 Tiện ích PandaProxys -->
       <div style="padding: 16px; background: rgba(255, 165, 0, 0.02);">
-        <h3 style="font-size: 15px; margin: 0 0 12px 0; font-weight: 600; color: orange; display: flex; align-items: center; gap: 8px;">
-          <span>🐼</span> Tiện ích PandaProxys
-        </h3>
-        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Xoay IP tự động cho proxy đã mua (chức năng độc lập, không ảnh hưởng cấu hình chính).</p>
-        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
-          <select id="pandaProxySelect" class="proxy-select" style="flex: 1; border-color: rgba(255, 165, 0, 0.5); cursor: pointer;">
-            <option value="">-- Đang tải danh sách Proxy... --</option>
-          </select>
-          <button class="btn btn-secondary btn-sm" onclick="loadPandaProxies()" title="Làm mới danh sách">🔄</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="font-size: 15px; margin: 0; font-weight: 600; color: orange; display: flex; align-items: center; gap: 8px;">
+            <span>🐼</span> Tiện ích PandaProxys
+          </h3>
+          <button class="btn btn-secondary btn-sm" onclick="loadPandaProxies()" style="padding: 4px 10px; font-size: 12px; border-color: orange; color: orange; font-weight: bold;">🔄 Làm mới</button>
         </div>
-        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
-          <input type="text" id="pandaProxyOutput" class="proxy-input" readonly placeholder="Kết quả proxy sẽ hiển thị ở đây..." style="flex: 1; font-family: monospace; cursor: text; background: rgba(0,0,0,0.1);">
-          <button class="btn btn-secondary btn-sm" onclick="copyPandaProxy()" style="width: 80px; font-weight:bold;">Copy</button>
-        </div>
-        <div style="display: flex; gap: 10px;">
-          <button class="btn btn-primary" id="btnAutoPandaProxy" onclick="autoSetPandaProxyAndQR()" style="font-weight: bold; background: rgba(255, 165, 0, 0.15); border: 1px solid orange; color: orange; flex: 1; height: 40px; font-size: 14px;">
-            🐼 Xoay IP Mới
-          </button>
-          <button class="btn btn-secondary" id="btnShowPandaQR" onclick="showPandaProxyQR()" style="width: 120px; height: 40px; display: none; font-weight:bold; color: var(--success); border-color: var(--success); background: rgba(16, 185, 129, 0.1);">
-            📱 Mã QR
-          </button>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Danh sách proxy đã mua. Xoay IP độc lập, không ảnh hưởng cấu hình chính.</p>
+        
+        <div id="pandaProxyContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+           <div style="font-size: 13px; color: var(--text-muted);">Đang tải danh sách Proxy...</div>
         </div>
       </div>
+    </div>
     </div>
 
 </div>
@@ -3349,63 +3340,228 @@ async function autoSetPandaProxyAndQR() {
 async function loadPandaProxies() {
   const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
   const suf = isCreate ? '_create' : '';
-  const selectEls = document.querySelectorAll('select[id^="pandaProxySelect"]');
+  const containerId = 'pandaProxyContainer' + suf;
+  const container = document.getElementById(containerId) || $('pandaProxyContainer');
   
-  if (selectEls.length === 0) return;
+  if (!container) return;
   
   try {
-    selectEls.forEach(el => el.innerHTML = '<option value="">-- Đang tải... --</option>');
+    container.innerHTML = '<div style="font-size: 13px; color: var(--text-muted);">Đang tải danh sách Proxy...</div>';
     
     const res = await fetch('/api/panda/proxies');
     const data = await res.json();
     
     if (data && data.data && data.data.length > 0) {
-      let html = '';
-      data.data.forEach((p, i) => {
-        // e.g. "PROXY-ROTATE-001 (VIETTEL - HCM)"
-        const name = p.code || 'Proxy ' + (i+1);
+      container.innerHTML = ''; // clear
+      
+      data.data.forEach((p, index) => {
+        const id = p.id;
+        const code = p.code || 'PROXY-' + index;
         const loc = (p.proxy && p.proxy.ipaddress && p.proxy.ipaddress.location) ? p.proxy.ipaddress.location : '';
         const prov = (p.proxy && p.proxy.ipaddress && p.proxy.ipaddress.provider) ? p.proxy.ipaddress.provider : '';
         const ip = (p.proxy && p.proxy.ipaddress && p.proxy.ipaddress.ip) ? p.proxy.ipaddress.ip : '';
-        const label = name + (prov || loc ? ' (' + [prov, loc].filter(Boolean).join(' - ') + ')' : '') + (ip ? ' - ' + ip : '');
-        html += '<option value="' + p.id + '">' + label + '</option>';
+        const pUser = (p.proxy && p.proxy.username) ? p.proxy.username : '';
+        const pPass = (p.proxy && p.proxy.password) ? p.proxy.password : '';
+        const pPort = (p.proxy && p.proxy.port) ? p.proxy.port : '';
+        
+        const proxyStr = `${ip}:${pPort}:${pUser}:${pPass}`;
+        const proxyUrl = `http://${ip}:${pPort}:${pUser}:${pPass}`;
+        const interval = (p.proxy && p.proxy.rotateInterval) ? p.proxy.rotateInterval : 5;
+        
+        const cardHtml = `
+          <div class="proxy-card" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border); padding-bottom: 8px;">
+              <span style="font-weight: bold; color: var(--text); font-size: 14px;">${code}</span>
+              <span class="badge badge-ok">${prov} ${loc ? '- ' + loc : ''}</span>
+            </div>
+            
+            <!-- Body -->
+            <div style="display: flex; gap: 12px;">
+              <!-- QR Code -->
+              <div id="pandaQR_${id}${suf}" style="width: 80px; height: 80px; background: white; padding: 4px; border-radius: 4px;"></div>
+              
+              <!-- Info & Actions -->
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 8px; justify-content: center;">
+                <input type="text" id="pandaOut_${id}${suf}" class="proxy-input" readonly value="${proxyUrl}" style="font-family: monospace; font-size: 11px; height: 26px; padding: 4px 8px; background: rgba(0,0,0,0.3); border-color: transparent;">
+                
+                <div style="display: flex; gap: 6px;">
+                  <button class="btn btn-secondary btn-sm" onclick="copyPandaProxyRow('${id}')" style="flex: 1; font-size: 11px; height: 26px; padding: 0;">Copy</button>
+                  <button class="btn btn-secondary btn-sm" id="btnCheck_${id}${suf}" onclick="checkPandaProxyRow('${id}')" style="flex: 1; font-size: 11px; height: 26px; padding: 0;">Check IP</button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Status & Rotate -->
+            <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-top: 4px;">
+              <div style="font-size: 11px; color: var(--text-muted);" id="pandaStatus_${id}${suf}">
+                Chu kỳ xoay: ${interval} phút
+              </div>
+              <button class="btn btn-primary btn-sm" id="btnRot_${id}${suf}" onclick="rotatePandaProxyRow('${id}')" style="font-weight: bold; background: rgba(255, 165, 0, 0.15); border: 1px solid orange; color: orange; font-size: 12px; padding: 4px 12px;">
+                🐼 Xoay Proxy
+              </button>
+            </div>
+          </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', cardHtml);
+        
+        // Render QR
+        setTimeout(() => {
+          const qrEl = document.getElementById(`pandaQR_${id}${suf}`);
+          if (qrEl) {
+             qrEl.innerHTML = '';
+             new QRCode(qrEl, {
+               text: proxyUrl,
+               width: 72,
+               height: 72,
+               colorDark : "#000000",
+               colorLight : "#ffffff",
+               correctLevel : QRCode.CorrectLevel.L
+             });
+          }
+        }, 100);
       });
-      selectEls.forEach(el => el.innerHTML = html);
+      
     } else {
-      selectEls.forEach(el => el.innerHTML = '<option value="">-- Không có proxy nào --</option>');
+      container.innerHTML = '<div style="font-size: 13px; color: var(--text-muted);">Không có proxy nào đang ACTIVE (hoặc chưa mua).</div>';
     }
   } catch(e) {
-    selectEls.forEach(el => el.innerHTML = '<option value="">-- Lỗi tải proxy --</option>');
+    container.innerHTML = '<div style="font-size: 13px; color: var(--error);">Lỗi tải danh sách proxy: ' + e.message + '</div>';
     console.error('Lỗi load panda proxies', e);
   }
 }
 
-function copyPandaProxy() {
+function copyPandaProxyRow(id) {
   const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
   const suf = isCreate ? '_create' : '';
-  const outInput = document.getElementById('pandaProxyOutput' + suf) || document.getElementById('pandaProxyOutput');
-  
+  const outInput = document.getElementById(`pandaOut_${id}${suf}`);
   if (outInput && outInput.value) {
     navigator.clipboard.writeText(outInput.value);
     toast('Đã copy chuỗi Proxy!', 'success');
-  } else {
-    toast('Chưa có proxy để copy', 'warning');
   }
 }
 
-function showPandaProxyQR() {
+async function checkPandaProxyRow(id) {
   const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
   const suf = isCreate ? '_create' : '';
-  const outInput = document.getElementById('pandaProxyOutput' + suf) || document.getElementById('pandaProxyOutput');
+  const outInput = document.getElementById(`pandaOut_${id}${suf}`);
+  const statusEl = document.getElementById(`pandaStatus_${id}${suf}`);
+  const btnCheck = document.getElementById(`btnCheck_${id}${suf}`);
   
-  if (outInput && outInput.value) {
-    if (typeof showProxyQR === 'function') {
-      showProxyQR(outInput.value);
+  if (!outInput || !outInput.value) return;
+  
+  if (btnCheck) {
+    btnCheck.disabled = true;
+    btnCheck.textContent = '...';
+  }
+  if (statusEl) statusEl.textContent = 'Đang check IP...';
+  
+  try {
+    const res = await fetch('/api/panda/check-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proxyStr: outInput.value })
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      if (statusEl) {
+        statusEl.innerHTML = `<span style="color:var(--success);">IP: ${data.ip}</span> (${data.location})`;
+      }
     } else {
-      toast('Lỗi: Không tìm thấy hàm tạo mã QR', 'error');
+      if (statusEl) {
+        statusEl.innerHTML = `<span style="color:var(--error);">Lỗi: ${data.error}</span>`;
+      }
     }
-  } else {
-    toast('Chưa có proxy để tạo QR', 'warning');
+  } catch(e) {
+    if (statusEl) statusEl.textContent = 'Lỗi check: ' + e.message;
+  } finally {
+    if (btnCheck) {
+      btnCheck.disabled = false;
+      btnCheck.textContent = 'Check IP';
+    }
+  }
+}
+
+async function rotatePandaProxyRow(id) {
+  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
+  const suf = isCreate ? '_create' : '';
+  const btnRot = document.getElementById(`btnRot_${id}${suf}`);
+  const statusEl = document.getElementById(`pandaStatus_${id}${suf}`);
+  const outInput = document.getElementById(`pandaOut_${id}${suf}`);
+  const qrEl = document.getElementById(`pandaQR_${id}${suf}`);
+  
+  if (btnRot) {
+    btnRot.disabled = true;
+    btnRot.textContent = 'Đang xoay...';
+  }
+  if (statusEl) {
+    statusEl.textContent = 'Đang gọi API xoay proxy...';
+  }
+  
+  try {
+    const res = await fetch('/api/panda/rotate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    const data = await res.json();
+    
+    if (data.status !== 'success') {
+      throw new Error(data.message || 'Lỗi xoay IP PandaProxy');
+    }
+    
+    let rawStr = data.proxy || '';
+    if (!rawStr && data.data && data.data.proxy) rawStr = data.data.proxy;
+    if (!rawStr) throw new Error('Không nhận được chuỗi proxy từ PandaProxy');
+    
+    const parts = rawStr.split(':');
+    let formattedConnString = rawStr;
+    if (parts.length === 4) {
+      formattedConnString = 'http://' + parts[0] + ':' + parts[1] + ':' + parts[2] + ':' + parts[3];
+    } else {
+      formattedConnString = 'http://' + rawStr;
+    }
+
+    if (outInput) outInput.value = formattedConnString;
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--success);">Xoay thành công! IP: ' + (data.ip || 'Unknown') + '</span>';
+    
+    // Update QR Code
+    if (qrEl) {
+       qrEl.innerHTML = '';
+       new QRCode(qrEl, {
+         text: formattedConnString,
+         width: 72,
+         height: 72,
+         colorDark : "#000000",
+         colorLight : "#ffffff",
+         correctLevel : QRCode.CorrectLevel.L
+       });
+    }
+    
+    // Start local countdown
+    let cooldown = 300; // 5 mins fallback
+    let currentCooldown = cooldown;
+    if (statusEl) {
+      const timer = setInterval(() => {
+        currentCooldown--;
+        if (currentCooldown <= 0) {
+          clearInterval(timer);
+          statusEl.textContent = 'Sẵn sàng xoay IP mới';
+        } else {
+          statusEl.innerHTML = `<span style="color:orange;">Đợi ${currentCooldown}s để xoay tiếp</span>`;
+        }
+      }, 1000);
+    }
+    
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--error);">${e.message}</span>`;
+  } finally {
+    if (btnRot) {
+      btnRot.disabled = false;
+      btnRot.textContent = '🐼 Xoay Proxy';
+    }
   }
 }
 
