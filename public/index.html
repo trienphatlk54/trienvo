@@ -1325,7 +1325,6 @@
       
 </div></div>
     <div class="main-card" style="margin: 0 16px 16px 16px; border: 1px solid var(--border); padding: 0;">
-      <div class="main-card" style="margin: 0 16px 16px 16px; border: 1px solid var(--border); padding: 0;">
       <!-- 🐼 Tiện ích PandaProxys -->
       <div style="padding: 16px; background: rgba(255, 165, 0, 0.02);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -1334,7 +1333,7 @@
           </h3>
           <button class="btn btn-secondary btn-sm" onclick="loadPandaProxies()" style="padding: 4px 10px; font-size: 12px; border-color: orange; color: orange; font-weight: bold;">🔄 Làm mới</button>
         </div>
-        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Danh sách proxy đã mua. Xoay IP độc lập, không ảnh hưởng cấu hình chính.</p>
+        
         
         <div id="pandaProxyContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
            <div style="font-size: 13px; color: var(--text-muted);">Đang tải danh sách Proxy...</div>
@@ -2257,6 +2256,9 @@ switchTab = function(tabId) {
   if (tabId === 'floppyproxy') {
     loadFloppyProxies();
     loadFloppyBalance();
+  }
+  if (tabId === 'create') {
+    setTimeout(() => { if (typeof loadPandaProxies === 'function') loadPandaProxies(); }, 200);
   }
 }
 
@@ -3446,8 +3448,7 @@ async function loadPandaProxies() {
              qrEl.innerHTML = '';
              new QRCode(qrEl, {
                text: proxyUrl,
-               width: 88,
-               height: 88,
+               width: 120, height: 120,
                colorDark : "#000000",
                colorLight : "#ffffff",
                correctLevel : QRCode.CorrectLevel.M
@@ -3534,8 +3535,7 @@ async function rotatePandaProxyRow(id, intervalSec) {
        qrEl.innerHTML = '';
        new QRCode(qrEl, {
          text: formattedConnString,
-         width: 88,
-         height: 88,
+         width: 120, height: 120,
          colorDark : "#000000",
          colorLight : "#ffffff",
          correctLevel : QRCode.CorrectLevel.M
@@ -3654,7 +3654,7 @@ async function startSession() {
       setStatus('ready', 'Chờ quét QR');
       if (data.expiresAt) startTimer(data.expiresAt);
       startPolling();
-  loadPandaProxies();
+  setTimeout(loadPandaProxies, 500);
     } else {
       // Poll chờ QR sẵn sàng (tối đa 3 phút)
       console.log('[startSession] Chờ QR qua polling...');
