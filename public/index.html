@@ -3365,15 +3365,15 @@ async function loadPandaProxies() {
       data.data.forEach((p, index) => {
         const id = p.id;
         const code = p.code || 'PROXY-' + index;
-        const loc = (p.proxy && p.proxy.ipaddress && p.proxy.ipaddress.location) ? p.proxy.ipaddress.location : '';
-        const prov = (p.proxy && p.proxy.ipaddress && p.proxy.ipaddress.provider) ? p.proxy.ipaddress.provider : '';
         const ip = (p.proxy && p.proxy.ipaddress && p.proxy.ipaddress.ip) ? p.proxy.ipaddress.ip : '';
         const pUser = (p.proxy && p.proxy.username) ? p.proxy.username : '';
         const pPass = (p.proxy && p.proxy.password) ? p.proxy.password : '';
         const pPort = (p.proxy && p.proxy.port) ? p.proxy.port : '';
         
         const proxyStr = `${ip}:${pPort}:${pUser}:${pPass}`;
-        const proxyUrl = `http://${ip}:${pPort}:${pUser}:${pPass}`;
+        const proxyUrl = `http://${proxyStr}`;
+        const qrUrl = getStandardProxyUrl(`socks5://${proxyStr}`);
+        
         const intervalSec = 60; 
         
         let expText = '';
@@ -3406,16 +3406,11 @@ async function loadPandaProxies() {
               
               <!-- Header / Title -->
               <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px dashed rgba(255,165,0,0.3); padding-bottom: 6px;">
-                <div>
-                  <div style="font-weight: 700; color: orange; font-size: 15px; margin-bottom: 4px;">${code}</div>
-                  <div style="font-size: 11px; color: var(--text-muted); display: flex; flex-direction: column; gap: 2px;">
-                    <span>🕒 ${expText}</span>
-                    <span style="color: ${expRemaining.includes('Còn') ? 'var(--success)' : 'var(--error)'}; font-weight: 600;">${expRemaining}</span>
-                  </div>
-                </div>
-                <div style="text-align: right;">
-                  <span class="badge" style="background: rgba(255,165,0,0.1); border: 1px solid orange; color: orange; display: inline-block; margin-bottom: 4px;">${prov}</span>
-                  <div style="font-size: 10px; color: var(--text-muted);">${loc}</div>
+                <div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                  <span style="font-weight: 700; color: orange; font-size: 13px;">${code}</span>
+                  <span>|</span>
+                  <span>🕒 ${expText}</span>
+                  <span style="color: ${expRemaining.includes('Còn') ? 'var(--success)' : 'var(--error)'}; font-weight: 600;">(${expRemaining})</span>
                 </div>
               </div>
 
@@ -3452,7 +3447,7 @@ async function loadPandaProxies() {
           if (qrEl) {
              qrEl.innerHTML = '';
              new QRCode(qrEl, {
-               text: proxyUrl,
+               text: qrUrl,
                width: 160,
                height: 160,
                colorDark : "#000000",
@@ -3539,9 +3534,8 @@ async function rotatePandaProxyRow(id, intervalSec) {
     // Update QR Code
     if (qrEl) {
        qrEl.innerHTML = '';
-       new QRCode(qrEl, {
-         text: formattedConnString,
-         width: 120, height: 120,
+       new QRCode(qrEl, { text: getStandardProxyUrl("socks5://" + rawStr),
+         width: 160, height: 160,
          colorDark : "#000000",
          colorLight : "#ffffff",
          correctLevel : QRCode.CorrectLevel.M
