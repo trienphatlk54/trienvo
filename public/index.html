@@ -1332,6 +1332,12 @@
         </h3>
         <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Xoay IP tự động cho proxy đã mua (chức năng độc lập, không ảnh hưởng cấu hình chính).</p>
         <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+          <select id="pandaProxySelect" class="proxy-select" style="flex: 1; border-color: rgba(255, 165, 0, 0.5); cursor: pointer;">
+            <option value="">-- Đang tải danh sách Proxy... --</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="loadPandaProxies()" title="Làm mới danh sách">🔄</button>
+        </div>
+        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
           <input type="text" id="pandaProxyOutput" class="proxy-input" readonly placeholder="Kết quả proxy sẽ hiển thị ở đây..." style="flex: 1; font-family: monospace; cursor: text; background: rgba(0,0,0,0.1);">
           <button class="btn btn-secondary btn-sm" onclick="copyPandaProxy()" style="width: 80px; font-weight:bold;">Copy</button>
         </div>
@@ -3283,14 +3289,10 @@ async function autoSetPandaProxyAndQR() {
   }
 
   try {
-    const resList = await fetch('/api/panda/proxies');
-    const dataList = await resList.json();
-    if (!dataList || !dataList.data || dataList.data.length === 0) {
-      throw new Error('Không có proxy Panda nào đang ACTIVE (hoặc chưa mua).');
-    }
-    
-    const proxyItem = dataList.data[0];
-    const proxyId = proxyItem.id;
+    const selectEl = $('pandaProxySelect' + suf) || $('pandaProxySelect');
+    if (!selectEl) throw new Error('Không tìm thấy danh sách proxy');
+    const proxyId = selectEl.value;
+    if (!proxyId) throw new Error('Vui lòng chọn 1 proxy để xoay IP');
     
     if (btn) btn.textContent = 'Đang xoay IP...';
     
@@ -3340,6 +3342,41 @@ async function autoSetPandaProxyAndQR() {
       btn.disabled = false;
       btn.textContent = '🐼 Xoay IP Mới';
     }
+  }
+}
+
+
+async function loadPandaProxies() {
+  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
+  const suf = isCreate ? '_create' : '';
+  const selectEls = document.querySelectorAll('select[id^="pandaProxySelect"]');
+  
+  if (selectEls.length === 0) return;
+  
+  try {
+    selectEls.forEach(el => el.innerHTML = '<option value="">-- Đang tải... --</option>');
+    
+    const res = await fetch('/api/panda/proxies');
+    const data = await res.json();
+    
+    if (data && data.data && data.data.length > 0) {
+      let html = '';
+      data.data.forEach((p, i) => {
+        // e.g. "PROXY-ROTATE-001 (VIETTEL - HCM)"
+        const name = p.code || 'Proxy ' + (i+1);
+        const loc = (p.proxy && p.proxy.ipaddress && p.proxy.ipaddress.location) ? p.proxy.ipaddress.location : '';
+        const prov = (p.proxy && p.proxy.ipaddress && p.proxy.ipaddress.provider) ? p.proxy.ipaddress.provider : '';
+        const ip = (p.proxy && p.proxy.ipaddress && p.proxy.ipaddress.ip) ? p.proxy.ipaddress.ip : '';
+        const label = name + (prov || loc ? ' (' + [prov, loc].filter(Boolean).join(' - ') + ')' : '') + (ip ? ' - ' + ip : '');
+        html += '<option value="' + p.id + '">' + label + '</option>';
+      });
+      selectEls.forEach(el => el.innerHTML = html);
+    } else {
+      selectEls.forEach(el => el.innerHTML = '<option value="">-- Không có proxy nào --</option>');
+    }
+  } catch(e) {
+    selectEls.forEach(el => el.innerHTML = '<option value="">-- Lỗi tải proxy --</option>');
+    console.error('Lỗi load panda proxies', e);
   }
 }
 
@@ -3452,6 +3489,7 @@ async function startSession() {
       setStatus('ready', 'Chờ quét QR');
       if (data.expiresAt) startTimer(data.expiresAt);
       startPolling();
+  loadPandaProxies();
     } else {
       // Poll chờ QR sẵn sàng (tối đa 3 phút)
       console.log('[startSession] Chờ QR qua polling...');
