@@ -929,6 +929,12 @@
       cursor: help;
       font-weight: bold;
     }
+  
+    .panda-qr-container canvas, .panda-qr-container img {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: contain;
+    }
   </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -3368,11 +3374,8 @@ async function loadPandaProxies() {
         
         const proxyStr = `${ip}:${pPort}:${pUser}:${pPass}`;
         const proxyUrl = `http://${ip}:${pPort}:${pUser}:${pPass}`;
-        // Panda often uses interval in seconds if they say 60s, or if it's minutes we x60. 
-        // We'll pass it down so it uses exactly 60 if they said 60s. Let's assume 60s by default.
         const intervalSec = 60; 
         
-        // Expiration
         let expText = '';
         let expRemaining = '';
         if (p.expiredAt) {
@@ -3391,50 +3394,52 @@ async function loadPandaProxies() {
         }
         
         const cardHtml = `
-          <div class="proxy-card" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; height: 100%; box-sizing: border-box;">
+          <div class="proxy-card" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; display: flex; overflow: hidden; height: 100%; align-items: stretch;">
             
-            <!-- Header -->
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px dashed rgba(255,165,0,0.3); padding-bottom: 8px;">
-              <div>
-                <div style="font-weight: 700; color: orange; font-size: 15px;">${code}</div>
-                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 6px;">
-                  <span>🕒 ${expText}</span>
-                  <span style="color: ${expRemaining.includes('Còn') ? 'var(--success)' : 'var(--error)'}; font-weight: 600;">(${expRemaining})</span>
-                </div>
-              </div>
-              <span class="badge" style="background: rgba(255,165,0,0.1); border: 1px solid orange; color: orange;">${prov} ${loc ? '- ' + loc : ''}</span>
+            <!-- Left: QR Code Block (Full height) -->
+            <div style="background: white; flex: 0 0 130px; display: flex; justify-content: center; align-items: center; padding: 12px; box-sizing: border-box;">
+              <div id="pandaQR_${id}${suf}" class="panda-qr-container" style="width: 100%; aspect-ratio: 1/1;"></div>
             </div>
             
-            <!-- Body -->
-            <div style="display: flex; gap: 16px; align-items: stretch; flex: 1;">
-              <!-- QR Code (Full Height of this block) -->
-              <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; background: white; padding: 6px; border-radius: 8px; width: 100px; height: 100px; flex-shrink: 0;">
-                <div id="pandaQR_${id}${suf}" style="width: 100%; height: 100%;"></div>
-              </div>
+            <!-- Right: Info & Actions -->
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; padding: 12px;">
               
-              <!-- Info & Actions -->
-              <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 10px;">
-                <div style="position: relative;">
-                  <input type="text" id="pandaOut_${id}${suf}" class="proxy-input" readonly value="${proxyUrl}" style="font-family: monospace; font-size: 12px; height: 32px; padding: 4px 8px; background: rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.1); width: 100%; padding-right: 50px; box-sizing: border-box;">
-                  <button class="btn btn-secondary btn-sm" onclick="copyPandaProxyRow('${id}')" style="position: absolute; right: 2px; top: 2px; bottom: 2px; height: 28px; font-size: 11px; padding: 0 10px; background: rgba(255,255,255,0.1); border: none;">Copy</button>
+              <!-- Header / Title -->
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px dashed rgba(255,165,0,0.3); padding-bottom: 6px;">
+                <div>
+                  <div style="font-weight: 700; color: orange; font-size: 15px; margin-bottom: 4px;">${code}</div>
+                  <div style="font-size: 11px; color: var(--text-muted); display: flex; flex-direction: column; gap: 2px;">
+                    <span>🕒 ${expText}</span>
+                    <span style="color: ${expRemaining.includes('Còn') ? 'var(--success)' : 'var(--error)'}; font-weight: 600;">${expRemaining}</span>
+                  </div>
                 </div>
-                
+                <div style="text-align: right;">
+                  <span class="badge" style="background: rgba(255,165,0,0.1); border: 1px solid orange; color: orange; display: inline-block; margin-bottom: 4px;">${prov}</span>
+                  <div style="font-size: 10px; color: var(--text-muted);">${loc}</div>
+                </div>
+              </div>
+
+              <!-- Proxy string & IP -->
+              <div>
+                <div style="position: relative; margin-bottom: 4px;">
+                  <input type="text" id="pandaOut_${id}${suf}" class="proxy-input" readonly value="${proxyUrl}" style="font-family: monospace; font-size: 11px; height: 28px; padding: 0 8px; background: rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.1); width: 100%; padding-right: 46px; box-sizing: border-box;">
+                  <button class="btn btn-secondary btn-sm" onclick="copyPandaProxyRow('${id}')" style="position: absolute; right: 2px; top: 2px; bottom: 2px; height: 24px; font-size: 10px; padding: 0 8px; background: rgba(255,255,255,0.1); border: none;">Copy</button>
+                </div>
                 <div style="font-size: 12px; font-weight: bold; color: var(--success); display: none;" id="pandaIpDisplay_${id}${suf}">
                   IP: <span id="pandaIpSpan_${id}${suf}"></span>
                 </div>
-                
-                <!-- Status -->
-                <div style="font-size: 11px; color: var(--text-muted);" id="pandaStatus_${id}${suf}">
+              </div>
+              
+              <!-- Rotate button & Status -->
+              <div style="margin-top: auto;">
+                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;" id="pandaStatus_${id}${suf}">
                   Sẵn sàng xoay IP
                 </div>
+                <button class="btn btn-primary" id="btnRot_${id}${suf}" onclick="rotatePandaProxyRow('${id}', ${intervalSec})" style="width: 100%; font-weight: bold; background: linear-gradient(180deg, rgba(255, 165, 0, 0.2) 0%, rgba(255, 165, 0, 0.1) 100%); border: 1px solid orange; color: orange; font-size: 13px; height: 34px; display: flex; justify-content: center; align-items: center; gap: 8px; transition: all 0.2s;">
+                  <span style="font-size: 14px;">🔄</span> Xoay IP Ngay
+                </button>
               </div>
-            </div>
-            
-            <!-- Rotate Button -->
-            <div style="margin-top: auto;">
-              <button class="btn btn-primary" id="btnRot_${id}${suf}" onclick="rotatePandaProxyRow('${id}', ${intervalSec})" style="width: 100%; font-weight: bold; background: linear-gradient(180deg, rgba(255, 165, 0, 0.2) 0%, rgba(255, 165, 0, 0.1) 100%); border: 1px solid orange; color: orange; font-size: 14px; height: 38px; display: flex; justify-content: center; align-items: center; gap: 8px; transition: all 0.2s;">
-                <span style="font-size: 16px;">🔄</span> Xoay IP Ngay
-              </button>
+              
             </div>
           </div>
         `;
@@ -3448,7 +3453,8 @@ async function loadPandaProxies() {
              qrEl.innerHTML = '';
              new QRCode(qrEl, {
                text: proxyUrl,
-               width: 120, height: 120,
+               width: 160,
+               height: 160,
                colorDark : "#000000",
                colorLight : "#ffffff",
                correctLevel : QRCode.CorrectLevel.M
