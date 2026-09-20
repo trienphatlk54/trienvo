@@ -34,6 +34,20 @@ console.log = function(...args) { origLog.apply(console, args); addSysLog('INFO'
 console.error = function(...args) { origErr.apply(console, args); addSysLog('ERROR', ...args); };
 console.warn = function(...args) { origWarn.apply(console, args); addSysLog('WARN', ...args); };
 const path = require('path');
+const crypto = require('crypto');
+
+// ── Auth Sessions ──────────────────────────────────────────────────────────────
+const authSessions = new Map(); // token -> { fingerprint, ip, createdAt }
+const AUTH_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+function cleanExpiredSessions() {
+  const now = Date.now();
+  for (const [token, session] of authSessions) {
+    if (now - session.createdAt > AUTH_TTL) authSessions.delete(token);
+  }
+}
+setInterval(cleanExpiredSessions, 60 * 60 * 1000); // cleanup every hour
+
 const bodyParser = require('body-parser');
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getDatabase } = require('firebase-admin/database');
@@ -70,6 +84,56 @@ app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(__dirname)); // Fallback cho trường hợp up code không có folder public
 app.use(express.json());
+
+// ── Auth API ───────────────────────────────────────────────────────────────────
+const ADMIN_USERS = [
+  { username: 'trien', password: '15041997' },
+  { username: 'Trien', password: '15041997' }
+];
+
+app.post('/api/auth/login', (req, res) => {
+  const { username, password, fingerprint } = req.body;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+  if (!username || !password || !fingerprint) {
+    return res.json({ status: 0, message: 'Thiếu thông tin đăng nhập' });
+  }
+
+  const valid = ADMIN_USERS.some(u => u.username === username && u.password === password);
+  if (!valid) {
+    return res.json({ status: 0, message: 'Sai tên đăng nhập hoặc mật khẩu' });
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  authSessions.set(token, { fingerprint, ip, createdAt: Date.now() });
+  console.log('[AUTH] Login success from IP:', ip);
+  res.json({ status: 1, token, expiresIn: AUTH_TTL });
+});
+
+app.post('/api/auth/verify', (req, res) => {
+  const { token, fingerprint } = req.body;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+  if (!token || !fingerprint) {
+    return res.json({ status: 0 });
+  }
+
+  const session = authSessions.get(token);
+  if (!session) {
+    return res.json({ status: 0 });
+  }
+
+  if (Date.now() - session.createdAt > AUTH_TTL) {
+    authSessions.delete(token);
+    return res.json({ status: 0 });
+  }
+
+  if (session.fingerprint !== fingerprint || session.ip !== ip) {
+    return res.json({ status: 0 });
+  }
+
+  res.json({ status: 1, remainingMs: AUTH_TTL - (Date.now() - session.createdAt) });
+});
 
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
