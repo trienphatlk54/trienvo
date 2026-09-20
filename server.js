@@ -1311,7 +1311,7 @@ function extractCcnGroupKey(cardText) {
       let yy = parts[2].trim();
       if (mm.length === 1) mm = '0' + mm;
       if (yy.length === 4) yy = yy.substring(2);
-      return `${bin} - ${mm}/${yy}`;
+      return `${bin} - ${mm}-${yy}`;
     }
   }
   return bin;
