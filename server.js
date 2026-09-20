@@ -1545,16 +1545,16 @@ app.post('/api/voucher-check', async (req, res) => {
   let page = null;
   
   try {
-    sendEvent('progress', { message: 'Dang m? trnh duy?t & ch?ng bot...' });
+    sendEvent('progress', { message: 'Dang m? trnh duy?t...' });
     browser = await launchBrowser(proxyConfig);
     ctx = await browser.createBrowserContext();
     page = await ctx.newPage();
     
-    // Block unnecessary resources for MAXIMUM speed
+    // Block images, fonts and media, BUT allow JS and CSS for React to render
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       const rt = req.resourceType();
-      if (['image', 'stylesheet', 'font', 'media'].includes(rt)) {
+      if (['image', 'font', 'media'].includes(rt)) {
         req.abort();
       } else {
         req.continue();
@@ -1579,57 +1579,81 @@ app.post('/api/voucher-check', async (req, res) => {
       await page.setCookie(...cookieObjs);
     }
 
-    // Go to a lightweight page instead of the heavy homepage
-    await page.goto('https://shopee.vn/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    // Wait just 500ms to let anti-bot script initialize
-    await new Promise(r => setTimeout(r, 500));
+    sendEvent('progress', { message: 'Dang truy c?p vi Voucher (V??t Bot)...' });
+    await page.goto('https://shopee.vn/user/voucher-wallet?lang=en', { waitUntil: 'domcontentloaded', timeout: 60000 });
     
-    sendEvent('progress', { message: 'B?t d?u check hng lo?t (T?c d? cao)...' });
+    sendEvent('progress', { message: 'Ch? load giao di?n Shopee...' });
+    try {
+      await page.waitForSelector('input[placeholder*="voucher" i], input[placeholder*="M" i]', { timeout: 30000 });
+    } catch(e) {
+      throw new Error('Khng tm th?y  nh?p m voucher. Cookie c th d ch?t.');
+    }
     
-    // Inject checking function into browser
-    await page.evaluate(() => {
-      window.checkShopeeVoucher = async (code) => {
-        try {
-          const csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
-          const csrfToken = csrfMatch ? csrfMatch[1] : '';
-          
-          const res = await fetch('https://shopee.vn/api/v2/voucher_wallet/save_voucher', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': csrfToken,
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify({ voucher_code: code, need_b2c_voucher: false })
-          });
-          const data = await res.json();
-          
-          if (data.error === 0) return 'Thnh cng';
-          if (data.error_msg) return data.error_msg;
-          if (data.message) return data.message;
-          return JSON.stringify(data);
-        } catch(e) {
-          return 'L?i fetch API: ' + e.message;
-        }
-      };
-    });
-
-    // Check concurrently in batches of 5 for extreme speed
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < vouchers.length; i += BATCH_SIZE) {
-      const batch = vouchers.slice(i, i + BATCH_SIZE).map(v => v.trim()).filter(Boolean);
-      if (batch.length === 0) continue;
-
-      const results = await Promise.all(batch.map(vCode => 
-        page.evaluate((code) => window.checkShopeeVoucher(code), vCode)
-          .then(res => ({ voucher: vCode, result: res }))
-          .catch(err => ({ voucher: vCode, result: 'L?i: ' + err.message }))
-      ));
-
-      results.forEach(r => sendEvent('result', r));
+    sendEvent('progress', { message: 'B?t d?u check (Giao th?c API qua UI)...' });
+    
+    for (let i = 0; i < vouchers.length; i++) {
+      const vCode = vouchers[i].trim();
+      if (!vCode) continue;
       
-      // tiny delay between batches
-      if (i + BATCH_SIZE < vouchers.length) await new Promise(r => setTimeout(r, 200));
+      try {
+        // Setup listener for the API response
+        const responsePromise = page.waitForResponse(response => 
+          response.url().includes('/save_voucher') && response.request().method() === 'POST'
+        , { timeout: 6000 }).catch(() => null);
+
+        // Inject code into UI instantly
+        const successClick = await page.evaluate((code) => {
+          const input = document.querySelector('input[placeholder*="voucher" i], input[placeholder*="M" i]');
+          if (!input) return false;
+          
+          // React input setter hack
+          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+          nativeInputValueSetter.call(input, code);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          
+          const btns = Array.from(document.querySelectorAll('button'));
+          const btn = btns.find(b => 
+            b.innerText.toLowerCase().includes('redeem') || 
+            b.innerText.toLowerCase().includes('lu') ||
+            b.innerText.toLowerCase().includes('p d?ng') ||
+            b.innerText.toLowerCase().includes('save') ||
+            b.innerText.toLowerCase().includes('cng') // for 'thanh cong' etc if any
+          );
+          
+          if (btn && !btn.disabled) {
+            btn.click();
+            return true;
+          }
+          return false;
+        }, vCode);
+
+        if (!successClick) {
+          sendEvent('result', { voucher: vCode, result: 'L?i UI: Khng th? click nt Lu' });
+          continue;
+        }
+
+        const res = await responsePromise;
+        if (!res) {
+          sendEvent('result', { voucher: vCode, result: 'Timeout: Khng nh?n d??c k?t qu? t? Shopee' });
+          continue;
+        }
+
+        const data = await res.json().catch(() => ({}));
+        
+        let msg = '';
+        if (data.error === 0) msg = 'Thnh cng';
+        else if (data.error_msg) msg = data.error_msg;
+        else if (data.message) msg = data.message;
+        else msg = JSON.stringify(data);
+
+        sendEvent('result', { voucher: vCode, result: msg });
+        
+        // Very small delay to prevent being flagged for macro
+        await new Promise(r => setTimeout(r, 200));
+        
+      } catch (err) {
+        sendEvent('result', { voucher: vCode, result: 'L?i: ' + err.message });
+      }
     }
     
     sendEvent('done', { message: 'Hon t?t check voucher' });
