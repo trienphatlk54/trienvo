@@ -1299,6 +1299,24 @@ app.get('/api/ccn-cards/all', async (req, res) => {
   }
 });
 
+function extractCcnGroupKey(cardText) {
+  const match = cardText.match(/^(\d{6})/);
+  if (!match) return null;
+  const bin = match[1];
+  
+  if (cardText.includes('|')) {
+    const parts = cardText.split('|');
+    if (parts.length >= 3) {
+      let mm = parts[1].trim();
+      let yy = parts[2].trim();
+      if (mm.length === 1) mm = '0' + mm;
+      if (yy.length === 4) yy = yy.substring(2);
+      return `${bin} - ${mm}/${yy}`;
+    }
+  }
+  return bin;
+}
+
 app.post('/api/ccn-cards/add', async (req, res) => {
   try {
     // rawText could be single line or multiline string of cards
