@@ -2276,6 +2276,9 @@ switchTab = function(tabId) {
     loadFloppyProxies();
     loadFloppyBalance();
   }
+  if (tabId === 'create') {
+    if (typeof loadPandaProxies === 'function') loadPandaProxies();
+  }
   
 }
 
@@ -2812,6 +2815,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   
   // Tự động lấy số dư 365otp khi vừa mở tab
+  if (typeof loadPandaProxies === 'function') setTimeout(loadPandaProxies, 200);
   fetchBalance();
   togglePhoneMethod();
 });
