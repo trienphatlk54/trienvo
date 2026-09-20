@@ -1359,19 +1359,10 @@
 
       </div>
     </div>
-    </div>
-
-</div>
-    
-    
-
-
-      <!-- Phone Selection Section -->
-    
-    
-    <!-- Tạo Mật Khẩu Ngẫu Nhiên -->
-        <!-- Tab 4: Phone Management -->
-    <div id="tab-phone" class="tab-pane">
+  </div>
+  
+  <!-- Tab 4: Phone Management -->
+  <div id="tab-phone" class="tab-pane">
       <div class="main-card">
         <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
           <h2>📱 Quản lý danh sách Phone</h2>
@@ -2831,8 +2822,6 @@ function switchTab(tabId) {
   });
   
   if (typeof event !== 'undefined' && event && event.currentTarget) {
-    
-  if (typeof event !== 'undefined' && event && event.currentTarget) {
     event.currentTarget.classList.add('active');
   } else {
     document.querySelectorAll('.nav-item').forEach(el => {
@@ -2842,11 +2831,6 @@ function switchTab(tabId) {
     });
   }
 
-  } else {
-    document.querySelectorAll('.nav-item').forEach(el => {
-      if (el.getAttribute('onclick') && el.getAttribute('onclick').includes("'" + tabId + "'")) {
-        el.classList.add('active');
-      }
     });
   }
 
