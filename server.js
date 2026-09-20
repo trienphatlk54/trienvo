@@ -1333,16 +1333,13 @@ app.post('/api/ccn-cards/add', async (req, res) => {
     let addedCount = 0;
     
     for (const card of cards) {
-      // Extract the first 6 digits (BIN)
-      const match = card.match(/^(\d{6})/);
-      if (match) {
-        const bin = match[1];
-        if (!currentData[bin]) {
-          currentData[bin] = [];
+      const groupKey = extractCcnGroupKey(card);
+      if (groupKey) {
+        if (!currentData[groupKey]) {
+          currentData[groupKey] = [];
         }
-        // Avoid exact duplicates
-        if (!currentData[bin].includes(card)) {
-          currentData[bin].push(card);
+        if (!currentData[groupKey].includes(card)) {
+          currentData[groupKey].push(card);
           addedCount++;
         }
       }
@@ -1585,110 +1582,53 @@ app.post('/api/voucher-check', async (req, res) => {
       await page.setCookie(...cookieObjs);
     }
 
-    sendEvent('progress', { message: 'Đang truy cập ví Voucher...' });
-    await page.goto('https://shopee.vn/user/voucher-wallet?lang=en', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await new Promise(r => setTimeout(r, 3000)); // give React extra time
+    sendEvent('progress', { message: 'Dang truy c?p Shopee d? l?y Token...' });
+    await page.goto('https://shopee.vn/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await new Promise(r => setTimeout(r, 2000));
     
-    // Wait for the input box
-    sendEvent('progress', { message: 'Chờ giao diện Shopee...' });
-    try {
-      await page.waitForSelector('input[placeholder*="voucher" i], input[placeholder*="Mã" i]', { timeout: 30000 });
-    } catch (e) {
-      let b64 = '', pageUrl = '', pageTitle = '', bodyText = '';
-      try { 
-        b64 = await page.screenshot({ encoding: 'base64' }); 
-        pageUrl = page.url();
-        pageTitle = await page.title();
-        bodyText = await page.evaluate(() => document.documentElement ? document.documentElement.innerHTML.substring(0, 500).replace(/</g, '&lt;') : 'No HTML');
-      } catch(err) {}
-      const imgTag = b64 ? '<br><img src="data:image/png;base64,' + b64 + '" style="max-width:400px; border:1px solid #ccc; margin-top:10px;">' : '';
-      throw new Error('Không tìm thấy ô nhập mã voucher. Cookie có thể đã chết hoặc giao diện thay đổi.<br><b>URL:</b> ' + pageUrl + '<br><b>Title:</b> ' + pageTitle + '<br><b>HTML:</b> <pre style="font-size:10px; max-height:100px; overflow:auto;">' + bodyText + '</pre><br>Ảnh màn hình hiện tại: ' + imgTag);
-    }
-
-    sendEvent('progress', { message: 'Bắt đầu check mã...' });
+    sendEvent('progress', { message: 'B?t d?u check ma qua API...' });
     
     for (let i = 0; i < vouchers.length; i++) {
       const vCode = vouchers[i].trim();
       if (!vCode) continue;
       
       try {
-        const inputSelector = 'input[placeholder*="voucher code"], input[placeholder*="Mã Voucher"]';
-        
-        // Clear input and type
-        await page.click(inputSelector, { clickCount: 3 });
-        await page.keyboard.press('Backspace');
-        await page.type(inputSelector, vCode, { delay: 30 });
-        
-        // Find and click redeem button
-        const redeemBtnClicked = await page.evaluate(() => {
-          const btns = Array.from(document.querySelectorAll('button'));
-          const btn = btns.find(b => 
-            b.innerText.toLowerCase().includes('redeem') || 
-            b.innerText.toLowerCase().includes('lưu') ||
-            b.innerText.toLowerCase().includes('áp dụng') ||
-            b.innerText.toLowerCase().includes('save')
-          );
-          if (btn && !btn.disabled) {
-            btn.click();
-            return true;
-          }
-          return false;
-        });
-
-        if (!redeemBtnClicked) {
-          sendEvent('result', { voucher: vCode, result: 'Không bấm được nút Redeem (nút bị vô hiệu hóa hoặc không tìm thấy)' });
-          continue;
-        }
-
-        // Wait for response text. It usually appears next to/below the input, or in a toast.
-        // We will observe DOM mutations or wait for a specific text/toast to appear.
-        let msg = '';
-        try {
-          msg = await page.evaluate(async () => {
-            return new Promise(resolve => {
-              // Wait up to 5 seconds for a message
-              let ms = 0;
-              const check = setInterval(() => {
-                ms += 200;
-                
-                // 1. Check for error message directly below the input (shopee often uses a specific class, or we can just find any text node containing typical error keywords)
-                // Wait for any text containing "Sorry", "invalid", "limit", "reached", "không hợp lệ", "đã dùng", "thành công", "successfully"
-                const errorElements = Array.from(document.querySelectorAll('div, span, p')).filter(el => {
-                  if (el.children.length > 0) return false; // Only get leaf nodes
-                  const text = el.innerText.toLowerCase();
-                  return text.includes('sorry') || text.includes('invalid') || 
-                         text.includes('limit') || text.includes('không hợp lệ') || 
-                         text.includes('đã hết') || text.includes('thành công') || 
-                         text.includes('successfully') || text.includes('already');
-                });
-                
-                if (errorElements.length > 0) {
-                  // Prioritize elements that are near the input or toasts
-                  const res = errorElements.map(e => e.innerText.trim()).find(t => t.length > 5);
-                  if (res) {
-                    clearInterval(check);
-                    resolve(res);
-                  }
-                }
-                
-                if (ms > 5000) {
-                  clearInterval(check);
-                  resolve('Timeout: Không nhận được phản hồi từ Shopee');
-                }
-              }, 200);
+        const msg = await page.evaluate(async (code) => {
+          try {
+            const csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
+            const csrfToken = csrfMatch ? csrfMatch[1] : '';
+            
+            const res = await fetch('https://shopee.vn/api/v2/voucher_wallet/save_voucher', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({ voucher_code: code, need_b2c_voucher: false })
             });
-          });
-        } catch (e) {
-          msg = 'Lỗi khi trích xuất kết quả';
-        }
+            const data = await res.json();
+            
+            if (data.error === 0) {
+              return 'Thanh cong';
+            } else if (data.error_msg) {
+              return data.error_msg;
+            } else if (data.message) {
+              return data.message;
+            } else {
+              return JSON.stringify(data);
+            }
+          } catch(e) {
+            return 'Loi fetch API: ' + e.message;
+          }
+        }, vCode);
 
         sendEvent('result', { voucher: vCode, result: msg });
         
-        // Wait a bit before next voucher
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 500));
         
       } catch (err) {
-        sendEvent('result', { voucher: vCode, result: 'Lỗi: ' + err.message });
+        sendEvent('result', { voucher: vCode, result: 'Loi: ' + err.message });
       }
     }
     

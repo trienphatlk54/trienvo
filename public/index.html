@@ -6878,6 +6878,12 @@ window.extractCcnGroupKey = function(cardText) {
   return bin;
 };
 
+
+window.formatBinForDisplay = function(bin) {
+  if (!bin) return '';
+  return bin.replace(/ - (\d{2})-(\d{2})$/, ' $1/$2');
+};
+
 window.renderCcnCards = function() {
   const container = document.getElementById('ccnCardsContainer');
   if (!container) return;
@@ -6896,7 +6902,7 @@ window.renderCcnCards = function() {
     htmlStr += `
       <div style="flex: 1 0 280px; background: rgba(0,0,0,0.02); border: 1px solid var(--border); border-radius: 8px; display:flex; flex-direction:column;">
         <div style="padding: 10px; font-weight: bold; text-align: center; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.05);">
-          BIN: <span style="color:var(--primary);">${bin}</span> 
+          BIN: <span style="color:var(--primary);">${window.formatBinForDisplay(bin)}</span> 
           <span style="font-size:11px; color:var(--text-muted); font-weight:normal;">(${cards.length} thẻ)</span>
         </div>
         <div style="padding: 6px; border-bottom: 1px solid var(--border); background: var(--bg);">
@@ -6957,7 +6963,7 @@ window.openAssignCardModal = function(accountId, slotIndex) {
   bins.forEach(bin => {
     const count = window.ccnCardsData[bin].length;
     const note = (window.ccnCardsNotes && window.ccnCardsNotes[bin]) ? ' - ' + escapeHtml(window.ccnCardsNotes[bin]) : '';
-    binSelect.innerHTML += `<option value="${bin}">${bin}${note} (${count} thẻ)</option>`;
+    binSelect.innerHTML += `<option value="${bin}">${window.formatBinForDisplay(bin)}${note} (${count} thẻ)</option>`;
   });
   
   document.getElementById('assignCardList').innerHTML = '<div style="text-align:center; padding: 20px; color:var(--text-muted);">Vui lòng chọn BIN</div>';
@@ -7028,7 +7034,8 @@ window.confirmRemoveCard = async function(returnToList) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rawText: cardText })
     });
-    const bin = cardText.substring(0, 6);
+    const bin = window.extractCcnGroupKey(cardText);
+    if (!bin) return;
     if (!window.ccnCardsData[bin]) window.ccnCardsData[bin] = [];
     if (!window.ccnCardsData[bin].includes(cardText)) {
       window.ccnCardsData[bin].push(cardText);
@@ -7053,8 +7060,8 @@ window.assignCardToSlot = async function(cardText) {
   await window.saveCcnRecord(id, row);
   
   // Remove from BIN list
-  const bin = cardText.substring(0, 6);
-  if (window.ccnCardsData[bin]) {
+  const bin = window.extractCcnGroupKey(cardText);
+  if (bin && window.ccnCardsData[bin]) {
     const idx = window.ccnCardsData[bin].indexOf(cardText);
     if (idx !== -1) {
       await fetch('/api/ccn-cards/delete', {
@@ -7124,9 +7131,8 @@ window.saveCcnCards = async function(rawText) {
   let duplicateBin = null;
   
   for (const card of inputCards) {
-    const match = card.match(/^(\d{6})/);
-    if (match) {
-      const bin = match[1];
+    const bin = window.extractCcnGroupKey(card);
+    if (bin) {
       // Check if this EXACT card is already in the bin array
       if (window.ccnCardsData[bin] && window.ccnCardsData[bin].includes(card)) {
         duplicateCard = card;
