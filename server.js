@@ -1521,127 +1521,104 @@ app.post('/api/voucher-check', async (req, res) => {
     return res.status(400).json({ error: 'Missing cookie string' });
   }
 
-  // Set up streaming response
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders(); // Establish stream
+  res.flushHeaders();
 
   const sendEvent = (event, data) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
-  let proxyConfig = null;
+  const https = require('https');
+  const { HttpsProxyAgent } = require('https-proxy-agent');
+  
+  let agent = null;
   if (proxyStr) {
     const p = proxyStr.trim().split(':');
     if (p.length === 4) {
-      proxyConfig = { type: 'http', host: p[0], port: p[1], user: p[2], pass: p[3] };
+      agent = new HttpsProxyAgent(`http://${p[2]}:${p[3]}@${p[0]}:${p[1]}`);
     } else if (p.length === 2) {
-      proxyConfig = { type: 'http', host: p[0], port: p[1] };
+      agent = new HttpsProxyAgent(`http://${p[0]}:${p[1]}`);
     }
   }
 
-  let browser = null;
-  let ctx = null;
-  
-  try {
-    sendEvent('progress', { message: 'Đang khởi động trình duyệt...' });
-    browser = await launchBrowser(proxyConfig);
-    ctx = await browser.createBrowserContext();
-    const page = await ctx.newPage();
-    // Auth handled by proxy-chain now
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    
+  // Parse cookies
+  let spcF = '', spcSt = '';
+  const cookieString = cookieStr.trim();
+  if (cookieString.startsWith('SPC_F=')) {
+    spcF = cookieString.substring(6).split('|')[0];
+  } else if (cookieString.startsWith('SPC_ST=')) {
+    spcSt = cookieString.substring(7).split(';')[0];
+  } else if (cookieString.includes('SPC_F=')) {
+    const match = cookieString.match(/SPC_F=([^;]+)/);
+    if (match) spcF = match[1];
+  } else if (cookieString.includes('SPC_ST=')) {
+    const match = cookieString.match(/SPC_ST=([^;]+)/);
+    if (match) spcSt = match[1];
+  } else {
+    if (cookieString.length > 50) spcSt = cookieString;
+    else spcF = cookieString;
+  }
 
-    // Parse cookies
-    let spcF = '', spcSt = '';
-    const cookieString = cookieStr.trim();
-    if (cookieString.startsWith('SPC_F=')) {
-      // SPC_F=abcd|user|pass
-      spcF = cookieString.substring(6).split('|')[0];
-    } else if (cookieString.startsWith('SPC_ST=')) {
-      spcSt = cookieString.substring(7).split(';')[0];
-    } else if (cookieString.includes('SPC_F=')) {
-      const match = cookieString.match(/SPC_F=([^;]+)/);
-      if (match) spcF = match[1];
-    } else if (cookieString.includes('SPC_ST=')) {
-      const match = cookieString.match(/SPC_ST=([^;]+)/);
-      if (match) spcSt = match[1];
-    } else {
-      // Assume raw SPC_ST or SPC_F value if no prefix
-      if (cookieString.length > 50) spcSt = cookieString;
-      else spcF = cookieString;
-    }
+  sendEvent('progress', { message: 'B?t d?u check qua API...' });
 
-    sendEvent('progress', { message: 'Đang thiết lập cookie...' });
-    const cookieObjs = [];
-    if (spcF) cookieObjs.push({ name: 'SPC_F', value: spcF, domain: '.shopee.vn', path: '/' });
-    if (spcSt) cookieObjs.push({ name: 'SPC_ST', value: spcSt, domain: '.shopee.vn', path: '/' });
-    
-    if (cookieObjs.length > 0) {
-      await page.setCookie(...cookieObjs);
-    }
+  const csrfToken = "A".repeat(32);
+  const cookieHeader = `SPC_F=${spcF}; SPC_ST=${spcSt}; csrftoken=${csrfToken}`;
 
-    sendEvent('progress', { message: 'Dang truy c?p Shopee d? l?y Token...' });
-    await page.goto('https://shopee.vn/', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await new Promise(r => setTimeout(r, 2000));
+  for (let i = 0; i < vouchers.length; i++) {
+    const vCode = vouchers[i].trim();
+    if (!vCode) continue;
     
-    sendEvent('progress', { message: 'B?t d?u check ma qua API...' });
-    
-    for (let i = 0; i < vouchers.length; i++) {
-      const vCode = vouchers[i].trim();
-      if (!vCode) continue;
+    try {
+      const postData = JSON.stringify({ voucher_code: vCode, need_b2c_voucher: false });
       
-      try {
-        const msg = await page.evaluate(async (code) => {
-          try {
-            const csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
-            const csrfToken = csrfMatch ? csrfMatch[1] : '';
-            
-            const res = await fetch('https://shopee.vn/api/v2/voucher_wallet/save_voucher', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-                'Accept': 'application/json'
-              },
-              body: JSON.stringify({ voucher_code: code, need_b2c_voucher: false })
-            });
-            const data = await res.json();
-            
-            if (data.error === 0) {
-              return 'Thanh cong';
-            } else if (data.error_msg) {
-              return data.error_msg;
-            } else if (data.message) {
-              return data.message;
-            } else {
-              return JSON.stringify(data);
-            }
-          } catch(e) {
-            return 'Loi fetch API: ' + e.message;
+      const msg = await new Promise((resolve) => {
+        const req = https.request({
+          hostname: 'shopee.vn',
+          path: '/api/v2/voucher_wallet/save_voucher',
+          method: 'POST',
+          agent: agent,
+          headers: {
+            'Cookie': cookieHeader,
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(postData),
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+            'Referer': 'https://shopee.vn/user/voucher-wallet'
           }
-        }, vCode);
+        }, (response) => {
+          let data = '';
+          response.on('data', chunk => data += chunk);
+          response.on('end', () => {
+            try {
+              const json = JSON.parse(data);
+              if (json.error === 0) resolve('Thnh cng');
+              else if (json.error_msg) resolve(json.error_msg);
+              else resolve(JSON.stringify(json));
+            } catch(e) {
+              resolve('Parse error');
+            }
+          });
+        });
+        req.on('error', e => resolve('L?i k?t n?i: ' + e.message));
+        req.write(postData);
+        req.end();
+      });
 
-        sendEvent('result', { voucher: vCode, result: msg });
-        
-        await new Promise(r => setTimeout(r, 500));
-        
-      } catch (err) {
-        sendEvent('result', { voucher: vCode, result: 'Loi: ' + err.message });
-      }
+      sendEvent('result', { voucher: vCode, result: msg });
+      
+      // small delay to prevent rate limit (150ms instead of 3000ms!)
+      await new Promise(r => setTimeout(r, 150));
+      
+    } catch (err) {
+      sendEvent('result', { voucher: vCode, result: 'L?i: ' + err.message });
     }
-    
-    sendEvent('done', { message: 'Hoàn tất check voucher' });
-
-  } catch (e) {
-    sendEvent('error', { message: e.message });
-  } finally {
-    if (page) try { await page.close(); } catch(_) {}
-    if (ctx) try { await ctx.close(); } catch(_) {}
-    if (browser) try { await browser.close(); } catch(_) {}
-    res.end();
   }
+  
+  sendEvent('done', { message: 'Hon t?t check voucher' });
+  res.end();
 });
 
 // --- GoAffiliate Proxy ---
