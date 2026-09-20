@@ -1530,95 +1530,118 @@ app.post('/api/voucher-check', async (req, res) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
-  const https = require('https');
-  const { HttpsProxyAgent } = require('https-proxy-agent');
-  
-  let agent = null;
+  let proxyConfig = null;
   if (proxyStr) {
     const p = proxyStr.trim().split(':');
     if (p.length === 4) {
-      agent = new HttpsProxyAgent(`http://${p[2]}:${p[3]}@${p[0]}:${p[1]}`);
+      proxyConfig = { type: 'http', host: p[0], port: p[1], user: p[2], pass: p[3] };
     } else if (p.length === 2) {
-      agent = new HttpsProxyAgent(`http://${p[0]}:${p[1]}`);
+      proxyConfig = { type: 'http', host: p[0], port: p[1] };
     }
   }
 
-  // Parse cookies
-  let spcF = '', spcSt = '';
-  const cookieString = cookieStr.trim();
-  if (cookieString.startsWith('SPC_F=')) {
-    spcF = cookieString.substring(6).split('|')[0];
-  } else if (cookieString.startsWith('SPC_ST=')) {
-    spcSt = cookieString.substring(7).split(';')[0];
-  } else if (cookieString.includes('SPC_F=')) {
-    const match = cookieString.match(/SPC_F=([^;]+)/);
-    if (match) spcF = match[1];
-  } else if (cookieString.includes('SPC_ST=')) {
-    const match = cookieString.match(/SPC_ST=([^;]+)/);
-    if (match) spcSt = match[1];
-  } else {
-    if (cookieString.length > 50) spcSt = cookieString;
-    else spcF = cookieString;
-  }
-
-  sendEvent('progress', { message: 'B?t d?u check qua API...' });
-
-  const csrfToken = "A".repeat(32);
-  const cookieHeader = `SPC_F=${spcF}; SPC_ST=${spcSt}; csrftoken=${csrfToken}`;
-
-  for (let i = 0; i < vouchers.length; i++) {
-    const vCode = vouchers[i].trim();
-    if (!vCode) continue;
-    
-    try {
-      const postData = JSON.stringify({ voucher_code: vCode, need_b2c_voucher: false });
-      
-      const msg = await new Promise((resolve) => {
-        const req = https.request({
-          hostname: 'shopee.vn',
-          path: '/api/v2/voucher_wallet/save_voucher',
-          method: 'POST',
-          agent: agent,
-          headers: {
-            'Cookie': cookieHeader,
-            'X-CSRFToken': csrfToken,
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(postData),
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/json',
-            'Referer': 'https://shopee.vn/user/voucher-wallet'
-          }
-        }, (response) => {
-          let data = '';
-          response.on('data', chunk => data += chunk);
-          response.on('end', () => {
-            try {
-              const json = JSON.parse(data);
-              if (json.error === 0) resolve('Thnh cng');
-              else if (json.error_msg) resolve(json.error_msg);
-              else resolve(JSON.stringify(json));
-            } catch(e) {
-              resolve('Parse error');
-            }
-          });
-        });
-        req.on('error', e => resolve('L?i k?t n?i: ' + e.message));
-        req.write(postData);
-        req.end();
-      });
-
-      sendEvent('result', { voucher: vCode, result: msg });
-      
-      // small delay to prevent rate limit (150ms instead of 3000ms!)
-      await new Promise(r => setTimeout(r, 150));
-      
-    } catch (err) {
-      sendEvent('result', { voucher: vCode, result: 'L?i: ' + err.message });
-    }
-  }
+  let browser = null;
+  let ctx = null;
+  let page = null;
   
-  sendEvent('done', { message: 'Hon t?t check voucher' });
-  res.end();
+  try {
+    sendEvent('progress', { message: 'Dang m? trnh duy?t & ch?ng bot...' });
+    browser = await launchBrowser(proxyConfig);
+    ctx = await browser.createBrowserContext();
+    page = await ctx.newPage();
+    
+    // Block unnecessary resources for MAXIMUM speed
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+      const rt = req.resourceType();
+      if (['image', 'stylesheet', 'font', 'media'].includes(rt)) {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
+
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    let spcF = '', spcSt = '';
+    const cookieString = cookieStr.trim();
+    if (cookieString.startsWith('SPC_F=')) spcF = cookieString.substring(6).split('|')[0];
+    else if (cookieString.startsWith('SPC_ST=')) spcSt = cookieString.substring(7).split(';')[0];
+    else if (cookieString.includes('SPC_F=')) { const match = cookieString.match(/SPC_F=([^;]+)/); if (match) spcF = match[1]; }
+    else if (cookieString.includes('SPC_ST=')) { const match = cookieString.match(/SPC_ST=([^;]+)/); if (match) spcSt = match[1]; }
+    else { if (cookieString.length > 50) spcSt = cookieString; else spcF = cookieString; }
+
+    const cookieObjs = [];
+    if (spcF) cookieObjs.push({ name: 'SPC_F', value: spcF, domain: '.shopee.vn', path: '/' });
+    if (spcSt) cookieObjs.push({ name: 'SPC_ST', value: spcSt, domain: '.shopee.vn', path: '/' });
+    
+    if (cookieObjs.length > 0) {
+      await page.setCookie(...cookieObjs);
+    }
+
+    // Go to a lightweight page instead of the heavy homepage
+    await page.goto('https://shopee.vn/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    // Wait just 500ms to let anti-bot script initialize
+    await new Promise(r => setTimeout(r, 500));
+    
+    sendEvent('progress', { message: 'B?t d?u check hng lo?t (T?c d? cao)...' });
+    
+    // Inject checking function into browser
+    await page.evaluate(() => {
+      window.checkShopeeVoucher = async (code) => {
+        try {
+          const csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
+          const csrfToken = csrfMatch ? csrfMatch[1] : '';
+          
+          const res = await fetch('https://shopee.vn/api/v2/voucher_wallet/save_voucher', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken,
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({ voucher_code: code, need_b2c_voucher: false })
+          });
+          const data = await res.json();
+          
+          if (data.error === 0) return 'Thnh cng';
+          if (data.error_msg) return data.error_msg;
+          if (data.message) return data.message;
+          return JSON.stringify(data);
+        } catch(e) {
+          return 'L?i fetch API: ' + e.message;
+        }
+      };
+    });
+
+    // Check concurrently in batches of 5 for extreme speed
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < vouchers.length; i += BATCH_SIZE) {
+      const batch = vouchers.slice(i, i + BATCH_SIZE).map(v => v.trim()).filter(Boolean);
+      if (batch.length === 0) continue;
+
+      const results = await Promise.all(batch.map(vCode => 
+        page.evaluate((code) => window.checkShopeeVoucher(code), vCode)
+          .then(res => ({ voucher: vCode, result: res }))
+          .catch(err => ({ voucher: vCode, result: 'L?i: ' + err.message }))
+      ));
+
+      results.forEach(r => sendEvent('result', r));
+      
+      // tiny delay between batches
+      if (i + BATCH_SIZE < vouchers.length) await new Promise(r => setTimeout(r, 200));
+    }
+    
+    sendEvent('done', { message: 'Hon t?t check voucher' });
+
+  } catch (e) {
+    sendEvent('error', { message: e.message });
+  } finally {
+    if (page) try { await page.close(); } catch(_) {}
+    if (ctx) try { await ctx.close(); } catch(_) {}
+    if (browser) try { await browser.close(); } catch(_) {}
+    res.end();
+  }
 });
 
 // --- GoAffiliate Proxy ---
