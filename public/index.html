@@ -1719,6 +1719,7 @@
                 <thead>
                 <tr id="ccnTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
                   <th style="padding: 10px 8px; width: 40px; text-align: center;">#</th>
+                  <th style="padding: 10px 8px; width: 40px; text-align: center;" title="Đánh dấu đang làm">🎯</th>
                   <th data-col="email" onclick="setCcnSort('email')" style="padding: 10px 8px; cursor:pointer;">Email ↕</th>
                   <th data-col="pass" onclick="setCcnSort('pass')" style="padding: 10px 8px; cursor:pointer;">Pass ↕</th>
                   <th data-col="twofa" onclick="setCcnSort('twofa')" style="padding: 10px 8px; width: 80px; cursor:pointer;">2FA ↕</th>
@@ -6211,6 +6212,27 @@ async function generateCcnProxy(rowId, stateCode) {
 }
 
 const ccnTabNames = ['Chưa làm', 'Success', 'Payment', 'Cancel', 'Check Thẻ', 'Review', 'Lock'];
+
+window.activeCcnId = null;
+function toggleCcnActive(id, checkbox) {
+  document.querySelectorAll('.ccn-row').forEach(row => {
+    row.style.background = row.getAttribute('data-bg');
+    row.classList.remove('active-working-row');
+    const cb = row.querySelector('.ccn-active-checkbox');
+    if (cb && cb !== checkbox) cb.checked = false;
+  });
+
+  if (checkbox.checked) {
+    window.activeCcnId = id;
+    const tr = checkbox.closest('tr');
+    tr.style.background = 'rgba(238, 77, 45, 0.2)';
+    tr.style.setProperty('background', 'rgba(238, 77, 45, 0.2)', 'important');
+    tr.classList.add('active-working-row');
+  } else {
+    window.activeCcnId = null;
+  }
+}
+
 function renderCcnTable() {
 
   const counts = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0};
@@ -6279,10 +6301,15 @@ function renderCcnTable() {
   entries.forEach((row, idx) => {
     const isEven = idx % 2 === 0;
     const bgMain = isEven ? 'background: transparent;' : 'background: rgba(255, 255, 255, 0.04);';
+    const isActive = (window.activeCcnId === row.id);
+    const trBg = isActive ? 'background: rgba(238, 77, 45, 0.2) !important;' : bgMain;
     const bgSub = isEven ? 'background: rgba(255, 255, 255, 0.02);' : 'background: rgba(255, 255, 255, 0.06);';
     rows += `
-      <tr style="border-bottom: 1px solid rgba(255,255,255,0.03); ${bgMain}">
+      <tr class="ccn-row ${isActive ? 'active-working-row' : ''}" data-bg="${bgMain}" style="border-bottom: 1px solid rgba(255,255,255,0.03); ${trBg}">
         <td style="padding: 10px 8px; text-align: center; color: var(--text-muted);">${idx + 1}</td>
+        <td style="padding: 10px 8px; text-align: center;">
+          <input type="checkbox" class="ccn-active-checkbox" onchange="toggleCcnActive('${row.id}', this)" ${isActive ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--shopee);">
+        </td>
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${highlightConfusingChars(row.email)}</td>
         <td style="padding: 10px 8px; cursor: pointer;" onclick="copyText(this.innerText)">${highlightConfusingChars(row.pass)}</td>
         <td class="totp-cell" data-secret="${escapeHtml(row.twofa)}" style="padding: 10px 8px; cursor: pointer; font-family: monospace; font-size: 14px; font-weight: bold; color: var(--primary); text-align: center; letter-spacing: 2px;" title="Click để Copy Code (Secret: ${escapeHtml(row.twofa)})" onclick="copyText(this.innerText)">------</td>
