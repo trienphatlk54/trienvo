@@ -1545,12 +1545,11 @@ app.post('/api/voucher-check', async (req, res) => {
   let page = null;
   
   try {
-    sendEvent('progress', { message: 'Dang m? trnh duy?t...' });
+    sendEvent('progress', { message: 'Dang khoi dong trinh duyet...' });
     browser = await launchBrowser(proxyConfig);
     ctx = await browser.createBrowserContext();
     page = await ctx.newPage();
     
-    // Block images, fonts and media, BUT allow JS and CSS for React to render
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       const rt = req.resourceType();
@@ -1561,102 +1560,216 @@ app.post('/api/voucher-check', async (req, res) => {
       }
     });
 
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36');
     
+    // Parse cookies
     let spcF = '', spcSt = '';
     const cookieString = cookieStr.trim();
-    if (cookieString.startsWith('SPC_F=')) spcF = cookieString.substring(6).split('|')[0];
-    else if (cookieString.startsWith('SPC_ST=')) spcSt = cookieString.substring(7).split(';')[0];
-    else if (cookieString.includes('SPC_F=')) { const match = cookieString.match(/SPC_F=([^;]+)/); if (match) spcF = match[1]; }
-    else if (cookieString.includes('SPC_ST=')) { const match = cookieString.match(/SPC_ST=([^;]+)/); if (match) spcSt = match[1]; }
-    else { if (cookieString.length > 50) spcSt = cookieString; else spcF = cookieString; }
-
-    const cookieObjs = [];
-    if (spcF) cookieObjs.push({ name: 'SPC_F', value: spcF, domain: '.shopee.vn', path: '/' });
-    if (spcSt) cookieObjs.push({ name: 'SPC_ST', value: spcSt, domain: '.shopee.vn', path: '/' });
-    
-    if (cookieObjs.length > 0) {
-      await page.setCookie(...cookieObjs);
-    }
-
-    sendEvent('progress', { message: 'Dang truy c?p vi Voucher (V??t Bot)...' });
-    await page.goto('https://shopee.vn/user/voucher-wallet?lang=en', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    
-    sendEvent('progress', { message: 'Ch? load giao di?n Shopee...' });
-    try {
-      await page.waitForSelector('input[placeholder*="voucher" i], input[placeholder*="M" i]', { timeout: 30000 });
-    } catch(e) {
-      throw new Error('Khng tm th?y  nh?p m voucher. Cookie c th d ch?t.');
+    // Try to extract ALL cookies if it's a full cookie string
+    const allCookies = [];
+    if (cookieString.includes('=')) {
+      const pairs = cookieString.split(';').map(s => s.trim()).filter(Boolean);
+      for (const pair of pairs) {
+        const eqIdx = pair.indexOf('=');
+        if (eqIdx > 0) {
+          const name = pair.substring(0, eqIdx).trim();
+          const value = pair.substring(eqIdx + 1).trim();
+          allCookies.push({ name, value, domain: '.shopee.vn', path: '/' });
+          if (name === 'SPC_F') spcF = value;
+          if (name === 'SPC_ST') spcSt = value;
+        }
+      }
     }
     
-    sendEvent('progress', { message: 'B?t d?u check (Giao th?c API qua UI)...' });
+    // Fallback for simple inputs
+    if (!spcF && !spcSt) {
+      if (cookieString.length > 50) {
+        allCookies.push({ name: 'SPC_ST', value: cookieString, domain: '.shopee.vn', path: '/' });
+      } else {
+        allCookies.push({ name: 'SPC_F', value: cookieString, domain: '.shopee.vn', path: '/' });
+      }
+    }
+    
+    if (allCookies.length > 0) {
+      await page.setCookie(...allCookies);
+    }
+
+    sendEvent('progress', { message: 'Dang truy cap Shopee Voucher Wallet...' });
+    await page.goto('https://shopee.vn/user/voucher-wallet', { waitUntil: 'networkidle2', timeout: 60000 });
+    
+    // Wait extra time for React SPA to render
+    await new Promise(r => setTimeout(r, 3000));
+    
+    sendEvent('progress', { message: 'Dang tim o nhap ma voucher...' });
+    
+    // Try multiple selectors - Shopee changes their UI frequently
+    const inputSelectors = [
+      'input[placeholder*="voucher" i]',
+      'input[placeholder*="Voucher" i]',
+      'input[placeholder*="code" i]',
+      'input[placeholder*="Nhap" i]',
+      'input[placeholder*="nhap" i]',
+      'input[placeholder*="nhập" i]',
+      'input[placeholder*="Nhập" i]',
+      'input[placeholder*="mã" i]',
+      'input[placeholder*="ma" i]',
+      '.voucher-wallet input[type="text"]',
+      '[class*="voucher" i] input',
+      '[class*="Voucher" i] input',
+    ];
+    
+    let foundSelector = null;
+    for (const sel of inputSelectors) {
+      try {
+        const el = await page.$(sel);
+        if (el) {
+          foundSelector = sel;
+          break;
+        }
+      } catch(_) {}
+    }
+    
+    // If still not found, try to find ANY visible text input on the page
+    if (!foundSelector) {
+      const hasInput = await page.evaluate(() => {
+        const inputs = Array.from(document.querySelectorAll('input[type="text"], input:not([type])'));
+        const visible = inputs.filter(el => {
+          const rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
+        return visible.length;
+      });
+      if (hasInput > 0) {
+        foundSelector = '__generic__';
+      }
+    }
+    
+    if (!foundSelector) {
+      // Take screenshot for debugging and send as base64
+      let debugInfo = '';
+      try {
+        const b64 = await page.screenshot({ encoding: 'base64', fullPage: false });
+        const pageUrl = page.url();
+        const pageTitle = await page.title();
+        const bodySnippet = await page.evaluate(() => {
+          return document.body ? document.body.innerText.substring(0, 500) : 'No body';
+        });
+        debugInfo = '<br><b>URL:</b> ' + pageUrl + '<br><b>Title:</b> ' + pageTitle + '<br><b>Text:</b> ' + bodySnippet + '<br><img src="data:image/png;base64,' + b64 + '" style="max-width:500px; border:1px solid #ccc; margin-top:8px;">';
+      } catch(_) {}
+      throw new Error('Khong tim thay o nhap ma voucher. Cookie co the da chet hoac Shopee doi giao dien.' + debugInfo);
+    }
+
+    sendEvent('progress', { message: 'Da tim thay o nhap! Bat dau check...' });
     
     for (let i = 0; i < vouchers.length; i++) {
       const vCode = vouchers[i].trim();
       if (!vCode) continue;
       
       try {
-        // Setup listener for the API response
+        sendEvent('progress', { message: `Dang check [${i+1}/${vouchers.length}]: ${vCode}` });
+        
+        // Setup listener for the API response BEFORE triggering
         const responsePromise = page.waitForResponse(response => 
-          response.url().includes('/save_voucher') && response.request().method() === 'POST'
-        , { timeout: 6000 }).catch(() => null);
+          response.url().includes('save_voucher') && response.request().method() === 'POST'
+        , { timeout: 10000 }).catch(() => null);
 
-        // Inject code into UI instantly
-        const successClick = await page.evaluate((code) => {
-          const input = document.querySelector('input[placeholder*="voucher" i], input[placeholder*="M" i]');
-          if (!input) return false;
+        // Use React-compatible value setter + dispatch events
+        const clickResult = await page.evaluate((code, selector) => {
+          let input;
+          if (selector === '__generic__') {
+            const inputs = Array.from(document.querySelectorAll('input[type="text"], input:not([type])'));
+            input = inputs.find(el => {
+              const rect = el.getBoundingClientRect();
+              return rect.width > 0 && rect.height > 0;
+            });
+          } else {
+            input = document.querySelector(selector);
+          }
+          if (!input) return { ok: false, reason: 'input_not_found' };
           
-          // React input setter hack
-          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+          // Focus and clear
+          input.focus();
+          
+          // React-compatible value setting
+          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
           nativeInputValueSetter.call(input, code);
           input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
           
-          const btns = Array.from(document.querySelectorAll('button'));
-          const btn = btns.find(b => 
-            b.innerText.toLowerCase().includes('redeem') || 
-            b.innerText.toLowerCase().includes('lu') ||
-            b.innerText.toLowerCase().includes('p d?ng') ||
-            b.innerText.toLowerCase().includes('save') ||
-            b.innerText.toLowerCase().includes('cng') // for 'thanh cong' etc if any
-          );
-          
-          if (btn && !btn.disabled) {
-            btn.click();
-            return true;
-          }
-          return false;
-        }, vCode);
+          // Small delay then find and click the submit button
+          return new Promise(resolve => {
+            setTimeout(() => {
+              const btns = Array.from(document.querySelectorAll('button'));
+              const btn = btns.find(b => {
+                const text = (b.innerText || b.textContent || '').toLowerCase();
+                return text.includes('save') || text.includes('redeem') || 
+                       text.includes('lưu') || text.includes('lu') || 
+                       text.includes('áp dụng') || text.includes('ap dung') ||
+                       text.includes('dùng ngay') || text.includes('dung ngay') ||
+                       text.includes('sử dụng') || text.includes('su dung');
+              });
+              if (btn && !btn.disabled) {
+                btn.click();
+                resolve({ ok: true, btnText: btn.innerText });
+              } else {
+                // Try to find ANY button near the input
+                const allBtns = Array.from(document.querySelectorAll('button:not([disabled])'));
+                const nearBtn = allBtns.find(b => {
+                  const rect = b.getBoundingClientRect();
+                  return rect.width > 30 && rect.height > 20 && rect.top > 0;
+                });
+                if (nearBtn) {
+                  nearBtn.click();
+                  resolve({ ok: true, btnText: nearBtn.innerText, fallback: true });
+                } else {
+                  const btnTexts = allBtns.map(b => b.innerText.substring(0, 30)).join(' | ');
+                  resolve({ ok: false, reason: 'no_button', available: btnTexts });
+                }
+              }
+            }, 100);
+          });
+        }, vCode, foundSelector);
 
-        if (!successClick) {
-          sendEvent('result', { voucher: vCode, result: 'L?i UI: Khng th? click nt Lu' });
+        if (!clickResult.ok) {
+          sendEvent('result', { voucher: vCode, result: 'Loi UI: Khong bam duoc nut (' + (clickResult.reason || '') + ') Buttons: ' + (clickResult.available || 'none') });
           continue;
         }
 
-        const res = await responsePromise;
-        if (!res) {
-          sendEvent('result', { voucher: vCode, result: 'Timeout: Khng nh?n d??c k?t qu? t? Shopee' });
+        // Wait for API response
+        const apiRes = await responsePromise;
+        if (!apiRes) {
+          // Fallback: try reading any toast/message on screen
+          await new Promise(r => setTimeout(r, 1500));
+          const fallbackMsg = await page.evaluate(() => {
+            const toasts = Array.from(document.querySelectorAll('[class*="toast" i], [class*="message" i], [class*="notification" i], [class*="alert" i]'));
+            for (const t of toasts) {
+              const text = t.innerText.trim();
+              if (text.length > 3 && text.length < 200) return text;
+            }
+            return null;
+          });
+          sendEvent('result', { voucher: vCode, result: fallbackMsg || 'Timeout: Khong nhan duoc phan hoi tu Shopee' });
           continue;
         }
 
-        const data = await res.json().catch(() => ({}));
+        const data = await apiRes.json().catch(() => ({}));
         
         let msg = '';
-        if (data.error === 0) msg = 'Thnh cng';
-        else if (data.error_msg) msg = data.error_msg;
-        else if (data.message) msg = data.message;
+        if (data.error === 0) msg = '✅ Thanh cong! Da luu voucher.';
+        else if (data.error_msg) msg = '❌ ' + data.error_msg;
+        else if (data.message) msg = '❌ ' + data.message;
         else msg = JSON.stringify(data);
 
         sendEvent('result', { voucher: vCode, result: msg });
         
-        // Very small delay to prevent being flagged for macro
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise(r => setTimeout(r, 300));
         
       } catch (err) {
-        sendEvent('result', { voucher: vCode, result: 'L?i: ' + err.message });
+        sendEvent('result', { voucher: vCode, result: 'Loi: ' + err.message });
       }
     }
     
-    sendEvent('done', { message: 'Hon t?t check voucher' });
+    sendEvent('done', { message: 'Hoan tat check voucher' });
 
   } catch (e) {
     sendEvent('error', { message: e.message });
