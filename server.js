@@ -1543,13 +1543,14 @@ app.post('/api/voucher-check', async (req, res) => {
   let browser = null;
   let ctx = null;
   let page = null;
-  
+
   try {
     sendEvent('progress', { message: 'Dang khoi dong trinh duyet...' });
     browser = await launchBrowser(proxyConfig);
     ctx = await browser.createBrowserContext();
     page = await ctx.newPage();
-    
+
+    // Block images, fonts, media to speed up page load
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       const rt = req.resourceType();
@@ -1561,8 +1562,8 @@ app.post('/api/voucher-check', async (req, res) => {
     });
 
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36');
-    
-    // Parse ALL cookies from the cookie string
+
+    // Parse ALL cookies from the input
     const allCookies = [];
     const cookieString = cookieStr.trim();
     if (cookieString.includes('=')) {
@@ -1583,29 +1584,24 @@ app.post('/api/voucher-check', async (req, res) => {
         allCookies.push({ name: 'SPC_F', value: cookieString, domain: '.shopee.vn', path: '/' });
       }
     }
-    if (allCookies.length > 0) {
-      await page.setCookie(...allCookies);
-    }
+    await page.setCookie(...allCookies);
 
-    sendEvent('progress', { message: 'Dang truy cap Shopee Voucher Wallet...' });
+    sendEvent('progress', { message: 'Dang truy cap Vi Voucher Shopee...' });
     await page.goto('https://shopee.vn/user/voucher-wallet', { waitUntil: 'networkidle2', timeout: 60000 });
     await new Promise(r => setTimeout(r, 3000));
-    
-    sendEvent('progress', { message: 'Dang tim o nhap ma voucher...' });
-    
-    // Try multiple selectors
+
+    // Find input with multiple selectors
+    sendEvent('progress', { message: 'Tim o nhap ma voucher...' });
     const inputSelectors = [
       'input[placeholder*="voucher" i]',
-      'input[placeholder*="Voucher" i]',
       'input[placeholder*="code" i]',
       'input[placeholder*="nhap" i]',
-      'input[placeholder*="nhập" i]',
-      'input[placeholder*="mã" i]',
-      'input[placeholder*="ma" i]',
-      '.voucher-wallet input[type="text"]',
-      '[class*="voucher" i] input',
+      'input[placeholder*="nh\u1EADp" i]',
+      'input[placeholder*="m\u00E3" i]',
+      '[class*="voucher" i] input[type="text"]',
+      '[class*="voucher" i] input:not([type])',
     ];
-    
+
     let foundSelector = null;
     for (const sel of inputSelectors) {
       try {
@@ -1613,174 +1609,148 @@ app.post('/api/voucher-check', async (req, res) => {
         if (el) { foundSelector = sel; break; }
       } catch(_) {}
     }
-    
+
+    // Fallback: find any visible text input on the page
     if (!foundSelector) {
-      const hasInput = await page.evaluate(() => {
+      const found = await page.evaluate(() => {
         const inputs = Array.from(document.querySelectorAll('input[type="text"], input:not([type])'));
-        return inputs.filter(el => {
+        const visible = inputs.filter(el => {
           const rect = el.getBoundingClientRect();
-          return rect.width > 0 && rect.height > 0;
-        }).length;
+          const style = window.getComputedStyle(el);
+          return rect.width > 50 && rect.height > 10 && style.display !== 'none' && style.visibility !== 'hidden';
+        });
+        return visible.length > 0;
       });
-      if (hasInput > 0) foundSelector = '__generic__';
+      if (found) foundSelector = '__generic__';
     }
-    
+
     if (!foundSelector) {
       let debugInfo = '';
       try {
         const b64 = await page.screenshot({ encoding: 'base64', fullPage: false });
         const pageUrl = page.url();
         const pageTitle = await page.title();
-        debugInfo = '<br><b>URL:</b> ' + pageUrl + '<br><b>Title:</b> ' + pageTitle + '<br><img src="data:image/png;base64,' + b64 + '" style="max-width:500px;">';
+        debugInfo = '<br><b>URL:</b> ' + pageUrl + '<br><b>Title:</b> ' + pageTitle + '<br><img src="data:image/png;base64,' + b64 + '" style="max-width:500px; border:1px solid #ccc;">';
       } catch(_) {}
-      throw new Error('Khong tim thay o nhap voucher.' + debugInfo);
+      throw new Error('Khong tim thay o nhap voucher. Cookie co the da het han.' + debugInfo);
     }
 
-    // ===== GLOBAL RESPONSE CAPTURE =====
-    // Instead of waitForResponse per voucher, capture ALL voucher API responses globally
-    let lastVoucherResponse = null;
-    let voucherResponseResolve = null;
-    
-    page.on('response', async (response) => {
-      try {
-        const url = response.url();
-        // Match any voucher-related API endpoint
-        if ((url.includes('voucher') || url.includes('save_voucher') || url.includes('voucher_wallet')) 
-            && response.request().method() === 'POST' 
-            && response.status() === 200) {
-          const body = await response.text();
-          try {
-            lastVoucherResponse = JSON.parse(body);
-          } catch(_) {
-            lastVoucherResponse = { raw: body };
-          }
-          if (voucherResponseResolve) {
-            voucherResponseResolve(lastVoucherResponse);
-            voucherResponseResolve = null;
-          }
-        }
-      } catch(_) {}
-    });
+    sendEvent('progress', { message: 'Da san sang! Bat dau check ' + vouchers.length + ' ma...' });
 
-    sendEvent('progress', { message: 'Da tim thay o nhap! Bat dau check...' });
-    
     for (let i = 0; i < vouchers.length; i++) {
       const vCode = vouchers[i].trim();
       if (!vCode) continue;
-      
-      try {
-        sendEvent('progress', { message: `Dang check [${i+1}/${vouchers.length}]: ${vCode}` });
-        
-        // Create a promise that resolves when we get an API response
-        lastVoucherResponse = null;
-        const responsePromise = new Promise((resolve) => {
-          voucherResponseResolve = resolve;
-          // Timeout after 8 seconds
-          setTimeout(() => {
-            if (voucherResponseResolve === resolve) {
-              voucherResponseResolve = null;
-              resolve(null);
-            }
-          }, 8000);
-        });
 
-        // Use React-compatible value setter + click
-        const clickResult = await page.evaluate((code, selector) => {
+      try {
+        sendEvent('progress', { message: `[${i+1}/${vouchers.length}] Dang check: ${vCode}` });
+
+        // Step 1: Set value instantly using React hack (NO slow typing)
+        const inputOk = await page.evaluate((code, sel) => {
           let input;
-          if (selector === '__generic__') {
+          if (sel === '__generic__') {
             const inputs = Array.from(document.querySelectorAll('input[type="text"], input:not([type])'));
             input = inputs.find(el => {
               const rect = el.getBoundingClientRect();
-              return rect.width > 0 && rect.height > 0;
+              return rect.width > 50 && rect.height > 10;
             });
           } else {
-            input = document.querySelector(selector);
+            input = document.querySelector(sel);
           }
-          if (!input) return { ok: false, reason: 'input_not_found' };
-          
+          if (!input) return false;
+
           input.focus();
-          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-          nativeInputValueSetter.call(input, code);
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+          setter.call(input, code);
           input.dispatchEvent(new Event('input', { bubbles: true }));
           input.dispatchEvent(new Event('change', { bubbles: true }));
-          
+          return true;
+        }, vCode, foundSelector);
+
+        if (!inputOk) {
+          sendEvent('result', { voucher: vCode, result: 'Loi: Khong tim thay o nhap' });
+          continue;
+        }
+
+        // Small delay for React state update
+        await new Promise(r => setTimeout(r, 200));
+
+        // Step 2: Find and click the save/redeem button
+        const btnResult = await page.evaluate(() => {
+          const btns = Array.from(document.querySelectorAll('button'));
+          const keywords = ['save', 'redeem', 'l\u01B0u', 'lu', '\u00e1p d\u1ee5ng', 'ap dung', 'd\u00f9ng ngay', 'dung ngay', 's\u1eed d\u1ee5ng', 'su dung', 'nh\u1eadp', 'nhap', 'th\u00eam', 'them'];
+          for (const b of btns) {
+            const text = (b.innerText || b.textContent || '').toLowerCase().trim();
+            if (text && keywords.some(k => text.includes(k)) && !b.disabled) {
+              b.click();
+              return { ok: true, text: b.innerText.trim() };
+            }
+          }
+          return { ok: false, btns: btns.filter(b => !b.disabled).map(b => (b.innerText || '').trim().substring(0, 25)).filter(Boolean).join(' | ') };
+        });
+
+        if (!btnResult.ok) {
+          sendEvent('result', { voucher: vCode, result: 'Khong tim thay nut Luu/Save. Cac nut hien co: ' + (btnResult.btns || 'khong co') });
+          continue;
+        }
+
+        // Step 3: Wait for result message to appear on screen
+        const resultMsg = await page.evaluate(() => {
           return new Promise(resolve => {
-            setTimeout(() => {
-              const btns = Array.from(document.querySelectorAll('button'));
-              const btn = btns.find(b => {
-                const text = (b.innerText || b.textContent || '').toLowerCase();
-                return text.includes('save') || text.includes('redeem') || 
-                       text.includes('lưu') || text.includes('lu') || 
-                       text.includes('áp dụng') || text.includes('ap dung') ||
-                       text.includes('dùng ngay') || text.includes('dung ngay') ||
-                       text.includes('sử dụng') || text.includes('su dung');
-              });
-              if (btn && !btn.disabled) {
-                btn.click();
-                resolve({ ok: true, btnText: btn.innerText });
-              } else {
-                const allBtns = Array.from(document.querySelectorAll('button:not([disabled])'));
-                const btnTexts = allBtns.map(b => (b.innerText || '').substring(0, 30)).join(' | ');
-                resolve({ ok: false, reason: 'no_button', available: btnTexts });
+            let elapsed = 0;
+            const interval = setInterval(() => {
+              elapsed += 150;
+
+              // Scan for toast, popup, or inline message
+              const allEls = Array.from(document.querySelectorAll('div, span, p'));
+              for (const el of allEls) {
+                if (el.children.length > 2) continue;
+                const text = (el.innerText || '').trim().toLowerCase();
+                const len = text.length;
+                if (len < 4 || len > 300) continue;
+
+                if (text.includes('success') || text.includes('th\u00e0nh c\u00f4ng') || text.includes('thanh cong') ||
+                    text.includes('saved') || text.includes('l\u01b0u') ||
+                    text.includes('invalid') || text.includes('kh\u00f4ng h\u1ee3p l\u1ec7') || text.includes('khong hop le') ||
+                    text.includes('expired') || text.includes('h\u1ebft h\u1ea1n') || text.includes('het han') ||
+                    text.includes('sorry') || text.includes('limit') || text.includes('gi\u1edbi h\u1ea1n') ||
+                    text.includes('already') || text.includes('\u0111\u00e3 d\u00f9ng') || text.includes('da dung') ||
+                    text.includes('not found') || text.includes('kh\u00f4ng t\u00ecm') || text.includes('khong tim') ||
+                    text.includes('error') || text.includes('l\u1ed7i') || text.includes('failed') ||
+                    text.includes('\u0111\u00e3 l\u01b0u') || text.includes('da luu') ||
+                    text.includes('collected') || text.includes('claimed') ||
+                    text.includes('redeemed') || text.includes('added') ||
+                    text.includes('h\u1ebft l\u01b0\u1ee3t') || text.includes('het luot') ||
+                    text.includes('used up') || text.includes('sold out') ||
+                    text.includes('not eligible') || text.includes('minimum')) {
+                  clearInterval(interval);
+                  resolve(el.innerText.trim());
+                  return;
+                }
+              }
+
+              if (elapsed >= 5000) {
+                clearInterval(interval);
+                resolve(null);
               }
             }, 150);
           });
-        }, vCode, foundSelector);
+        });
 
-        if (!clickResult.ok) {
-          sendEvent('result', { voucher: vCode, result: 'Loi UI: Khong bam duoc nut. Buttons: ' + (clickResult.available || 'none') });
-          continue;
+        if (resultMsg) {
+          sendEvent('result', { voucher: vCode, result: resultMsg });
+        } else {
+          sendEvent('result', { voucher: vCode, result: 'Khong doc duoc ket qua. Da bam nut: ' + btnResult.text });
         }
 
-        // Wait for API response from global listener
-        const data = await responsePromise;
-        
-        if (!data) {
-          // Fallback: read any visible message/toast on screen
-          await new Promise(r => setTimeout(r, 1000));
-          const screenMsg = await page.evaluate(() => {
-            // Try toasts, alerts, notifications
-            const candidates = Array.from(document.querySelectorAll('[class*="toast" i], [class*="snackbar" i], [class*="notification" i], [class*="message" i], [class*="alert" i], [role="alert"]'));
-            for (const el of candidates) {
-              const text = el.innerText.trim();
-              if (text.length > 3 && text.length < 300) return text;
-            }
-            // Try any recently appeared text near the input area
-            const spans = Array.from(document.querySelectorAll('span, div, p'));
-            for (const el of spans) {
-              if (el.children.length > 0) continue;
-              const text = el.innerText.toLowerCase();
-              if (text.includes('success') || text.includes('thành công') || text.includes('thanh cong') ||
-                  text.includes('invalid') || text.includes('expired') || text.includes('hết hạn') || 
-                  text.includes('het han') || text.includes('không hợp lệ') || text.includes('error') ||
-                  text.includes('already') || text.includes('đã') || text.includes('saved') ||
-                  text.includes('limit') || text.includes('giới hạn')) {
-                return el.innerText.trim();
-              }
-            }
-            return null;
-          });
-          sendEvent('result', { voucher: vCode, result: screenMsg ? screenMsg : 'Khong bat duoc ket qua API. Nut da bam: ' + (clickResult.btnText || '?') });
-          continue;
-        }
+        // Brief delay before next voucher
+        await new Promise(r => setTimeout(r, 500));
 
-        let msg = '';
-        if (data.error === 0) msg = '✅ Thanh cong! Da luu voucher.';
-        else if (data.error_msg) msg = '❌ ' + data.error_msg;
-        else if (data.message) msg = '❌ ' + data.message;
-        else if (data.raw) msg = data.raw;
-        else msg = JSON.stringify(data);
-
-        sendEvent('result', { voucher: vCode, result: msg });
-        
-        await new Promise(r => setTimeout(r, 300));
-        
       } catch (err) {
         sendEvent('result', { voucher: vCode, result: 'Loi: ' + err.message });
       }
     }
-    
-    sendEvent('done', { message: 'Hoan tat check voucher' });
+
+    sendEvent('done', { message: 'Hoan tat check ' + vouchers.length + ' ma voucher' });
 
   } catch (e) {
     sendEvent('error', { message: e.message });
