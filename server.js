@@ -1587,7 +1587,7 @@ app.post('/api/voucher-check', async (req, res) => {
     await page.setCookie(...allCookies);
 
     sendEvent('progress', { message: 'Dang truy cap Vi Voucher Shopee...' });
-    await page.goto('https://shopee.vn/user/voucher-wallet', { waitUntil: 'networkidle2', timeout: 60000 });
+    await page.goto('https://shopee.vn/user/voucher-wallet', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await new Promise(r => setTimeout(r, 3000));
 
     // Find input with multiple selectors
@@ -1603,25 +1603,29 @@ app.post('/api/voucher-check', async (req, res) => {
     ];
 
     let foundSelector = null;
-    for (const sel of inputSelectors) {
-      try {
-        const el = await page.$(sel);
-        if (el) { foundSelector = sel; break; }
-      } catch(_) {}
-    }
-
-    // Fallback: find any visible text input on the page
-    if (!foundSelector) {
-      const found = await page.evaluate(() => {
-        const inputs = Array.from(document.querySelectorAll('input[type="text"], input:not([type])'));
-        const visible = inputs.filter(el => {
-          const rect = el.getBoundingClientRect();
-          const style = window.getComputedStyle(el);
-          return rect.width > 50 && rect.height > 10 && style.display !== 'none' && style.visibility !== 'hidden';
+    for (let attempt = 0; attempt < 15; attempt++) {
+      for (const sel of inputSelectors) {
+        try {
+          const el = await page.$(sel);
+          if (el) { foundSelector = sel; break; }
+        } catch(_) {}
+      }
+      
+      if (!foundSelector) {
+        const found = await page.evaluate(() => {
+          const inputs = Array.from(document.querySelectorAll('input[type="text"], input:not([type])'));
+          const visible = inputs.filter(el => {
+            const rect = el.getBoundingClientRect();
+            const style = window.getComputedStyle(el);
+            return rect.width > 50 && rect.height > 10 && style.display !== 'none' && style.visibility !== 'hidden';
+          });
+          return visible.length > 0;
         });
-        return visible.length > 0;
-      });
-      if (found) foundSelector = '__generic__';
+        if (found) foundSelector = '__generic__';
+      }
+      
+      if (foundSelector) break;
+      await new Promise(r => setTimeout(r, 1000));
     }
 
     if (!foundSelector) {
