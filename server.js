@@ -373,7 +373,7 @@ function startApiPoll(qrId, jar, attemptId) {
   console.log('  ⏳ Bắt đầu poll trạng thái QR...');
   
   S.poll = setInterval(async () => {
-    if (['success', 'error', 'idle'].includes(S.status)) { clearInterval(S.poll); return; }
+    if (['success', 'error', 'idle', 'logging_in'].includes(S.status)) { clearInterval(S.poll); return; }
     if (S.attemptId !== attemptId) { clearInterval(S.poll); return; }
     
     try {
@@ -406,12 +406,14 @@ function startApiPoll(qrId, jar, attemptId) {
 
       // If we got a token, try to login
       if (qrToken) {
-        console.log('  ?? Nh?n du?c qrcode_token, dang l?y session qua Puppeteer...');
+        // Prevent re-entry: mark as logging_in IMMEDIATELY before any async work
+        S.status = 'logging_in';
         clearInterval(S.poll);
+        console.log('  🔑 Nhan duoc qrcode_token, dang lay session qua Puppeteer...');
         
         try {
           if (!S.page) {
-            console.log('  ? Tr�nh duy?t ng?m chua kh?i t?o, ch? th�m...');
+            console.log('  ? Trnh duy?t ng?m chua kh?i t?o, ch? thમ...');
             for (let i = 0; i < 30; i++) {
               await new Promise(r => setTimeout(r, 500));
               if (S.page) break;
@@ -479,8 +481,9 @@ function startApiPoll(qrId, jar, attemptId) {
             if (err.message.includes('Shopee API Error')) throw err;
           }
           
-          // Ch? Shopee set cookie
-          await new Promise(r => setTimeout(r, 1000));
+          // Chờ Shopee set cookie
+          await new Promise(r => setTimeout(r, 2000));
+          if (!S.page) throw new Error('Trinh duyet da dong truoc khi lay duoc cookie');
           const browserCookies = await S.page.cookies('https://shopee.vn');
           const spcSt = browserCookies.find(c => c.name === 'SPC_ST');
           
