@@ -3533,9 +3533,9 @@ async function autoSetPandaProxyAndQR() {
     const parts = rawStr.split(':');
     let formattedConnString = rawStr;
     if (parts.length === 4) {
-      formattedConnString = 'http://' + parts[0] + ':' + parts[1] + ':' + parts[2] + ':' + parts[3];
+      formattedConnString = parts[0] + ':' + parts[1] + ':' + parts[2] + ':' + parts[3];
     } else {
-      formattedConnString = 'http://' + rawStr;
+      formattedConnString = rawStr;
     }
 
     // Set to independent output ONLY
@@ -3591,7 +3591,7 @@ async function loadPandaProxies() {
         const pPort = (p.proxy && p.proxy.port) ? p.proxy.port : '';
         
         const proxyStr = `${ip}:${pPort}:${pUser}:${pPass}`;
-        const proxyUrl = `http://${proxyStr}`;
+        const proxyUrl = proxyStr;
         const qrUrl = getStandardProxyUrl(`socks5://${proxyStr}`);
         
         const intervalSec = 60; 
@@ -3741,9 +3741,9 @@ async function rotatePandaProxyRow(id, intervalSec) {
     const parts = rawStr.split(':');
     let formattedConnString = rawStr;
     if (parts.length === 4) {
-      formattedConnString = 'http://' + parts[0] + ':' + parts[1] + ':' + parts[2] + ':' + parts[3];
+      formattedConnString = parts[0] + ':' + parts[1] + ':' + parts[2] + ':' + parts[3];
     } else {
-      formattedConnString = 'http://' + rawStr;
+      formattedConnString = rawStr;
     }
 
     if (outInput) outInput.value = formattedConnString;
