@@ -1218,15 +1218,15 @@ app.get('/api/npo-lookup', async (req, res) => {
 
 
 app.post('/api/ccn/save', async (req, res) => {
-  const {  id, email, pass, twofa, country, address, status, identity, linkedProxy, bsn, assignedCards, extraSlots , notes } = req.body;
+  const { id, email, pass, twofa, country, address, status, identity, linkedProxy, bsn, assignedCards, extraSlots, notes, tabChangedAt } = req.body;
   try {
     const ref = db.ref('ccn_accounts');
     if (id) {
-      await ref.child(id).update({  email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '', bsn: bsn || null, assignedCards: assignedCards || null, extraSlots: extraSlots || 0 , notes: notes || '' });
+      await ref.child(id).update({ email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '', bsn: bsn || null, assignedCards: assignedCards || null, extraSlots: extraSlots || 0, notes: notes || '', tabChangedAt: tabChangedAt || '' });
       res.json({ status: 1, id });
     } else {
       const newEntry = ref.push();
-      await newEntry.set({ email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '', bsn: bsn || null, assignedCards: assignedCards || null, extraSlots: extraSlots || 0 });
+      await newEntry.set({ email, pass, twofa, country, address, status: status || 0, identity: identity || '', linkedProxy: linkedProxy || '', bsn: bsn || null, assignedCards: assignedCards || null, extraSlots: extraSlots || 0, tabChangedAt: tabChangedAt || '' });
       res.json({ status: 1, id: newEntry.key });
     }
   } catch (e) {
