@@ -6202,6 +6202,7 @@ async function moveCcnRow(id, newStatus) {
 
   await saveCcnRecord(id, row);
   toast('Đã chuyển tab thành công', 'success');
+  renderCcnTable();
 }
 
 async function loadCcnData() {
