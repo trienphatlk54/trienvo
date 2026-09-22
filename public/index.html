@@ -6195,6 +6195,11 @@ async function moveCcnRow(id, newStatus) {
   const row = ccnData[id];
   if (!row) return;
   row.status = newStatus;
+  
+  const now = new Date();
+  const dateString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')} ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+  row.tabChangedAt = dateString;
+
   await saveCcnRecord(id, row);
   toast('Đã chuyển tab thành công', 'success');
 }
@@ -6378,8 +6383,9 @@ function renderCcnTable() {
           <button class="btn btn-sm ${row.bsn ? 'btn-ghost' : 'btn-primary'}" ${row.status === 6 ? 'disabled style="font-size:11px; padding:3px 6px; opacity: 0.5;"' : `onclick="openBsnModal('${row.id}')" style="font-size:11px; padding:3px 6px; ${row.bsn ? 'color: var(--success);' : ''}"`}>${row.bsn ? '✅ Xem BSN' : '➕ Tạo BSN'}</button>
         </td>
         <td style="padding: 10px 8px; text-align: center;">
-          <div style="display: flex; gap: 4px; align-items: center; justify-content: center;">
-            <select onchange="moveCcnRow('${row.id}', parseInt(this.value))" style="font-size:11px; padding: 4px 6px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; flex-grow: 1; min-width: 0; cursor: pointer;">
+          <div style="display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center;">
+            <div style="display: flex; gap: 4px; align-items: center; justify-content: center; width: 100%;">
+              <select onchange="moveCcnRow('${row.id}', parseInt(this.value))" style="font-size:11px; padding: 4px 6px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; flex-grow: 1; min-width: 0; cursor: pointer;">
             <option value="" disabled selected>Chuyển Tab...</option>
             <option value="0" ${row.status === 0 ? 'disabled' : ''}>Chưa làm</option>
             <option value="1" ${row.status === 1 ? 'disabled' : ''}>Success</option>
@@ -6390,6 +6396,8 @@ function renderCcnTable() {
             <option value="6" ${row.status === 6 ? 'disabled' : ''}>Lock</option>
           </select>
             <button class="btn btn-ghost btn-sm" style="padding: 2px 4px; font-size: 14px; color: var(--error); margin: 0; border: none; background: transparent; cursor: pointer;" onclick="deleteCcnRow('${row.id}')" title="Xóa dòng dữ liệu này">🗑️</button>
+            </div>
+            ${row.tabChangedAt ? `<div style="font-size: 10px; color: var(--text-muted); line-height: 1; margin-top: -2px;">${row.tabChangedAt}</div>` : ''}
           </div>
         </td>
         <td style="padding: 0; width: 1%; text-align: center; white-space: nowrap;">
