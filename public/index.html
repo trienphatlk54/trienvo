@@ -56,8 +56,8 @@
       position: relative; z-index: 1;
       min-height: 100vh;
       display: flex;
-      max-width: 1400px;
-      margin: 0 auto;
+      max-width: 100%;
+      margin: 0;
     }
 
     /* ── Sidebar ──────────────────────────────────── */
@@ -819,12 +819,22 @@
 
     /* ── Responsive ───────────────────────────── */
     @media (max-width: 900px) {
-      #sidebarToggleBtn { display: none !important; }
       .app-layout { flex-direction: column; }
-      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); padding: 16px 20px; }
-      .sidebar-header { margin-bottom: 16px; }
-      .nav-menu { flex-direction: row; overflow-x: auto; padding-bottom: 8px; }
-      .nav-item { white-space: nowrap; }
+      /* Keep sidebar vertical but make it a flyout or hide it */
+      .sidebar { 
+        position: fixed; 
+        top: 0; 
+        left: -300px; 
+        height: 100vh; 
+        z-index: 9999; 
+        transition: 0.3s;
+        border-right: 1px solid var(--border);
+        box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+      }
+      .sidebar.open {
+        left: 0;
+      }
+      #sidebarToggleBtn { display: flex !important; z-index: 10000; }
     }
     @media (max-width: 720px) {
       .card-body { grid-template-columns: 1fr; }
@@ -1704,17 +1714,17 @@
               </div>
             </div>
           </div>
-          <div class="card-body" style="display: block; padding: 0;">
-            <div style="display:flex; flex-wrap:wrap; gap:10px; padding: 10px; border-bottom: 1px solid var(--border);">
-                <button id="btnCcnTab0" class="btn btn-primary btn-sm" onclick="setCcnTab(0)">Chưa làm</button>
-                <button id="btnCcnTab1" class="btn btn-ghost btn-sm" onclick="setCcnTab(1)">Success</button>
-                <button id="btnCcnTab2" class="btn btn-ghost btn-sm" onclick="setCcnTab(2)">Payment</button>
-                <button id="btnCcnTab3" class="btn btn-ghost btn-sm" onclick="setCcnTab(3)">Cancel</button>
-                <button id="btnCcnTab4" class="btn btn-ghost btn-sm" onclick="setCcnTab(4)">Check Thẻ</button>
-                <button id="btnCcnTab5" class="btn btn-ghost btn-sm" onclick="setCcnTab(5)">Review</button>
-                <button id="btnCcnTab6" class="btn btn-ghost btn-sm" onclick="setCcnTab(6)">Lock</button>
+          <div class="card-body" style="display: flex; flex-direction: row; padding: 0;">
+            <div class="ccn-vertical-tabs" style="display:flex; flex-direction:column; gap:8px; padding: 15px; border-right: 1px solid var(--border); min-width: 140px; background: rgba(0,0,0,0.1);">
+                <button style="text-align: left; justify-content: flex-start;" id="btnCcnTab0" class="btn btn-primary btn-sm" onclick="setCcnTab(0)">Chưa làm</button>
+                <button style="text-align: left; justify-content: flex-start;" id="btnCcnTab1" class="btn btn-ghost btn-sm" onclick="setCcnTab(1)">Success</button>
+                <button style="text-align: left; justify-content: flex-start;" id="btnCcnTab2" class="btn btn-ghost btn-sm" onclick="setCcnTab(2)">Payment</button>
+                <button style="text-align: left; justify-content: flex-start;" id="btnCcnTab3" class="btn btn-ghost btn-sm" onclick="setCcnTab(3)">Cancel</button>
+                <button style="text-align: left; justify-content: flex-start;" id="btnCcnTab4" class="btn btn-ghost btn-sm" onclick="setCcnTab(4)">Check Thẻ</button>
+                <button style="text-align: left; justify-content: flex-start;" id="btnCcnTab5" class="btn btn-ghost btn-sm" onclick="setCcnTab(5)">Review</button>
+                <button style="text-align: left; justify-content: flex-start;" id="btnCcnTab6" class="btn btn-ghost btn-sm" onclick="setCcnTab(6)">Lock</button>
               </div>
-            <div class="table-container" style="max-height: calc(100vh - 135px); overflow-y: auto; overflow-x: auto; width: 100%;">
+            <div class="table-container" style="max-height: calc(100vh - 135px); overflow-y: auto; overflow-x: auto; width: 100%; flex: 1;">
               <table class="compact-table" style="width:100%; min-width: 1000px; border-collapse: collapse; text-align: left; font-size: 13px;">
                 <thead>
                 <tr id="ccnTableHeaderTr" style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
@@ -7207,14 +7217,25 @@ window.toggleSidebarState = function() {
   const sb = document.querySelector('.sidebar');
   const layout = document.querySelector('.app-layout');
   const btn = document.getElementById('sidebarToggleBtn');
-  if (sb.classList.contains('collapsed')) {
-     sb.classList.remove('collapsed');
-     layout.style.maxWidth = '1400px';
-     btn.innerHTML = '◀';
+  
+  if (window.innerWidth <= 900) {
+    if (sb.classList.contains('open')) {
+      sb.classList.remove('open');
+      btn.innerHTML = '☰';
+    } else {
+      sb.classList.add('open');
+      btn.innerHTML = '✕';
+    }
   } else {
-     sb.classList.add('collapsed');
-     layout.style.maxWidth = '100%';
-     btn.innerHTML = '▶';
+    if (sb.classList.contains('collapsed')) {
+       sb.classList.remove('collapsed');
+       layout.style.maxWidth = '100%';
+       btn.innerHTML = '❮';
+    } else {
+       sb.classList.add('collapsed');
+       layout.style.maxWidth = '100%';
+       btn.innerHTML = '❯';
+    }
   }
 };
 
