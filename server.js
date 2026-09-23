@@ -66,12 +66,8 @@ try {
 
 
 
-// Initialize Firebase
-const appFirebase = initializeApp({
-  credential: cert(serviceAccount),
-  databaseURL: "https://trienshopeetool-default-rtdb.asia-southeast1.firebasedatabase.app/"
-});
-const db = getDatabase(appFirebase);
+// Initialize Local SQLite Database
+const db = require('./sqlite-firebase');
 
 const PORT   = process.env.PORT || 3000;
 const QR_TTL = 3 * 60 * 1000;
@@ -1068,11 +1064,14 @@ app.post('/api/sync/status', async (req, res) => {
     if (targetPhoneId && Object.keys(payload).length > 0) {
       await db.ref(`phones/${targetPhoneId}`).update(payload);
       
-      const dataRowsSnap = await db.ref('shopee_accounts').orderByChild('phoneId').equalTo(targetPhoneId).once('value');
+      const dataRowsSnap = await db.ref('shopee_accounts').once('value');
       const updates = {};
       dataRowsSnap.forEach(child => {
-        if (status !== undefined) updates[`${child.key}/orderStatus`] = status;
-        if (result !== undefined) updates[`${child.key}/result`] = result;
+        const val = child.val();
+        if (val && val.phoneId === targetPhoneId) {
+          if (status !== undefined) updates[`${child.key}/orderStatus`] = status;
+          if (result !== undefined) updates[`${child.key}/result`] = result;
+        }
       });
       if (Object.keys(updates).length > 0) {
         await db.ref('shopee_accounts').update(updates);

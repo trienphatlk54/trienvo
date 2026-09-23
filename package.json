@@ -18,6 +18,8 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "socks": "^2.8.9",
     "socks-proxy-agent": "^10.1.0",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1",
     "ssh2": "^1.17.0"
   }
 }
