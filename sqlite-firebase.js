@@ -93,8 +93,14 @@ class Ref {
         await db.run("INSERT OR REPLACE INTO records (collection, id, data) VALUES (?, ?, ?)", [collection, id, JSON.stringify(data)]);
       }
     } else if (parts.length === 1) {
-       // Should replace whole collection, but actually not directly supported/needed for set
-       // We only use .remove() on collections
+      if (data === null) {
+        await db.run("DELETE FROM records WHERE collection = ?", [collection]);
+      } else if (typeof data === 'object') {
+        await db.run("DELETE FROM records WHERE collection = ?", [collection]);
+        for (const [key, val] of Object.entries(data)) {
+          await db.run("INSERT INTO records (collection, id, data) VALUES (?, ?, ?)", [collection, key, JSON.stringify(val)]);
+        }
+      }
     }
   }
   
