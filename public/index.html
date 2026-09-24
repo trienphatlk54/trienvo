@@ -856,6 +856,7 @@
         left: -300px; 
         height: 100vh;
         width: 260px;
+        background: rgba(18,18,26,0.95);
         z-index: 9999; 
         transition: 0.3s;
         border-right: 1px solid var(--border);
@@ -987,6 +988,7 @@
       position: fixed; inset: 0; z-index: 99999;
       display: flex; align-items: center; justify-content: center;
       background: var(--bg);
+      overflow-y: auto;
       transition: opacity 0.5s, visibility 0.5s;
     }
     #loginOverlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -1075,6 +1077,59 @@
       .login-logo { width: 60px; height: 60px; border-radius: 16px; }
       .login-title { font-size: 20px; }
     }
+  
+    .mobile-header {
+      display: none;
+    }
+    @media (max-width: 900px) {
+      .mobile-header {
+        display: flex;
+        position: sticky;
+        top: 0;
+        z-index: 9998;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        padding: 10px 16px;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      }
+      .mobile-header .hamburger-btn {
+        background: transparent;
+        border: none;
+        color: var(--text);
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+      }
+      .mobile-header .logo {
+        width: 32px;
+        height: 32px;
+        background: linear-gradient(135deg, var(--shopee), var(--shopee-light));
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .mobile-header .logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scale(1.1);
+      }
+      #sidebarToggleBtn {
+        display: none !important;
+      }
+    }
+
+  
+    @media (max-width: 600px) {
+      #loginOverlay {
+        align-items: flex-start;
+        padding-top: 10vh;
+        padding-bottom: 50vh; 
+      }
+      .login-card { margin-top: 20px; }
+    }
+
   </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -1106,6 +1161,17 @@
 </div>
 
 <div class="app-layout" id="appLayout" style="display:none;">
+
+  <div class="mobile-header">
+    <button class="hamburger-btn" onclick="window.toggleSidebarState()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    </button>
+    <div class="logo">
+      <img src="https://1000logos.net/wp-content/uploads/2021/02/Shopee-logo.png" alt="Shopee Logo">
+    </div>
+    <div style="width: 40px;"></div> <!-- placeholder to center logo -->
+  </div>
+
 
   <!-◀Sidebar -->
   <aside class="sidebar">
@@ -2060,6 +2126,20 @@ async function checkAuthSession() {
     return false;
   }
 }
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#loginUsername, #loginPassword').forEach(el => {
+    el.addEventListener('focus', () => {
+      if (window.innerWidth <= 600) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    });
+  });
+});
+
 
 async function handleLogin(e) {
   e.preventDefault();
@@ -3091,6 +3171,14 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── Tab Navigation ─────────────────────────────────────────────────────────────
 function switchTab(tabId) {
   activeTab = tabId;
+  
+  // Close sidebar on mobile
+  if (window.innerWidth <= 900) {
+    const sb = document.querySelector('.sidebar');
+    if (sb && sb.classList.contains('open')) {
+      sb.classList.remove('open');
+    }
+  }
   if (tabId === 'phone') loadPhones();
   if (tabId === 'tiktok') loadTiktokData();
   // Update nav items
