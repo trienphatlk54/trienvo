@@ -5495,7 +5495,23 @@ async function startVoucherCheck() {
           
         </div>
         <div style="padding: 0 16px 16px 16px;">
-           <button class="btn btn-primary" onclick="saveBsnProfile()" style="width:100%; font-size:14px; padding: 8px;">💾 Lưu Profile</button>
+           <button class="btn btn-primary" onclick="saveBsnProfile()" style="width:100%; font-size:14px; padding: 8px; margin-bottom: 8px; background:var(--primary); border:none;">💾 Lưu Profile</button>
+           
+           <button class="btn btn-ghost" onclick="toggleBsnHistory()" style="width:100%; font-size:13px; color:var(--text-muted); border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.03);">🕒 Lịch sử Profile / NPO (<span id="bsnHistoryCount">0</span>)</button>
+           <div id="bsnHistorySection" style="display: none; max-height: 250px; overflow-y: auto; margin-top: 10px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; background:rgba(0,0,0,0.2);">
+               <table style="width: 100%; font-size: 11px; border-collapse: collapse; text-align: left; color:var(--text);">
+                   <thead style="position: sticky; top: 0; background: #2a2a35; z-index: 1;">
+                       <tr>
+                           <th style="padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.1);">Thời gian</th>
+                           <th style="padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.1);">Fullname</th>
+                           <th style="padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.1);">NPO</th>
+                           <th style="padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align:right;">Thao tác</th>
+                       </tr>
+                   </thead>
+                   <tbody id="bsnHistoryBody">
+                   </tbody>
+               </table>
+           </div>
         </div>
       </div>
     </div>
@@ -6793,6 +6809,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('npoResultSection').style.display = 'none';
     }
     
+    renderBsnHistory(rowId);
     document.getElementById('bsnModal').classList.add('active');
   }
   
@@ -6982,8 +6999,118 @@ document.addEventListener('DOMContentLoaded', () => {
     "DC": "District of Columbia"
   };
 
-  window.generateComboBsn = async function() {
-    await window.fillRandomBsn();
+  
+window.toggleBsnHistory = function() {
+    const el = document.getElementById('bsnHistorySection');
+    el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+};
+
+window.renderBsnHistory = function(rowId) {
+    const row = ccnData[rowId];
+    const tbody = document.getElementById('bsnHistoryBody');
+    const countEl = document.getElementById('bsnHistoryCount');
+    tbody.innerHTML = '';
+    
+    if (!row || !row.bsnHistory || row.bsnHistory.length === 0) {
+        countEl.innerText = '0';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 10px; color:var(--text-muted);">Chưa có lịch sử</td></tr>';
+        return;
+    }
+    
+    countEl.innerText = row.bsnHistory.length;
+    
+    row.bsnHistory.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+        
+        let timeStr = item.timestamp ? item.timestamp.split(' ')[1] : ''; 
+        let dateStr = item.timestamp ? item.timestamp.split(' ')[0] : '';
+        
+        tr.innerHTML = `
+            <td style="padding: 6px; color:var(--text-muted);">${timeStr}<br><span style="font-size:9px;">${dateStr}</span></td>
+            <td style="padding: 6px;">${item.fullname || '-'}</td>
+            <td style="padding: 6px; color:var(--shopee);">${item.npoName || '-'}</td>
+            <td style="padding: 6px; text-align:right;">
+                <button onclick="restoreBsnHistory('${rowId}', ${index})" style="background:rgba(16,185,129,0.2); color:var(--success); border:1px solid rgba(16,185,129,0.3); border-radius:4px; cursor:pointer; padding:3px 6px; font-size:11px;">Phục hồi</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+};
+
+window.restoreBsnHistory = function(rowId, index) {
+    const row = ccnData[rowId];
+    if (!row || !row.bsnHistory || !row.bsnHistory[index]) return;
+    const item = row.bsnHistory[index];
+    
+    document.getElementById('bsnFullname').value = item.fullname || '';
+    document.getElementById('bsnPhone').value = item.phone || '';
+    document.getElementById('bsnZip').value = item.zip || '';
+    document.getElementById('bsnCity').value = item.city || '';
+    document.getElementById('bsnState').value = item.state || '';
+    
+    if (item.npoName) {
+        document.getElementById('npoNameText').innerText = item.npoName || '';
+        document.getElementById('npoEinText').innerText = item.npoEin || '';
+        document.getElementById('npoCareOfText').innerText = item.npoCareOf || '';
+        document.getElementById('npoAddressText').innerText = item.npoAddress || '';
+        document.getElementById('npoZipText').innerText = item.npoZip || '';
+        document.getElementById('npoCityText').innerText = item.npoCity || '';
+        document.getElementById('npoStateText').innerText = item.npoState || '';
+        document.getElementById('npoAssetsText').innerText = item.npoAssets || '';
+        document.getElementById('npoIncomeText').innerText = item.npoIncome || '';
+        document.getElementById('npoResultSection').style.display = 'flex';
+    } else {
+        document.getElementById('npoResultSection').style.display = 'none';
+    }
+    toast('Đã phục hồi dữ liệu từ lịch sử!', 'success');
+};
+
+window.logBsnToHistory = async function(rowId) {
+    const row = ccnData[rowId];
+    if (!row) return;
+    
+    const bsnData = {
+      fullname: document.getElementById('bsnFullname').value.trim(),
+      phone: document.getElementById('bsnPhone').value.trim(),
+      zip: document.getElementById('bsnZip').value.trim(),
+      city: document.getElementById('bsnCity').value.trim(),
+      state: document.getElementById('bsnState').value.trim(),
+      timestamp: new Date().toLocaleString('vi-VN')
+    };
+    
+    if (document.getElementById('npoResultSection').style.display !== 'none') {
+      bsnData.npoName = document.getElementById('npoNameText').innerText;
+      bsnData.npoEin = document.getElementById('npoEinText').innerText;
+      bsnData.npoCareOf = document.getElementById('npoCareOfText').innerText;
+      bsnData.npoAddress = document.getElementById('npoAddressText').innerText;
+      bsnData.npoZip = document.getElementById('npoZipText').innerText;
+      bsnData.npoCity = document.getElementById('npoCityText').innerText;
+      bsnData.npoState = document.getElementById('npoStateText').innerText;
+      bsnData.npoAssets = document.getElementById('npoAssetsText').innerText;
+      bsnData.npoIncome = document.getElementById('npoIncomeText').innerText;
+    }
+    
+    if (!bsnData.fullname && !bsnData.npoName) return; 
+
+    if (!row.bsnHistory) row.bsnHistory = [];
+    
+    if (row.bsnHistory.length > 0) {
+       const last = row.bsnHistory[0];
+       const cloneLast = {...last}; delete cloneLast.timestamp; 
+       const cloneNew = {...bsnData}; delete cloneNew.timestamp; 
+       if (JSON.stringify(cloneLast) === JSON.stringify(cloneNew)) return;
+    }
+    
+    row.bsnHistory.unshift(bsnData);
+    
+    // Save to DB and render
+    await saveCcnRecord(rowId, row);
+    renderBsnHistory(rowId);
+};
+
+window.generateComboBsn = async function() {
+    await window.generateBsnProfile();
     await window.extractNPO();
   };
   
