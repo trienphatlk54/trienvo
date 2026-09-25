@@ -7684,66 +7684,67 @@ window.toggleSidebarState = function() {
   </button>
 
   <!-- Timer Panel -->
-  <div id="timerPanel" style="position:fixed; bottom:100px; right:30px; z-index:9998; background:var(--surface); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:16px; box-shadow:0 12px 32px rgba(0,0,0,0.6); display:none; max-width:calc(100vw - 60px); overflow-x:auto;">
+  <div id="timerPanel" style="position:fixed; bottom:100px; right:30px; z-index:9998; background:var(--surface); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:16px; box-shadow:0 12px 32px rgba(0,0,0,0.6); display:none; max-width:calc(100vw - 60px); overflow-x:auto; cursor: grab;">
+     <!-- Drag handle area -->
+     <div style="text-align:center; margin-bottom: 8px; color:var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 2px; user-select: none;">:: Kéo để di chuyển ::</div>
      <div style="display:flex; gap:12px;">
         <!-- Timer 1 -->
-        <div id="timerBox_1" style="display:flex; flex-direction:column; align-items:center; background:var(--surface2); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); min-width:90px;">
-            <div style="font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Timer 1</div>
-            <div id="timerDisplay_1" style="font-size:24px; font-weight:bold; font-family:monospace; margin:8px 0; color:var(--text-muted);">00:00</div>
+        <div id="timerBox_1" style="display:flex; flex-direction:column; align-items:center; background:var(--surface2); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); min-width:90px; transition: transform 0.2s;">
+            <div style="font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; user-select:none;">Timer 1</div>
+            <div id="timerDisplay_1" style="font-size:24px; font-weight:bold; font-family:monospace; margin:8px 0; color:var(--text-muted); user-select:none;">00:00</div>
             <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="startTimer(1, 5)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">5m</button>
-                <button onclick="startTimer(1, 10)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">10m</button>
-                <button onclick="promptTimer(1)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">✏️</button>
+                <button onclick="startTimerSeconds(1, 420)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">7m</button>
+                <button onclick="startTimerSeconds(1, 120)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">2m</button>
+                <button onclick="promptTimer(1)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;" title="Chỉnh giây">✏️</button>
                 <button onclick="stopTimer(1)" style="background:rgba(239,68,68,0.2); color:var(--error); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">🛑</button>
             </div>
         </div>
         <!-- Timer 2 -->
-        <div id="timerBox_2" style="display:flex; flex-direction:column; align-items:center; background:var(--surface2); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); min-width:90px;">
-            <div style="font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Timer 2</div>
-            <div id="timerDisplay_2" style="font-size:24px; font-weight:bold; font-family:monospace; margin:8px 0; color:var(--text-muted);">00:00</div>
+        <div id="timerBox_2" style="display:flex; flex-direction:column; align-items:center; background:var(--surface2); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); min-width:90px; transition: transform 0.2s;">
+            <div style="font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; user-select:none;">Timer 2</div>
+            <div id="timerDisplay_2" style="font-size:24px; font-weight:bold; font-family:monospace; margin:8px 0; color:var(--text-muted); user-select:none;">00:00</div>
             <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="startTimer(2, 5)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">5m</button>
-                <button onclick="startTimer(2, 10)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">10m</button>
-                <button onclick="promptTimer(2)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">✏️</button>
+                <button onclick="startTimerSeconds(2, 420)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">7m</button>
+                <button onclick="startTimerSeconds(2, 120)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">2m</button>
+                <button onclick="promptTimer(2)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;" title="Chỉnh giây">✏️</button>
                 <button onclick="stopTimer(2)" style="background:rgba(239,68,68,0.2); color:var(--error); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">🛑</button>
             </div>
         </div>
         <!-- Timer 3 -->
-        <div id="timerBox_3" style="display:flex; flex-direction:column; align-items:center; background:var(--surface2); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); min-width:90px;">
-            <div style="font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Timer 3</div>
-            <div id="timerDisplay_3" style="font-size:24px; font-weight:bold; font-family:monospace; margin:8px 0; color:var(--text-muted);">00:00</div>
+        <div id="timerBox_3" style="display:flex; flex-direction:column; align-items:center; background:var(--surface2); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); min-width:90px; transition: transform 0.2s;">
+            <div style="font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; user-select:none;">Timer 3</div>
+            <div id="timerDisplay_3" style="font-size:24px; font-weight:bold; font-family:monospace; margin:8px 0; color:var(--text-muted); user-select:none;">00:00</div>
             <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="startTimer(3, 5)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">5m</button>
-                <button onclick="startTimer(3, 10)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">10m</button>
-                <button onclick="promptTimer(3)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">✏️</button>
+                <button onclick="startTimerSeconds(3, 420)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">7m</button>
+                <button onclick="startTimerSeconds(3, 120)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">2m</button>
+                <button onclick="promptTimer(3)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;" title="Chỉnh giây">✏️</button>
                 <button onclick="stopTimer(3)" style="background:rgba(239,68,68,0.2); color:var(--error); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">🛑</button>
             </div>
         </div>
         <!-- Timer 4 -->
-        <div id="timerBox_4" style="display:flex; flex-direction:column; align-items:center; background:var(--surface2); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); min-width:90px;">
-            <div style="font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Timer 4</div>
-            <div id="timerDisplay_4" style="font-size:24px; font-weight:bold; font-family:monospace; margin:8px 0; color:var(--text-muted);">00:00</div>
+        <div id="timerBox_4" style="display:flex; flex-direction:column; align-items:center; background:var(--surface2); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); min-width:90px; transition: transform 0.2s;">
+            <div style="font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; user-select:none;">Timer 4</div>
+            <div id="timerDisplay_4" style="font-size:24px; font-weight:bold; font-family:monospace; margin:8px 0; color:var(--text-muted); user-select:none;">00:00</div>
             <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="startTimer(4, 5)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">5m</button>
-                <button onclick="startTimer(4, 10)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">10m</button>
-                <button onclick="promptTimer(4)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">✏️</button>
+                <button onclick="startTimerSeconds(4, 420)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">7m</button>
+                <button onclick="startTimerSeconds(4, 120)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">2m</button>
+                <button onclick="promptTimer(4)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;" title="Chỉnh giây">✏️</button>
                 <button onclick="stopTimer(4)" style="background:rgba(239,68,68,0.2); color:var(--error); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">🛑</button>
             </div>
         </div>
         <!-- Timer 5 -->
-        <div id="timerBox_5" style="display:flex; flex-direction:column; align-items:center; background:var(--surface2); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); min-width:90px;">
-            <div style="font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Timer 5</div>
-            <div id="timerDisplay_5" style="font-size:24px; font-weight:bold; font-family:monospace; margin:8px 0; color:var(--text-muted);">00:00</div>
+        <div id="timerBox_5" style="display:flex; flex-direction:column; align-items:center; background:var(--surface2); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); min-width:90px; transition: transform 0.2s;">
+            <div style="font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; user-select:none;">Timer 5</div>
+            <div id="timerDisplay_5" style="font-size:24px; font-weight:bold; font-family:monospace; margin:8px 0; color:var(--text-muted); user-select:none;">00:00</div>
             <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="startTimer(5, 5)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">5m</button>
-                <button onclick="startTimer(5, 10)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">10m</button>
-                <button onclick="promptTimer(5)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">✏️</button>
+                <button onclick="startTimerSeconds(5, 420)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">7m</button>
+                <button onclick="startTimerSeconds(5, 120)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">2m</button>
+                <button onclick="promptTimer(5)" style="background:rgba(255,255,255,0.1); color:var(--text); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;" title="Chỉnh giây">✏️</button>
                 <button onclick="stopTimer(5)" style="background:rgba(239,68,68,0.2); color:var(--error); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;">🛑</button>
             </div>
         </div>
      </div>
   </div>
-
 
 <script>
 // ----- MULTI-TIMER LOGIC -----
@@ -7760,23 +7761,52 @@ window.toggleTimerPanel = function() {
     panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
 };
 
-window.startTimer = function(id, minutes) {
-    const ms = minutes * 60 * 1000;
-    timersState[id] = { endTime: Date.now() + ms, initial: minutes };
+function playAlarm() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        
+        function beep(time, freq) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'square';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, audioCtx.currentTime + time);
+            gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + time + 0.05);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + time + 0.2);
+            osc.start(audioCtx.currentTime + time);
+            osc.stop(audioCtx.currentTime + time + 0.3);
+        }
+        
+        beep(0, 800);
+        beep(0.2, 800);
+        beep(0.4, 1000);
+    } catch(e) {}
+}
+
+window.startTimerSeconds = function(id, seconds) {
+    const ms = seconds * 1000;
+    timersState[id] = { endTime: Date.now() + ms, alerted: false };
     saveTimers();
+    const boxEl = document.getElementById('timerBox_' + id);
+    if (boxEl) boxEl.classList.remove('timer-blink');
     updateTimersDisplay();
 };
 
 window.promptTimer = function(id) {
-    const mins = prompt("Nhập số phút đếm ngược cho Timer " + id + ":", "5");
-    if (mins && !isNaN(mins) && Number(mins) > 0) {
-        startTimer(id, Number(mins));
+    const secs = prompt("Nhập số GIÂY đếm ngược cho Timer " + id + ":", "60");
+    if (secs && !isNaN(secs) && Number(secs) > 0) {
+        startTimerSeconds(id, Number(secs));
     }
 };
 
 window.stopTimer = function(id) {
     delete timersState[id];
     saveTimers();
+    const boxEl = document.getElementById('timerBox_' + id);
+    if (boxEl) boxEl.classList.remove('timer-blink');
     updateTimersDisplay();
 };
 
@@ -7813,24 +7843,78 @@ function updateTimersDisplay() {
         } else {
             if (state && state.endTime <= Date.now()) {
                 displayEl.innerText = "00:00";
-                displayEl.style.color = '#ef4444';
-                boxEl.style.border = '1px solid #ef4444';
-                boxEl.style.background = 'rgba(239, 68, 68, 0.2)';
+                displayEl.style.color = '#fff';
+                boxEl.style.border = '2px solid #ef4444';
+                boxEl.classList.add('timer-blink');
+                
+                if (!state.alerted) {
+                    playAlarm();
+                    timersState[i].alerted = true;
+                    saveTimers();
+                }
             } else {
                 displayEl.innerText = "00:00";
                 displayEl.style.color = 'var(--text-muted)';
                 boxEl.style.border = '1px solid rgba(255,255,255,0.1)';
                 boxEl.style.background = 'var(--surface2)';
+                boxEl.classList.remove('timer-blink');
             }
         }
     }
 }
 
+// Draggable Panel Logic
+let isDragging = false;
+let dragInitialX, dragInitialY, xOffset = 0, yOffset = 0;
+const timerPanel = document.getElementById('timerPanel');
+
+function loadTimerPos() {
+    const pos = JSON.parse(localStorage.getItem('shopee_timer_pos'));
+    if (pos) {
+        xOffset = pos.x;
+        yOffset = pos.y;
+        setTranslate(xOffset, yOffset, timerPanel);
+    }
+}
+
+function saveTimerPos() {
+    localStorage.setItem('shopee_timer_pos', JSON.stringify({x: xOffset, y: yOffset}));
+}
+
+function setTranslate(xPos, yPos, el) {
+    el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
+}
+
+timerPanel.addEventListener("mousedown", (e) => {
+    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+    dragInitialX = e.clientX - xOffset;
+    dragInitialY = e.clientY - yOffset;
+    isDragging = true;
+    timerPanel.style.cursor = 'grabbing';
+});
+
+document.addEventListener("mouseup", () => {
+    if (isDragging) {
+        isDragging = false;
+        timerPanel.style.cursor = 'grab';
+        saveTimerPos();
+    }
+});
+
+document.addEventListener("mousemove", (e) => {
+    if (isDragging) {
+        e.preventDefault();
+        xOffset = e.clientX - dragInitialX;
+        yOffset = e.clientY - dragInitialY;
+        setTranslate(xOffset, yOffset, timerPanel);
+    }
+});
+
 // Start loop
 if (!timerInterval) {
+    loadTimerPos();
     updateTimersDisplay();
     
-    // Auto show on F5 if any running
     let initiallyRunning = false;
     for (let i = 1; i <= NUM_TIMERS; i++) {
         if (timersState[i] && timersState[i].endTime > Date.now()) initiallyRunning = true;
