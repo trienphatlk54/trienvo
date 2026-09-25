@@ -5397,7 +5397,8 @@ async function startVoucherCheck() {
         <div class="modal-body" style="padding: 16px; display:flex; flex-direction:column; gap:12px;">
           <div style="display:flex; justify-content:flex-end; gap: 8px;">
             <button class="btn btn-primary btn-sm" onclick="generateBsnProfile()" style="font-size:14px;">⚒️ Tạo Profile ngẫu nhiên</button>
-            <button class="btn btn-ghost btn-sm" onclick="extractNPO()" style="font-size:14px; padding:4px 10px; color:var(--shopee); background:rgba(238, 77, 45, 0.1);">🏢 Tìm NPO từ Zip (IRS)</button>
+            <button class="btn btn-ghost btn-sm" onclick="extractNPO()" style="font-size:14px; padding:4px 10px; color:var(--shopee); background:rgba(238, 77, 45, 0.1);">🔍 Tìm NPO từ Zip (IRS)</button>
+            <button class="btn btn-primary btn-sm" onclick="generateComboBsn()" style="font-size:14px; background:linear-gradient(135deg, #10b981, #059669); border:none;">⚡ Tạo Combo (Profile + NPO)</button>
           </div>
           
           <input type="hidden" id="bsnRowId">
@@ -5406,7 +5407,10 @@ async function startVoucherCheck() {
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start;">
             <div class="form-group" style="margin-bottom:0;">
               <label style="font-size: 14px;">Fullname</label>
-              <input type="text" id="bsnFullname" class="proxy-input" style="font-size: 14px; padding: 6px 10px;">
+              <div style="position:relative;">
+                <input type="text" id="bsnFullname" class="proxy-input" style="font-size: 14px; padding: 6px 10px; padding-right: 32px; width: 100%; box-sizing: border-box;">
+                <button type="button" onclick="copyFieldValue('bsnFullname')" style="position:absolute; right:4px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; padding:4px; border-radius:4px; color:var(--shopee);" title="Copy">📋</button>
+              </div>
             </div>
             <div class="form-group" style="margin-bottom:0;">
               <label style="font-size: 14px;">Phone Number</label>
@@ -5427,19 +5431,65 @@ async function startVoucherCheck() {
           </div>
           
           <!-- NPO Result Section -->
-          <div id="npoResultSection" style="display: none; flex-direction: column; gap: 8px; margin-top: 10px; padding: 14px; background: rgba(34, 197, 94, 0.1); border: 1px solid var(--success); border-radius: 8px;">
-            <h4 style="margin:0; font-size: 15px; color: var(--success); display:flex; justify-content:space-between;">
-              🏢 Thông tin Tổ chức (NPO)
-              <span style="font-size:12px; cursor:pointer;" onclick="document.getElementById('npoResultSection').style.display='none'">✖</span>
+          <div id="npoResultSection" style="display: none; flex-direction: column; gap: 12px; margin-top: 12px; padding: 16px; background: rgba(34, 197, 94, 0.05); border: 1px solid var(--success); border-radius: 12px;">
+            <h4 style="margin:0; font-size: 15px; color: var(--success); display:flex; justify-content:space-between; align-items:center;">
+              Thông tin Tổ chức (NPO)
+              <span style="font-size:20px; cursor:pointer; line-height:1;" onclick="document.getElementById('npoResultSection').style.display='none'">×</span>
             </h4>
-            <div style="font-size: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; color: var(--text);">
-              <div style="grid-column: 1 / -1;"><strong>Tên:</strong> <span id="npoNameText" style="color:var(--primary); font-weight:bold;"></span></div>
-              <div><strong>EIN:</strong> <span id="npoEinText" style="color:var(--shopee); font-weight:bold;"></span></div>
-              <div><strong>In Care Of:</strong> <span id="npoCareOfText"></span></div>
-              <div style="grid-column: 1 / -1;"><strong>Địa chỉ:</strong> <span id="npoAddressText"></span></div>
-              <div style="grid-column: 1 / -1;"><strong>City/State/Zip:</strong> <span id="npoCszText"></span></div>
-              <div style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 6px; margin-top: 4px;"><strong>Tài sản:</strong> <span id="npoAssetsText"></span></div>
-              <div style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 6px; margin-top: 4px;"><strong>Thu nhập:</strong> <span id="npoIncomeText"></span></div>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;">
+              <!-- NPO Name -->
+              <div style="cursor:pointer; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05); transition:background 0.2s;" onclick="copyRawText('npoNameText')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+                <div style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">Tên NPO</div>
+                <div id="npoNameText" style="color:var(--primary); font-weight:bold; font-size:15px; word-break:break-word;"></div>
+              </div>
+
+              <!-- Address -->
+              <div style="cursor:pointer; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05); transition:background 0.2s;" onclick="copyRawText('npoAddressText')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+                <div style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">Địa chỉ</div>
+                <div id="npoAddressText" style="color:var(--text); word-break:break-word;"></div>
+              </div>
+              
+              <!-- Zip, City, State Grid -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 8px;">
+                <div style="cursor:pointer; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05); transition:background 0.2s;" onclick="copyRawText('npoZipText')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+                  <div style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">Zipcode</div>
+                  <div id="npoZipText" style="color:var(--text); font-weight:500;"></div>
+                </div>
+                
+                <div style="cursor:pointer; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05); transition:background 0.2s;" onclick="copyRawText('npoCityText')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+                  <div style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">City</div>
+                  <div id="npoCityText" style="color:var(--text); font-weight:500;"></div>
+                </div>
+                
+                <div style="cursor:pointer; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05); transition:background 0.2s;" onclick="copyRawText('npoStateText')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+                  <div style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">State</div>
+                  <div id="npoStateText" style="color:var(--text); font-weight:500;"></div>
+                </div>
+              </div>
+              
+              <!-- Other info Grid -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top:4px;">
+                <div style="cursor:pointer; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05); transition:background 0.2s;" onclick="copyRawText('npoEinText')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+                  <div style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">EIN</div>
+                  <div id="npoEinText" style="color:var(--shopee); font-weight:bold;"></div>
+                </div>
+                
+                <div style="cursor:pointer; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05); transition:background 0.2s;" onclick="copyRawText('npoCareOfText')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+                  <div style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">In Care Of</div>
+                  <div id="npoCareOfText" style="color:var(--text);"></div>
+                </div>
+                
+                <div style="cursor:pointer; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05); transition:background 0.2s;" onclick="copyRawText('npoAssetsText')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+                  <div style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">Tài sản</div>
+                  <div id="npoAssetsText" style="color:var(--text);"></div>
+                </div>
+                
+                <div style="cursor:pointer; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05); transition:background 0.2s;" onclick="copyRawText('npoIncomeText')" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
+                  <div style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">Thu nhập</div>
+                  <div id="npoIncomeText" style="color:var(--text);"></div>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -6725,7 +6775,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('npoEinText').innerText = row.bsn.npoEin || '';
         document.getElementById('npoCareOfText').innerText = row.bsn.npoCareOf || '';
         document.getElementById('npoAddressText').innerText = row.bsn.npoAddress || '';
-        document.getElementById('npoCszText').innerText = row.bsn.npoCsz || '';
+        document.getElementById('npoZipText').innerText = row.bsn.npoZip || '';
+        document.getElementById('npoCityText').innerText = row.bsn.npoCity || '';
+        document.getElementById('npoStateText').innerText = row.bsn.npoState || '';
         document.getElementById('npoAssetsText').innerText = row.bsn.npoAssets || '';
         document.getElementById('npoIncomeText').innerText = row.bsn.npoIncome || '';
         document.getElementById('npoResultSection').style.display = 'flex';
@@ -6901,7 +6953,9 @@ document.addEventListener('DOMContentLoaded', () => {
       bsnData.npoEin = document.getElementById('npoEinText').innerText;
       bsnData.npoCareOf = document.getElementById('npoCareOfText').innerText;
       bsnData.npoAddress = document.getElementById('npoAddressText').innerText;
-      bsnData.npoCsz = document.getElementById('npoCszText').innerText;
+      bsnData.npoZip = document.getElementById('npoZipText').innerText;
+      bsnData.npoCity = document.getElementById('npoCityText').innerText;
+      bsnData.npoState = document.getElementById('npoStateText').innerText;
       bsnData.npoAssets = document.getElementById('npoAssetsText').innerText;
       bsnData.npoIncome = document.getElementById('npoIncomeText').innerText;
     }
@@ -6913,6 +6967,42 @@ document.addEventListener('DOMContentLoaded', () => {
     forceCloseBsnModal();
     renderCcnTable();
   }
+  
+  const STATE_FULL_NAMES = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California", 
+    "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "FL": "Florida", "GA": "Georgia", 
+    "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa", 
+    "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland", 
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi", "MO": "Missouri", 
+    "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire", "NJ": "New Jersey", 
+    "NM": "New Mexico", "NY": "New York", "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", 
+    "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina", 
+    "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont", 
+    "VA": "Virginia", "WA": "Washington", "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming",
+    "DC": "District of Columbia"
+  };
+
+  window.generateComboBsn = async function() {
+    await window.fillRandomBsn();
+    await window.extractNPO();
+  };
+  
+  window.copyFieldValue = function(id) {
+    const el = document.getElementById(id);
+    if (el && el.value) {
+      navigator.clipboard.writeText(el.value.trim());
+      toast('Copied: ' + el.value.trim(), 'success');
+    }
+  };
+  
+  window.copyRawText = function(id) {
+    const el = document.getElementById(id);
+    if (el && el.innerText) {
+      navigator.clipboard.writeText(el.innerText.trim());
+      toast('Copied: ' + el.innerText.trim(), 'success');
+    }
+  };
+  
   window.extractNPO = async function() {
     const zip = document.getElementById('bsnZip').value.trim();
     if (!zip) {
@@ -6932,7 +7022,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('npoEinText').innerText = org.ein || 'N/A';
         document.getElementById('npoCareOfText').innerText = org.inCareOf || 'N/A';
         document.getElementById('npoAddressText').innerText = org.address || 'N/A';
-        document.getElementById('npoCszText').innerText = (org.city || '') + ', ' + (org.state || '') + ' ' + (org.zip || '');
+        const stateCode = org.state || '';
+        document.getElementById('npoZipText').innerText = org.zip || 'N/A';
+        document.getElementById('npoCityText').innerText = org.city || 'N/A';
+        document.getElementById('npoStateText').innerText = STATE_FULL_NAMES[stateCode] || stateCode || 'N/A';
         document.getElementById('npoAssetsText').innerText = org.assets || 'N/A';
         document.getElementById('npoIncomeText').innerText = org.income || 'N/A';
         
