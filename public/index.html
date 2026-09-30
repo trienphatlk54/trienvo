@@ -1658,7 +1658,7 @@
               <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
                 <th style="padding: 6px;">Thời gian add</th>
                 <th style="padding: 6px;">Đã qua</th>
-                <th style="padding: 6px;">Định danh</th>
+                <th style="padding: 6px;">2FA Code</th>
                 <th style="padding: 6px;">Mail</th>
                 <th style="padding: 6px;">Username</th>
                 <th style="padding: 6px;">Password</th>
@@ -2957,7 +2957,7 @@ function renderTiktokTable() {
     htmlText += `<tr>
       <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${item.time || ''}</td>
       <td style="padding:6px;">${formatElapsed(item.time)}</td>
-      <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.identifier || '')}</td>
+      <td class="totp-cell tiktok-totp" data-secret="${escapeHtml(item.identifier || '')}" style="padding:6px; cursor:pointer; font-family:monospace; font-size:14px; font-weight:bold; color:var(--primary); text-align:center; letter-spacing:2px;" title="Secret: ${escapeHtml(item.identifier || '')}&#10;Click để copy code" onclick="copyText(this.innerText)">------</td>
       <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.mail || '')}</td>
       <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.username || '')}</td>
       <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.password || '')}</td>
@@ -3118,7 +3118,8 @@ function parseTiktokBulkLine(line) {
   const parts = line.split('|');
   if (parts.length < 2) return null;
   
-  const result = { username: '', password: '', identifier: '', session: '' };
+  const result = { username: '', password: '', identifier: '', session: '', mail: '' };
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   
   if (parts.length === 2) {
     result.username = parts[0].trim();
@@ -3139,6 +3140,26 @@ function parseTiktokBulkLine(line) {
     result.session = parts[3].trim();
   }
   
+  // Auto-detect email in ANY field and move to mail column
+  const allParts = [result.username, result.password, result.identifier, result.session];
+  for (let i = 0; i < allParts.length; i++) {
+    if (emailRegex.test(allParts[i])) {
+      result.mail = allParts[i];
+      // Clear the original field that contained the email
+      if (i === 0) result.username = '';
+      else if (i === 1) result.password = '';
+      else if (i === 2) result.identifier = '';
+      else if (i === 3) result.session = '';
+      break;
+    }
+  }
+  
+  // If username is empty after email extraction, shift fields
+  if (!result.username && result.password) {
+    result.username = result.password;
+    result.password = '';
+  }
+  
   return result;
 }
 
@@ -3157,7 +3178,8 @@ function previewTiktokBulk() {
   tableHtml += '<th style="padding:6px; text-align:left;">#</th>';
   tableHtml += '<th style="padding:6px; text-align:left;">Username</th>';
   tableHtml += '<th style="padding:6px; text-align:left;">Password</th>';
-  tableHtml += '<th style="padding:6px; text-align:left;">Định danh (2FA)</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Mail</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">2FA Secret</th>';
   tableHtml += '<th style="padding:6px; text-align:left;">Session ID</th>';
   tableHtml += '</tr></thead><tbody>';
   
@@ -3170,6 +3192,7 @@ function previewTiktokBulk() {
       tableHtml += '<td style="padding:4px 6px; color:var(--text-muted);">' + (idx + 1) + '</td>';
       tableHtml += '<td style="padding:4px 6px; color:var(--primary);">' + escapeHtml(parsed.username) + '</td>';
       tableHtml += '<td style="padding:4px 6px;">' + escapeHtml(parsed.password) + '</td>';
+      tableHtml += '<td style="padding:4px 6px; color:var(--shopee-light);">' + escapeHtml(parsed.mail || '') + '</td>';
       tableHtml += '<td style="padding:4px 6px; color:var(--success); font-family:monospace; font-size:10px;">' + escapeHtml(parsed.identifier).substring(0, 20) + (parsed.identifier.length > 20 ? '...' : '') + '</td>';
       tableHtml += '<td style="padding:4px 6px; color:var(--text-muted); font-family:monospace; font-size:10px;">' + escapeHtml(parsed.session).substring(0, 20) + (parsed.session.length > 20 ? '...' : '') + '</td>';
       tableHtml += '</tr>';
@@ -3233,6 +3256,43 @@ async function saveTiktokBulk() {
   } else {
     toast('Lỗi nhập dữ liệu', 'error');
   }
+}
+
+
+// ========= TIKTOK TOTP REFRESH =========
+let tiktokTotpInterval = null;
+let lastTiktokTotpWindow = 0;
+
+function updateTiktokTotp() {
+  const tab = document.getElementById('tab-tiktok');
+  if (!tab || !tab.classList.contains('active')) return;
+  
+  const currentEpoch = Math.floor(Date.now() / 1000);
+  const currentWindow = Math.floor(currentEpoch / 30);
+  const needUpdate = (currentWindow !== lastTiktokTotpWindow);
+  
+  const cells = document.querySelectorAll('.tiktok-totp');
+  cells.forEach(async cell => {
+    if (needUpdate || !cell.hasAttribute('data-done')) {
+      const secret = cell.getAttribute('data-secret');
+      if (secret) {
+        const code = await getTOTP(secret);
+        cell.innerText = code;
+        cell.setAttribute('data-done', '1');
+      } else {
+        cell.innerText = '------';
+        cell.setAttribute('data-done', '1');
+      }
+    }
+  });
+  
+  if (needUpdate) {
+    lastTiktokTotpWindow = currentWindow;
+  }
+}
+
+if (!tiktokTotpInterval) {
+  tiktokTotpInterval = setInterval(updateTiktokTotp, 1000);
 }
 
 async function deleteTiktok(id) {
