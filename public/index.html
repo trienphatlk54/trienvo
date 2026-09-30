@@ -1682,7 +1682,6 @@
         </div>
       </div>
     </div>
-    </div>
     
       <!-- 🐼 Tiện ích PandaProxys (Tiktok) -->
       <div class="main-card mt-2" style="border-top: 1px solid var(--border);">
@@ -1698,6 +1697,8 @@
         </div>
       </div>
       
+        </div>
+    
     <div id="tab-analytics" class="tab-pane">
     <div class="main-card">
       <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
@@ -3685,8 +3686,11 @@ async function clearUsedIps() {
 }
 
 async function saveProxy() {
-  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
-  const suf = isCreate ? '_create' : '';
+  const isCreate = (typeof activeTab !== 'undefined' ? activeTab === 'create' : (document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active')));
+  const isTiktok = (typeof activeTab !== 'undefined' ? activeTab === 'tiktok' : (document.getElementById('tab-tiktok') && document.getElementById('tab-tiktok').classList.contains('active')));
+  let suf = '';
+  if (isCreate) suf = '_create';
+  else if (isTiktok) suf = '_tk';
 
   const type = $('proxyType' + suf).value;
   const raw  = $('proxyInput' + suf).value.trim();
@@ -3734,8 +3738,11 @@ async function saveProxy() {
 
 async function autoSetVnProxy() {
   clearProxy();
-  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
-  const suf = isCreate ? '_create' : '';
+  const isCreate = (typeof activeTab !== 'undefined' ? activeTab === 'create' : (document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active')));
+  const isTiktok = (typeof activeTab !== 'undefined' ? activeTab === 'tiktok' : (document.getElementById('tab-tiktok') && document.getElementById('tab-tiktok').classList.contains('active')));
+  let suf = '';
+  if (isCreate) suf = '_create';
+  else if (isTiktok) suf = '_tk';
   const btnId = 'btnAutoVnProxy' + suf;
   const btn = document.getElementById(btnId) || $(btnId) || document.getElementById('btnAutoVnProxy');
   
@@ -3781,8 +3788,11 @@ async function autoSetVnProxy() {
 }
 
 function clearProxy() {
-  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
-  const suf = isCreate ? '_create' : '';
+  const isCreate = (typeof activeTab !== 'undefined' ? activeTab === 'create' : (document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active')));
+  const isTiktok = (typeof activeTab !== 'undefined' ? activeTab === 'tiktok' : (document.getElementById('tab-tiktok') && document.getElementById('tab-tiktok').classList.contains('active')));
+  let suf = '';
+  if (isCreate) suf = '_create';
+  else if (isTiktok) suf = '_tk';
 
   fetch('/api/proxy', { method: 'DELETE' });
   $('proxyBadge' + suf).className = 'badge badge-off';
@@ -3798,8 +3808,11 @@ function clearProxy() {
 // ── Start Polling ──────────────────────────────────────────────────────────────
 
 async function autoSetVnProxyAndQR() {
-  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
-  const suf = isCreate ? '_create' : '';
+  const isCreate = (typeof activeTab !== 'undefined' ? activeTab === 'create' : (document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active')));
+  const isTiktok = (typeof activeTab !== 'undefined' ? activeTab === 'tiktok' : (document.getElementById('tab-tiktok') && document.getElementById('tab-tiktok').classList.contains('active')));
+  let suf = '';
+  if (isCreate) suf = '_create';
+  else if (isTiktok) suf = '_tk';
   const btnId = 'btnAutoVnProxyAndQR' + suf;
   const btn = document.getElementById(btnId) || $(btnId) || document.getElementById('btnAutoVnProxyAndQR');
   
@@ -3885,8 +3898,11 @@ async function autoSetVnProxyAndQR() {
 
 
 async function autoSetPandaProxyAndQR() {
-  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
-  const suf = isCreate ? '_create' : '';
+  const isCreate = (typeof activeTab !== 'undefined' ? activeTab === 'create' : (document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active')));
+  const isTiktok = (typeof activeTab !== 'undefined' ? activeTab === 'tiktok' : (document.getElementById('tab-tiktok') && document.getElementById('tab-tiktok').classList.contains('active')));
+  let suf = '';
+  if (isCreate) suf = '_create';
+  else if (isTiktok) suf = '_tk';
   const btnId = 'btnAutoPandaProxy' + suf;
   const btn = document.getElementById(btnId) || $(btnId) || document.getElementById('btnAutoPandaProxy');
   
@@ -3954,8 +3970,12 @@ async function autoSetPandaProxyAndQR() {
 
 
 async function loadPandaProxies() {
-  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
-  const suf = isCreate ? '_create' : '';
+  const isCreate = (typeof activeTab !== 'undefined' ? activeTab === 'create' : (document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active')));
+  const isTiktok = (typeof activeTab !== 'undefined' ? activeTab === 'tiktok' : (document.getElementById('tab-tiktok') && document.getElementById('tab-tiktok').classList.contains('active')));
+  let suf = '';
+  if (isCreate) suf = '_create';
+  else if (isTiktok) suf = '_tk';
+  
   const containerId = 'pandaProxyContainer' + suf;
   const container = document.getElementById(containerId) || $('pandaProxyContainer');
   
@@ -4080,8 +4100,11 @@ async function loadPandaProxies() {
 }
 
 function copyPandaProxyRow(id) {
-  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
-  const suf = isCreate ? '_create' : '';
+  const isCreate = (typeof activeTab !== 'undefined' ? activeTab === 'create' : (document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active')));
+  const isTiktok = (typeof activeTab !== 'undefined' ? activeTab === 'tiktok' : (document.getElementById('tab-tiktok') && document.getElementById('tab-tiktok').classList.contains('active')));
+  let suf = '';
+  if (isCreate) suf = '_create';
+  else if (isTiktok) suf = '_tk';
   const outInput = document.getElementById(`pandaOut_${id}${suf}`);
   if (outInput && outInput.value) {
     navigator.clipboard.writeText(outInput.value);
@@ -4090,8 +4113,11 @@ function copyPandaProxyRow(id) {
 }
 
 async function rotatePandaProxyRow(id, intervalSec) {
-  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
-  const suf = isCreate ? '_create' : '';
+  const isCreate = (typeof activeTab !== 'undefined' ? activeTab === 'create' : (document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active')));
+  const isTiktok = (typeof activeTab !== 'undefined' ? activeTab === 'tiktok' : (document.getElementById('tab-tiktok') && document.getElementById('tab-tiktok').classList.contains('active')));
+  let suf = '';
+  if (isCreate) suf = '_create';
+  else if (isTiktok) suf = '_tk';
   const btnRot = document.getElementById(`btnRot_${id}${suf}`);
   const statusEl = document.getElementById(`pandaStatus_${id}${suf}`);
   const outInput = document.getElementById(`pandaOut_${id}${suf}`);
@@ -5865,8 +5891,11 @@ async function startVoucherCheck() {
 
 <script>
 function openMainProxyQR() {
-  const isCreate = document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active');
-  const suf = isCreate ? '_create' : '';
+  const isCreate = (typeof activeTab !== 'undefined' ? activeTab === 'create' : (document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active')));
+  const isTiktok = (typeof activeTab !== 'undefined' ? activeTab === 'tiktok' : (document.getElementById('tab-tiktok') && document.getElementById('tab-tiktok').classList.contains('active')));
+  let suf = '';
+  if (isCreate) suf = '_create';
+  else if (isTiktok) suf = '_tk';
   const proxyInput = document.getElementById('proxyInput' + suf) || document.getElementById('proxyInput');
   const val = proxyInput ? proxyInput.value.trim() : '';
   if (val) {
