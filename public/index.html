@@ -2908,6 +2908,15 @@ function copyComboSpcF(spcf, user, pass) {
 
 // ── Clone UI for Create Tab ────────────────────────────────────────────────────
 // ── TIKTOK ACCOUNTS LOGIC ──────────────────────────────────────────────────────
+
+let tiktokCurrentPage = 1;
+const TIKTOK_PAGE_SIZE = 15;
+
+function changeTiktokPage(delta) {
+  tiktokCurrentPage += delta;
+  renderTiktokTable();
+}
+
 let tiktokData = {};
 
 function getTiktokStatusColor(status) {
@@ -3378,7 +3387,7 @@ function switchTab(tabId) {
     }
   }
   if (tabId === 'phone') loadPhones();
-  if (tabId === 'tiktok') loadTiktokData();
+  if (tabId === 'tiktok') { loadTiktokData(); loadPandaProxies(); }
   // Update nav items
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.remove('active');
