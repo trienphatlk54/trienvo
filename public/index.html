@@ -1684,20 +1684,19 @@
     </div>
     
       <!-- 🐼 Tiện ích PandaProxys (Tiktok) -->
-      <div class="main-card mt-2" style="border-top: 1px solid var(--border);">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;">
-          <h2 style="font-size: 16px; margin: 0; display: flex; align-items: center; gap: 8px; color: var(--text);">
+      <div style="padding: 16px; background: rgba(255, 165, 0, 0.02); border-top: 1px solid var(--border);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="font-size: 15px; margin: 0; font-weight: 600; color: orange; display: flex; align-items: center; gap: 8px;">
             <span>🐼</span> Tiện ích PandaProxys
-          </h2>
+          </h3>
+          <button class="btn btn-secondary btn-sm" onclick="loadPandaProxies()" style="padding: 4px 10px; font-size: 12px; border-color: orange; color: orange; font-weight: bold;">🔄 Làm mới</button>
         </div>
-        <div class="card-body" style="padding: 16px; background: rgba(0,0,0,0.1);">
-          <div id="pandaProxyContainer_tk" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 16px;">
-            <!-- Các dòng proxy sẽ được thêm vào đây -->
-          </div>
+        
+        <div id="pandaProxyContainer_tk" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 16px;">
+           <div style="font-size: 13px; color: var(--text-muted);">Đang tải danh sách Proxy...</div>
         </div>
       </div>
-      
-        </div>
+    </div>
     
     <div id="tab-analytics" class="tab-pane">
     <div class="main-card">
