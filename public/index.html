@@ -1648,6 +1648,7 @@
           <button class="btn btn-secondary btn-sm" onclick="zoomTiktokTable(0.1)" title="Phóng to">🔍 +</button>
           <button class="btn btn-secondary btn-sm" onclick="zoomTiktokTable(-0.1)" title="Thu nhỏ">🔍 -</button>
           <button class="btn btn-primary" onclick="openTiktokModal()" style="height: 32px; padding: 6px 12px; font-size: 12px;">➕ Thêm Mới</button>
+          <button class="btn btn-primary" onclick="openTiktokBulkModal()" style="height: 32px; padding: 6px 12px; font-size: 12px; background: linear-gradient(135deg, #10b981, #059669); border:none;">📋 Thêm hàng loạt</button>
         </div>
       </div>
       <div class="card-body" style="display: block; padding: 0;">
@@ -3094,6 +3095,143 @@ async function saveTiktok() {
     }
   } catch (e) {
     toast('Lỗi kết nối', 'error');
+  }
+}
+
+
+
+function openTiktokBulkModal() {
+  document.getElementById('tiktokBulkText').value = '';
+  document.getElementById('tiktokBulkPreview').style.display = 'none';
+  document.getElementById('tiktokBulkPreview').innerHTML = '';
+  document.getElementById('tiktokBulkModal').classList.add('active');
+}
+
+function closeTiktokBulkModal() {
+  document.getElementById('tiktokBulkModal').classList.remove('active');
+}
+
+function parseTiktokBulkLine(line) {
+  line = line.trim();
+  if (!line) return null;
+  
+  const parts = line.split('|');
+  if (parts.length < 2) return null;
+  
+  const result = { username: '', password: '', identifier: '', session: '' };
+  
+  if (parts.length === 2) {
+    result.username = parts[0].trim();
+    result.password = parts[1].trim();
+  } else if (parts.length === 3) {
+    result.username = parts[0].trim();
+    result.password = parts[1].trim();
+    const third = parts[2].trim();
+    if (third.length === 32 && /^[a-f0-9]+$/i.test(third)) {
+      result.session = third;
+    } else {
+      result.identifier = third;
+    }
+  } else if (parts.length >= 4) {
+    result.username = parts[0].trim();
+    result.password = parts[1].trim();
+    result.identifier = parts[2].trim();
+    result.session = parts[3].trim();
+  }
+  
+  return result;
+}
+
+function previewTiktokBulk() {
+  const text = document.getElementById('tiktokBulkText').value;
+  const lines = text.split('\n').filter(l => l.trim());
+  const previewDiv = document.getElementById('tiktokBulkPreview');
+  
+  if (lines.length === 0) {
+    toast('Chưa có dữ liệu để xem trước', 'error');
+    return;
+  }
+  
+  let tableHtml = '<table style="width:100%; border-collapse:collapse; font-size:11px;">';
+  tableHtml += '<thead><tr style="border-bottom:1px solid var(--border); color:var(--text-muted); position:sticky; top:0; background:var(--surface2);">';
+  tableHtml += '<th style="padding:6px; text-align:left;">#</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Username</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Password</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Định danh (2FA)</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Session ID</th>';
+  tableHtml += '</tr></thead><tbody>';
+  
+  let validCount = 0;
+  lines.forEach((line, idx) => {
+    const parsed = parseTiktokBulkLine(line);
+    if (parsed) {
+      validCount++;
+      tableHtml += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">';
+      tableHtml += '<td style="padding:4px 6px; color:var(--text-muted);">' + (idx + 1) + '</td>';
+      tableHtml += '<td style="padding:4px 6px; color:var(--primary);">' + escapeHtml(parsed.username) + '</td>';
+      tableHtml += '<td style="padding:4px 6px;">' + escapeHtml(parsed.password) + '</td>';
+      tableHtml += '<td style="padding:4px 6px; color:var(--success); font-family:monospace; font-size:10px;">' + escapeHtml(parsed.identifier).substring(0, 20) + (parsed.identifier.length > 20 ? '...' : '') + '</td>';
+      tableHtml += '<td style="padding:4px 6px; color:var(--text-muted); font-family:monospace; font-size:10px;">' + escapeHtml(parsed.session).substring(0, 20) + (parsed.session.length > 20 ? '...' : '') + '</td>';
+      tableHtml += '</tr>';
+    }
+  });
+  
+  tableHtml += '</tbody></table>';
+  tableHtml += '<div style="padding:8px; font-size:12px; color:var(--success); text-align:center; border-top:1px solid var(--border);">Nhận diện được <strong>' + validCount + '</strong> / ' + lines.length + ' dòng hợp lệ</div>';
+  
+  previewDiv.innerHTML = tableHtml;
+  previewDiv.style.display = 'block';
+}
+
+async function saveTiktokBulk() {
+  const text = document.getElementById('tiktokBulkText').value;
+  const lines = text.split('\n').filter(l => l.trim());
+  
+  if (lines.length === 0) {
+    toast('Chưa có dữ liệu để nhập', 'error');
+    return;
+  }
+  
+  const accounts = [];
+  lines.forEach(line => {
+    const parsed = parseTiktokBulkLine(line);
+    if (parsed) accounts.push(parsed);
+  });
+  
+  if (accounts.length === 0) {
+    toast('Không nhận diện được dữ liệu hợp lệ', 'error');
+    return;
+  }
+  
+  toast('Đang nhập ' + accounts.length + ' tài khoản...', 'info');
+  
+  let successCount = 0;
+  let errorCount = 0;
+  
+  for (const acc of accounts) {
+    try {
+      const res = await fetch('/api/tiktok/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(acc)
+      });
+      const r = await res.json();
+      if (r.success) {
+        successCount++;
+      } else {
+        errorCount++;
+      }
+    } catch (e) {
+      errorCount++;
+    }
+  }
+  
+  if (successCount > 0) {
+    toast('Đã nhập thành công ' + successCount + ' tài khoản!' + (errorCount > 0 ? ' (' + errorCount + ' lỗi)' : ''), 'success');
+    closeTiktokBulkModal();
+    loadTiktokData();
+  } else {
+    toast('Lỗi nhập dữ liệu', 'error');
   }
 }
 
@@ -5578,6 +5716,33 @@ async function startVoucherCheck() {
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeTiktokModal()">Hủy</button>
       <button class="btn btn-primary" onclick="saveTiktok()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Tiktok Bulk Import Modal -->
+<div id="tiktokBulkModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 700px;">
+    <div class="modal-header">
+      <h3>📋 Thêm hàng loạt Tiktok Accounts</h3>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
+      <div style="font-size:12px; color:var(--text-muted); line-height:1.6;">
+        <strong>Hướng dẫn:</strong> Dán danh sách tài khoản vào ô bên dưới, mỗi dòng là 1 tài khoản.<br>
+        Hệ thống sẽ tự động nhận diện các trường dữ liệu dựa trên ký tự phân cách <code>|</code><br>
+        <div style="margin-top:6px; padding:8px; background:rgba(0,0,0,0.3); border-radius:6px; font-family:monospace; font-size:11px;">
+          <strong style="color:var(--success);">Định dạng:</strong> username|password|định_danh_2FA|session_id<br>
+          <strong style="color:var(--primary);">Ví dụ:</strong> gabriela.gia7|vz@pp0Nrzgdi|ZL4UT3RDGCNJIW5D7QE...|d54b5257f2dbf49e...
+        </div>
+      </div>
+      <textarea id="tiktokBulkText" class="proxy-input" rows="12" style="width:100%; font-family:monospace; font-size:12px; padding:10px; border:1px dashed var(--primary); background:rgba(0,0,0,0.2); color:var(--text); border-radius:8px; resize:vertical;" placeholder="Dán dữ liệu ở đây, mỗi dòng 1 tài khoản..."></textarea>
+      <div id="tiktokBulkPreview" style="display:none; max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; background:rgba(0,0,0,0.2);"></div>
+    </div>
+    <div class="modal-footer" style="display:flex; gap:10px; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeTiktokBulkModal()">Hủy</button>
+      <button class="btn btn-ghost" onclick="previewTiktokBulk()" style="border:1px solid var(--primary); color:var(--primary);">👁️ Xem trước</button>
+      <button class="btn btn-primary" onclick="saveTiktokBulk()" style="background:linear-gradient(135deg, #10b981, #059669); border:none;">💾 Nhập tất cả</button>
     </div>
   </div>
 </div>
