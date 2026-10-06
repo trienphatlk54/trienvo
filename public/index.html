@@ -1664,9 +1664,14 @@
         </button>
       </div>
       <style>
-        .tiktok-subtab.active { color: var(--primary) !important; }
-        .tiktok-subtab.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 3px; background: var(--primary); border-radius: 3px 3px 0 0; }
-        .tiktok-subtab:hover { background: rgba(255,255,255,0.05); }
+        .tiktok-subtab { border-bottom: 3px solid transparent !important; }
+        .tiktok-subtab.active { 
+          color: var(--primary) !important; 
+          background: rgba(255, 87, 34, 0.1) !important;
+          border-bottom: 3px solid var(--primary) !important;
+        }
+        .tiktok-subtab.active::after { display: none; }
+        .tiktok-subtab:hover:not(.active) { background: rgba(255,255,255,0.05); }
       </style>
       <div class="card-body" style="display: block; padding: 0;">
         <div style="padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);">
