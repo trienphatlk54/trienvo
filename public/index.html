@@ -3400,19 +3400,42 @@ function updateTiktokTotp() {
   const needUpdate = (currentWindow !== lastTiktokTotpWindow);
   
   const cells = document.querySelectorAll('.tiktok-totp');
-  cells.forEach(async cell => {
+  const cellsToUpdate = [];
+  const secretsToFetch = new Set();
+  
+  cells.forEach(cell => {
     if (needUpdate || !cell.hasAttribute('data-done')) {
       const secret = cell.getAttribute('data-secret');
       if (secret) {
-        const code = await getTOTP(secret);
-        cell.innerText = code;
-        cell.setAttribute('data-done', '1');
+        cellsToUpdate.push(cell);
+        secretsToFetch.add(secret);
       } else {
         cell.innerText = '------';
         cell.setAttribute('data-done', '1');
       }
     }
   });
+  
+  if (secretsToFetch.size > 0) {
+    fetch('/api/tiktok/totp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secrets: Array.from(secretsToFetch) })
+    })
+    .then(r => r.json())
+    .then(data => {
+      cellsToUpdate.forEach(cell => {
+        const secret = cell.getAttribute('data-secret');
+        if (data[secret]) {
+          cell.innerText = data[secret];
+        } else {
+          cell.innerText = 'Lỗi';
+        }
+        cell.setAttribute('data-done', '1');
+      });
+    })
+    .catch(err => console.error('Lỗi fetch TOTP', err));
+  }
   
   if (needUpdate) {
     lastTiktokTotpWindow = currentWindow;
@@ -6660,38 +6683,6 @@ function processAddress(address) {
   };
 }
 
-async function getTOTP(secret) {
-  if (!secret) return '---';
-  secret = secret.replace(/\s+/g, '').toUpperCase();
-  try {
-    const base32chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-    let bits = '';
-    for (let i = 0; i < secret.length; i++) {
-      const val = base32chars.indexOf(secret.charAt(i));
-      if (val === -1) continue;
-      bits += val.toString(2).padStart(5, '0');
-    }
-    let hex = '';
-    for (let i = 0; i < bits.length - 7; i += 8) {
-      hex += parseInt(bits.substr(i, 8), 2).toString(16).padStart(2, '0');
-    }
-    if (hex.length % 2 !== 0) hex += '0';
-    const key = new Uint8Array(hex.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)));
-    const epoch = Math.floor(Date.now() / 1000);
-    const time = Math.floor(epoch / 30);
-    const timeBuffer = new ArrayBuffer(8);
-    const timeView = new DataView(timeBuffer);
-    timeView.setUint32(4, time, false);
-    const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
-    const signature = await crypto.subtle.sign('HMAC', cryptoKey, timeBuffer);
-    const hmac = new Uint8Array(signature);
-    const offset = hmac[hmac.length - 1] & 0x0f;
-    const code = (((hmac[offset] & 0x7f) << 24) | ((hmac[offset + 1] & 0xff) << 16) | ((hmac[offset + 2] & 0xff) << 8) | (hmac[offset + 3] & 0xff)) % 1000000;
-    return code.toString().padStart(6, '0');
-  } catch(e) {
-    return 'Lỗi';
-  }
-}
 
 async function generateAndCopyTOTP(btn, secret) {
   const oldText = btn.innerText;

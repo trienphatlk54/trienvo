@@ -1795,6 +1795,53 @@ process.on('SIGINT', async () => {
 });
 
 // ─── TIKTOK ACCOUNTS API ──────────────────────────────────────────
+
+// TIKTOK TOTP Helper
+function getTiktokTOTP(secret) {
+    if (!secret) return '---';
+    secret = secret.replace(/\s+/g, '').toUpperCase();
+    try {
+        const base32chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        let bits = '';
+        for (let i = 0; i < secret.length; i++) {
+            const val = base32chars.indexOf(secret.charAt(i));
+            if (val === -1) continue;
+            bits += val.toString(2).padStart(5, '0');
+        }
+        let hex = '';
+        for (let i = 0; i < bits.length - 7; i += 8) {
+            hex += parseInt(bits.substr(i, 8), 2).toString(16).padStart(2, '0');
+        }
+        if (hex.length % 2 !== 0) hex += '0';
+        const key = Buffer.from(hex, 'hex');
+        const epoch = Math.floor(Date.now() / 1000);
+        const time = Math.floor(epoch / 30);
+        const timeBuffer = Buffer.alloc(8);
+        timeBuffer.writeUInt32BE(time, 4);
+        const hmac = crypto.createHmac('sha1', key);
+        hmac.update(timeBuffer);
+        const hmacResult = hmac.digest();
+        const offset = hmacResult[hmacResult.length - 1] & 0x0f;
+        const code = (((hmacResult[offset] & 0x7f) << 24) |
+                      ((hmacResult[offset + 1] & 0xff) << 16) |
+                      ((hmacResult[offset + 2] & 0xff) << 8) |
+                      (hmacResult[offset + 3] & 0xff)) % 1000000;
+        return code.toString().padStart(6, '0');
+    } catch(e) {
+        return 'Lỗi';
+    }
+}
+
+app.post('/api/tiktok/totp', (req, res) => {
+    const { secrets } = req.body;
+    if (!secrets || !Array.isArray(secrets)) return res.json({});
+    const result = {};
+    for (const secret of secrets) {
+        result[secret] = getTiktokTOTP(secret);
+    }
+    res.json(result);
+});
+
 app.get('/api/tiktok/all', async (req, res) => {
   try {
     const ref = db.ref('tiktok_accounts');
