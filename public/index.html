@@ -1651,6 +1651,23 @@
           <button class="btn btn-primary" onclick="openTiktokBulkModal()" style="height: 32px; padding: 6px 12px; font-size: 12px; background: linear-gradient(135deg, #10b981, #059669); border:none;">📋 Thêm hàng loạt</button>
         </div>
       </div>
+      <!-- Sub-tabs for TikTok filtering -->
+      <div id="tiktokSubTabs" style="display: flex; border-bottom: 2px solid var(--border); background: var(--surface2);">
+        <button class="tiktok-subtab active" data-tab="chua_check" onclick="switchTiktokSubTab('chua_check', this)" style="flex:1; padding: 10px 16px; border: none; background: none; color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; position: relative; transition: all 0.2s;">
+          📋 Chưa check <span id="tiktokCount_chua_check" style="background: var(--primary); color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 11px; margin-left: 4px;">0</span>
+        </button>
+        <button class="tiktok-subtab" data-tab="co_ma" onclick="switchTiktokSubTab('co_ma', this)" style="flex:1; padding: 10px 16px; border: none; background: none; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; position: relative; transition: all 0.2s;">
+          ✅ Có mã <span id="tiktokCount_co_ma" style="background: #4caf50; color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 11px; margin-left: 4px;">0</span>
+        </button>
+        <button class="tiktok-subtab" data-tab="khong_ma" onclick="switchTiktokSubTab('khong_ma', this)" style="flex:1; padding: 10px 16px; border: none; background: none; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; position: relative; transition: all 0.2s;">
+          ❌ Không mã <span id="tiktokCount_khong_ma" style="background: #b71c1c; color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 11px; margin-left: 4px;">0</span>
+        </button>
+      </div>
+      <style>
+        .tiktok-subtab.active { color: var(--primary) !important; }
+        .tiktok-subtab.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 3px; background: var(--primary); border-radius: 3px 3px 0 0; }
+        .tiktok-subtab:hover { background: rgba(255,255,255,0.05); }
+      </style>
       <div class="card-body" style="display: block; padding: 0;">
         <div style="padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);">
           <span id="tiktokPageInfo" style="font-size: 13px; color: var(--text-muted);">Trang 1 / 1</span>
@@ -2979,6 +2996,45 @@ async function loadTiktokData() {
   }
 }
 
+
+let tiktokActiveSubTab = 'chua_check';
+
+function switchTiktokSubTab(tab, btn) {
+  tiktokActiveSubTab = tab;
+  tiktokCurrentPage = 1;
+  document.querySelectorAll('.tiktok-subtab').forEach(b => {
+    b.classList.remove('active');
+    b.style.color = 'var(--text-muted)';
+  });
+  if (btn) {
+    btn.classList.add('active');
+    btn.style.color = 'var(--primary)';
+  }
+  renderTiktokTable();
+}
+
+function getTiktokSubTabCategory(item) {
+  const result = (item.result || '').trim();
+  const status = (item.status || '').trim();
+  if (result === 'Rớt mã/Hủy') return 'khong_ma';
+  if (status && status !== '' && result !== 'Rớt mã/Hủy') return 'co_ma';
+  return 'chua_check';
+}
+
+function updateTiktokSubTabCounts() {
+  let counts = { chua_check: 0, co_ma: 0, khong_ma: 0 };
+  for (const [id, item] of Object.entries(tiktokData)) {
+    const cat = getTiktokSubTabCategory(item);
+    counts[cat]++;
+  }
+  const el1 = document.getElementById('tiktokCount_chua_check');
+  const el2 = document.getElementById('tiktokCount_co_ma');
+  const el3 = document.getElementById('tiktokCount_khong_ma');
+  if (el1) el1.textContent = counts.chua_check;
+  if (el2) el2.textContent = counts.co_ma;
+  if (el3) el3.textContent = counts.khong_ma;
+}
+
 function renderTiktokTable() {
   const tbody = $('tiktokTableBody');
   if (!tbody) return;
@@ -2990,11 +3046,17 @@ function renderTiktokTable() {
     return new Date(b[1].time || 0) - new Date(a[1].time || 0);
   });
 
-  const filteredEntries = allEntries.filter(([id, item]) => {
+  const searchFiltered = allEntries.filter(([id, item]) => {
     if (!search) return true;
     const txt = Object.values(item).join(' ').toLowerCase();
     return txt.includes(search);
   });
+
+  const filteredEntries = searchFiltered.filter(([id, item]) => {
+    return getTiktokSubTabCategory(item) === tiktokActiveSubTab;
+  });
+
+  updateTiktokSubTabCounts();
 
   const totalPages = Math.ceil(filteredEntries.length / TIKTOK_PAGE_SIZE) || 1;
   if (tiktokCurrentPage > totalPages) tiktokCurrentPage = totalPages;
