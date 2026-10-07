@@ -1794,6 +1794,47 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+// 📝 NOTES API 📝
+app.get('/api/notes/all', async (req, res) => {
+  try {
+    const snap = await db.ref('admin_notes').once('value');
+    res.json(snap.val() || {});
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/notes/save', async (req, res) => {
+  const { id, title, content, createdAt, updatedAt } = req.body;
+  try {
+    if (id) {
+      await db.ref('admin_notes').child(id).set({ title: title || '', content: content || '', createdAt: createdAt || '', updatedAt: updatedAt || '' });
+    }
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/notes/delete', async (req, res) => {
+  const { id } = req.body;
+  try {
+    if (id) await db.ref('admin_notes').child(id).remove();
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/notes/clear', async (req, res) => {
+  try {
+    await db.ref('admin_notes').remove();
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // ─── TIKTOK ACCOUNTS API ──────────────────────────────────────────
 
 // TIKTOK TOTP Helper
@@ -1853,14 +1894,14 @@ app.get('/api/tiktok/all', async (req, res) => {
 });
 
 app.post('/api/tiktok/save', async (req, res) => {
-  const { id, identifier, mail, username, password, session, status, result } = req.body;
+  const { id, identifier, mail, username, password, session, status, result, coMaTime } = req.body;
   try {
     const ref = db.ref('tiktok_accounts');
     if (id) {
-      await ref.child(id).update({ identifier, mail, username, password, session, status, result });
+      await ref.child(id).update({ identifier, mail, username, password, session, status, result, coMaTime: coMaTime || '' });
     } else {
       const time = getFormattedTime();
-      await ref.push().set({ identifier, mail, username, password, session, status, result, time });
+      await ref.push().set({ identifier, mail, username, password, session, status, result, time, coMaTime: coMaTime || '' });
     }
     res.json({ success: true });
   } catch(e) {

@@ -1193,8 +1193,8 @@
         <span class="icon">📱</span> Phone Sessions
       </div>
 
-      <div class="nav-item" onclick="switchTab('vouchercheck')">
-        <span class="nav-icon">🎫</span> Voucher Checking
+      <div class="nav-item" onclick="switchTab('notes')">
+        <span class="nav-icon">📝</span> Notes
       </div>
       <div class="nav-item" onclick="switchTab('ccn', this)">
           <span class="nav-icon">💳</span> Accounts CCN
@@ -1800,51 +1800,29 @@
 
 
 
-    <!-- Tab 6: Voucher Checking -->
-    <div id="tab-vouchercheck" class="tab-pane">
-      <div class="main-card" style="max-width: 100%; margin: 0 auto;">
-        <div class="card-header">
-          <h2>🎫 Kiểm tra Voucher hàng loạt</h2>
-          <p style="color:var(--text-muted); font-size:13px; margin-top:8px;">Tự động đăng nhập và check danh sách mã voucher trên ví Shopee.</p>
+    <!-- Tab 6: Notes -->
+    <div id="tab-notes" class="tab-pane">
+      <div class="main-card" style="max-width: 100%; margin: 0 auto; height: calc(100vh - 120px); display: flex; flex-direction: column;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h2>📝 Ghi chú</h2>
+            <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">Ghi chú nhanh - tự động lưu theo thời gian thực</p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-primary" onclick="addNote()" style="height:32px; padding:6px 14px; font-size:12px;">
+              ➕ Thêm ghi chú
+            </button>
+            <button class="btn btn-ghost" onclick="clearAllNotes()" style="height:32px; padding:6px 14px; font-size:12px; color:var(--error);">
+              🗑️ Xóa tất cả
+            </button>
+          </div>
         </div>
-        <div class="card-body" style="padding: 24px; display:flex; flex-direction:column; gap:20px;">
-          
-          <div class="input-group">
-            <label>Danh sách mã Voucher (mỗi mã 1 dòng):</label>
-            <textarea id="voucherListInput" class="proxy-input" style="height: 120px; resize:vertical; font-family:monospace;" placeholder="VOUCHERCODE1\nVOUCHERCODE2\nVOUCHERCODE3"></textarea>
-          </div>
-
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <div class="input-group">
-              <label>Cookie (SPC_F combo hoặc SPC_ST):</label>
-              <input type="text" id="voucherCookieInput" class="proxy-input" placeholder="SPC_ST=... hoặc SPC_F=...">
-            </div>
-            
-            <div class="input-group">
-              <label>Proxy (Tùy chọn):</label>
-              <input type="text" id="voucherProxyInput" class="proxy-input" placeholder="IP:Port:User:Pass">
-            </div>
-          </div>
-          
-          <button id="btnCheckVoucher" class="btn btn-primary" onclick="startVoucherCheck()" style="align-self:flex-start;">
-            🚀 Bắt đầu Check Voucher
-          </button>
-          
-          <div id="voucherCheckProgress" style="color:var(--shopee); font-size:13px; margin-top:5px; font-weight:bold;"></div>
-
-          <div style="margin-top: 20px; padding-top:20px; border-top:1px solid var(--border);">
-            <table class="compact-table" style="width:100%; border-collapse: collapse; text-align: left; font-size: 13px;">
-              <thead>
-                <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
-                  <th style="padding: 10px 8px; width: 40px;">STT</th>
-                  <th style="padding: 10px 8px; width: 150px;">Mã Voucher</th>
-                  <th style="padding: 10px 8px;">Kết quả</th>
-                </tr>
-              </thead>
-              <tbody id="voucherCheckResults">
-                <tr><td colspan="3" style="text-align:center; padding: 16px; color: var(--text-muted);">Chưa có dữ liệu</td></tr>
-              </tbody>
-            </table>
+        <div class="card-body" style="flex: 1; overflow-y: auto; padding: 16px;">
+          <div id="notesContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;"></div>
+          <div id="notesEmpty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">
+            <span style="font-size: 48px; margin-bottom: 16px;">📝</span>
+            <p style="font-size: 15px;">Chưa có ghi chú nào</p>
+            <p style="font-size: 13px; margin-top: 4px;">Nhấn "Thêm ghi chú" để bắt đầu</p>
           </div>
         </div>
       </div>
@@ -3075,7 +3053,7 @@ function renderTiktokTable() {
     
     htmlText += `<tr>
       <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${item.time || ''}</td>
-      <td style="padding:6px;">${formatElapsed(item.time)}</td>
+      <td style="padding:6px;">${tiktokActiveSubTab === 'co_ma' && item.coMaTime ? formatElapsed(item.coMaTime) : formatElapsed(item.time)}</td>
       <td class="totp-cell tiktok-totp" data-secret="${escapeHtml(item.identifier || '')}" style="padding:6px; cursor:pointer; font-family:monospace; font-size:14px; font-weight:bold; color:var(--primary); text-align:center; letter-spacing:2px;" title="Secret: ${escapeHtml(item.identifier || '')}&#10;Click để copy code" onclick="copyText(this.innerText)">------</td>
       <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.mail || '')}</td>
       <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.username || '')}</td>
@@ -3155,6 +3133,18 @@ async function syncTiktokField(event, id, field) {
     });
     toast('Đã lưu ' + field, 'success', 1500);
     tiktokData[id][field] = val;
+    // Record timestamp when item moves to 'co_ma' tab
+    if (getTiktokSubTabCategory(tiktokData[id]) === 'co_ma' && !tiktokData[id].coMaTime) {
+      tiktokData[id].coMaTime = new Date().toISOString();
+      // Save coMaTime to backend
+      const coMaPayload = { ...tiktokData[id], id, coMaTime: tiktokData[id].coMaTime };
+      fetch('/api/tiktok/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(coMaPayload)
+      }).catch(() => {});
+    }
+    renderTiktokTable();
   } catch (e) {
     toast('Lỗi kết nối', 'error');
   }
@@ -3529,6 +3519,7 @@ function switchTab(tabId) {
     }
   }
   if (tabId === 'phone') loadPhones();
+  if (tabId === 'notes') loadNotes();
   if (tabId === 'tiktok') { loadTiktokData(); loadPandaProxies(); }
   // Update nav items
   document.querySelectorAll('.nav-item').forEach(el => {
@@ -5504,110 +5495,168 @@ function copyToClipboard(elementId) {
 }
 
 
-// ─── Voucher Checking Logic ──────────────────────────────────────────
-let voucherEventSource = null;
+// ─── Notes Logic ──────────────────────────────────────────
+let notesData = {};
+let notesSaveTimeout = {};
 
-async function startVoucherCheck() {
-  const vouchersRaw = $('voucherListInput').value;
-  const cookieStr = $('voucherCookieInput').value;
-  const proxyStr = $('voucherProxyInput').value;
-  
-  const vouchers = vouchersRaw.split('\n').map(v => v.trim()).filter(v => v);
-  
-  if (vouchers.length === 0) return toast('Vui lòng nhập ít nhất 1 mã voucher', 'error');
-  if (!cookieStr) return toast('Vui lòng nhập Cookie', 'error');
-  
-  const btn = $('btnCheckVoucher');
-  const progress = $('voucherCheckProgress');
-  const tbody = $('voucherCheckResults');
-  
-  btn.disabled = true;
-  btn.innerText = '⏳ Đang xử lý...';
-  progress.innerText = 'Khởi tạo...';
-  tbody.innerHTML = '';
-  
-  if (voucherEventSource) {
-    voucherEventSource.close();
-    voucherEventSource = null;
+async function loadNotes() {
+  try {
+    const res = await fetch('/api/notes/all');
+    const data = await res.json();
+    notesData = data || {};
+    renderNotes();
+  } catch (e) {
+    console.error('Lỗi tải notes:', e);
   }
+}
+
+function renderNotes() {
+  const container = document.getElementById('notesContainer');
+  const emptyEl = document.getElementById('notesEmpty');
+  if (!container) return;
+  
+  const entries = Object.entries(notesData).sort((a, b) => {
+    return new Date(b[1].updatedAt || b[1].createdAt || 0) - new Date(a[1].updatedAt || a[1].createdAt || 0);
+  });
+  
+  if (entries.length === 0) {
+    container.innerHTML = '';
+    if (emptyEl) emptyEl.style.display = 'flex';
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+  
+  container.innerHTML = entries.map(([id, note]) => {
+    const colors = ['#ff6b35', '#f7c948', '#2ec4b6', '#e71d36', '#3a86ff', '#8338ec', '#ff006e', '#06d6a0'];
+    const colorIdx = Math.abs(id.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % colors.length;
+    const accentColor = colors[colorIdx];
+    const timeAgo = note.updatedAt ? formatNoteTime(note.updatedAt) : (note.createdAt ? formatNoteTime(note.createdAt) : '');
+    
+    return `
+      <div class="note-card" style="
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-top: 3px solid ${accentColor};
+        border-radius: 12px;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.2s, box-shadow 0.2s;
+        min-height: 180px;
+      " onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(0,0,0,0.3)'" onmouseleave="this.style.transform=''; this.style.boxShadow=''">
+        <div style="padding: 12px 16px 8px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);">
+          <input type="text" value="${escapeHtml(note.title || '')}" placeholder="Tiêu đề..." 
+            oninput="autoSaveNote('${id}', 'title', this.value)"
+            style="background: none; border: none; color: var(--text); font-size: 14px; font-weight: 700; width: 100%; outline: none; padding: 0;">
+          <button onclick="deleteNote('${id}')" style="background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:14px; padding:4px; opacity:0.5; transition:opacity 0.2s;" onmouseenter="this.style.opacity='1'; this.style.color='var(--error)'" onmouseleave="this.style.opacity='0.5'; this.style.color='var(--text-muted)'">✕</button>
+        </div>
+        <div style="flex: 1; padding: 8px 16px 12px;">
+          <textarea oninput="autoSaveNote('${id}', 'content', this.value); this.style.height='auto'; this.style.height=this.scrollHeight+'px'" 
+            placeholder="Nội dung ghi chú..."
+            style="width:100%; min-height:80px; background:none; border:none; color:var(--text); font-size:13px; line-height:1.6; resize:none; outline:none; font-family:inherit; padding:0;">${escapeHtml(note.content || '')}</textarea>
+        </div>
+        <div style="padding: 6px 16px 10px; display:flex; justify-content:space-between; align-items:center; opacity:0.5; font-size:11px; color:var(--text-muted);">
+          <span>${timeAgo}</span>
+          <span id="noteSaveStatus_${id}"></span>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  // Auto-resize textareas
+  container.querySelectorAll('textarea').forEach(ta => {
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+  });
+}
+
+function formatNoteTime(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return 'Vừa xong';
+  if (diff < 3600000) return Math.floor(diff / 60000) + ' phút trước';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + ' giờ trước';
+  return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function autoSaveNote(id, field, value) {
+  if (!notesData[id]) return;
+  notesData[id][field] = value;
+  notesData[id].updatedAt = new Date().toISOString();
+  
+  const statusEl = document.getElementById('noteSaveStatus_' + id);
+  if (statusEl) statusEl.textContent = '💾 Đang lưu...';
+  
+  if (notesSaveTimeout[id]) clearTimeout(notesSaveTimeout[id]);
+  notesSaveTimeout[id] = setTimeout(async () => {
+    try {
+      await fetch('/api/notes/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...notesData[id] })
+      });
+      if (statusEl) {
+        statusEl.textContent = '✅ Đã lưu';
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+      }
+    } catch (e) {
+      if (statusEl) statusEl.textContent = '❌ Lỗi lưu';
+    }
+  }, 500);
+}
+
+async function addNote() {
+  const id = 'note_' + Date.now();
+  const now = new Date().toISOString();
+  notesData[id] = { title: '', content: '', createdAt: now, updatedAt: now };
   
   try {
-    const res = await fetch('/api/voucher-check', {
+    await fetch('/api/notes/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vouchers, cookieStr, proxyStr })
+      body: JSON.stringify({ id, ...notesData[id] })
     });
-    
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Lỗi kết nối máy chủ');
+  } catch (e) {}
+  
+  renderNotes();
+  
+  // Focus the title of the new note
+  setTimeout(() => {
+    const container = document.getElementById('notesContainer');
+    if (container) {
+      const firstCard = container.querySelector('.note-card input[type="text"]');
+      if (firstCard) firstCard.focus();
     }
-    
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    
-    let counter = 1;
-    
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n\n');
-      buffer = lines.pop(); // keep incomplete chunk
-      
-      for (const chunk of lines) {
-        if (!chunk.trim()) continue;
-        const linesChunk = chunk.split('\n');
-        let eventType = 'message';
-        let dataStr = '';
-        
-        for (const line of linesChunk) {
-          if (line.startsWith('event: ')) {
-            eventType = line.substring(7).trim();
-          } else if (line.startsWith('data: ')) {
-            dataStr = line.substring(6).trim();
-          }
-        }
-        
-        if (dataStr) {
-          const data = JSON.parse(dataStr);
-          if (eventType === 'progress') {
-            progress.innerHTML = data.message;
-          } else if (eventType === 'result') {
-            const tr = document.createElement('tr');
-            tr.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
-            
-            let color = 'var(--text-color)';
-            if (data.result.toLowerCase().includes('sorry') || data.result.toLowerCase().includes('invalid')) {
-              color = 'var(--error)';
-            } else if (data.result.toLowerCase().includes('thành công') || data.result.toLowerCase().includes('successfully')) {
-              color = 'var(--shopee-light)';
-            }
-            
-            tr.innerHTML = `
-              <td style="padding: 10px 8px;">${counter++}</td>
-              <td style="padding: 10px 8px; font-weight:bold;">${data.voucher}</td>
-              <td style="padding: 10px 8px; color: ${color};">${data.result}</td>
-            `;
-            tbody.appendChild(tr);
-          } else if (eventType === 'error') {
-            toast('Lỗi: ' + data.message, 'error');
-            progress.innerHTML = '<span style="color:var(--error);">Đã dừng do lỗi:</span><br>' + data.message;
-          } else if (eventType === 'done') {
-            progress.innerHTML = 'Hoàn tất!';
-            toast('Hoàn tất check voucher', 'success');
-          }
-        }
-      }
-    }
-  } catch(e) {
-    toast('Lỗi: ' + e.message, 'error');
-    progress.innerHTML = 'Lỗi: ' + e.message;
-  } finally {
-    btn.disabled = false;
-    btn.innerText = '🚀 Bắt đầu Check Voucher';
+  }, 100);
+}
+
+async function deleteNote(id) {
+  if (!confirm('Xóa ghi chú này?')) return;
+  try {
+    await fetch('/api/notes/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    delete notesData[id];
+    renderNotes();
+    toast('Đã xóa ghi chú', 'success');
+  } catch (e) {
+    toast('Lỗi xóa ghi chú', 'error');
+  }
+}
+
+async function clearAllNotes() {
+  if (!confirm('Xóa tất cả ghi chú? Hành động này không thể hoàn tác.')) return;
+  try {
+    await fetch('/api/notes/clear', { method: 'POST' });
+    notesData = {};
+    renderNotes();
+    toast('Đã xóa tất cả ghi chú', 'success');
+  } catch (e) {
+    toast('Lỗi xóa', 'error');
   }
 }
 
