@@ -77,7 +77,15 @@ const app = express();
 
 app.get('/api/logs', (req, res) => res.type('text/plain').send(sysLogs.join('\n')));
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 app.use(express.static(__dirname)); // Fallback cho trường hợp up code không có folder public
 app.use(express.json());
 
