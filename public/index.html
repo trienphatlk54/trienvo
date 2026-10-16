@@ -1652,53 +1652,188 @@
         </div>
       </div>
       <!-- Sub-tabs for TikTok filtering -->
-      <div id="tiktokSubTabs" style="display: flex; border-bottom: 2px solid var(--border); background: var(--surface2);">
-        <button class="tiktok-subtab active" data-tab="chua_check" onclick="switchTiktokSubTab('chua_check', this)" style="flex:1; padding: 10px 16px; border: none; background: none; color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; position: relative; transition: all 0.2s;">
-          📋 Chưa check <span id="tiktokCount_chua_check" style="background: var(--primary); color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 11px; margin-left: 4px;">0</span>
+      <div id="tiktokSubTabs" style="display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface2);">
+        <button class="tiktok-subtab subtab-chua active" data-tab="chua_check" onclick="switchTiktokSubTab('chua_check', this)">
+          <span>📋 Chưa check</span>
+          <span id="tiktokCount_chua_check" class="subtab-badge">0</span>
         </button>
-        <button class="tiktok-subtab" data-tab="co_ma" onclick="switchTiktokSubTab('co_ma', this)" style="flex:1; padding: 10px 16px; border: none; background: none; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; position: relative; transition: all 0.2s;">
-          ✅ Đặt thành công <span id="tiktokCount_co_ma" style="background: #4caf50; color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 11px; margin-left: 4px;">0</span>
+        <button class="tiktok-subtab subtab-coma" data-tab="co_ma" onclick="switchTiktokSubTab('co_ma', this)">
+          <span>✅ Đặt thành công</span>
+          <span id="tiktokCount_co_ma" class="subtab-badge">0</span>
         </button>
-        <button class="tiktok-subtab" data-tab="khong_ma" onclick="switchTiktokSubTab('khong_ma', this)" style="flex:1; padding: 10px 16px; border: none; background: none; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; position: relative; transition: all 0.2s;">
-          ❌ Không mã <span id="tiktokCount_khong_ma" style="background: #b71c1c; color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 11px; margin-left: 4px;">0</span>
+        <button class="tiktok-subtab subtab-khongma" data-tab="khong_ma" onclick="switchTiktokSubTab('khong_ma', this)">
+          <span>❌ Không mã</span>
+          <span id="tiktokCount_khong_ma" class="subtab-badge">0</span>
         </button>
       </div>
       <style>
-        .tiktok-subtab { border-bottom: 3px solid transparent !important; }
-        .tiktok-subtab.active { 
-          color: var(--primary) !important; 
-          background: rgba(255, 87, 34, 0.1) !important;
-          border-bottom: 3px solid var(--primary) !important;
-        }
-        .tiktok-subtab.active::after { display: none; }
-        .tiktok-subtab:hover:not(.active) { background: rgba(255,255,255,0.05); }
-        #tab-tiktok .compact-table {
+        .tiktok-subtab {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 10px 16px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
           border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--text-muted);
         }
-        #tab-tiktok .compact-table th,
-        #tab-tiktok .compact-table td {
-          border: 1px solid rgba(255, 255, 255, 0.12) !important;
-          padding: 6px 8px !important;
+        .tiktok-subtab .subtab-badge {
+          border-radius: 999px;
+          padding: 2px 10px;
+          font-size: 11px;
+          font-weight: 800;
+          transition: all 0.2s ease;
         }
-        #tab-tiktok .compact-table thead tr {
-          background-color: var(--surface2);
+        /* Tab 1: Chưa check (Blue) */
+        .tiktok-subtab.subtab-chua {
+          border-color: rgba(59, 130, 246, 0.35);
+          color: #60a5fa;
+          background: rgba(59, 130, 246, 0.08);
         }
-        #tiktokTableBody tr:nth-child(odd) {
-          background-color: var(--surface);
+        .tiktok-subtab.subtab-chua .subtab-badge {
+          background: rgba(59, 130, 246, 0.25);
+          color: #93c5fd;
         }
-        #tiktokTableBody tr:nth-child(even) {
-          background-color: rgba(255, 255, 255, 0.045);
+        .tiktok-subtab.subtab-chua:hover:not(.active) {
+          background: rgba(59, 130, 246, 0.16);
+          border-color: #3b82f6;
         }
-        #tiktokTableBody tr:hover {
-          background-color: rgba(255, 87, 34, 0.08);
+        .tiktok-subtab.subtab-chua.active {
+          background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+          color: #ffffff !important;
+          border-color: #60a5fa !important;
+          box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+          transform: translateY(-1px);
+        }
+        .tiktok-subtab.subtab-chua.active .subtab-badge {
+          background: #ffffff;
+          color: #1d4ed8;
+        }
+
+        /* Tab 2: Đặt thành công (Green) */
+        .tiktok-subtab.subtab-coma {
+          border-color: rgba(16, 185, 129, 0.35);
+          color: #34d399;
+          background: rgba(16, 185, 129, 0.08);
+        }
+        .tiktok-subtab.subtab-coma .subtab-badge {
+          background: rgba(16, 185, 129, 0.25);
+          color: #6ee7b7;
+        }
+        .tiktok-subtab.subtab-coma:hover:not(.active) {
+          background: rgba(16, 185, 129, 0.16);
+          border-color: #10b981;
+        }
+        .tiktok-subtab.subtab-coma.active {
+          background: linear-gradient(135deg, #10b981, #059669) !important;
+          color: #ffffff !important;
+          border-color: #34d399 !important;
+          box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+          transform: translateY(-1px);
+        }
+        .tiktok-subtab.subtab-coma.active .subtab-badge {
+          background: #ffffff;
+          color: #059669;
+        }
+
+        /* Tab 3: Không mã (Red/Rose) */
+        .tiktok-subtab.subtab-khongma {
+          border-color: rgba(244, 63, 94, 0.35);
+          color: #fb7185;
+          background: rgba(244, 63, 94, 0.08);
+        }
+        .tiktok-subtab.subtab-khongma .subtab-badge {
+          background: rgba(244, 63, 94, 0.25);
+          color: #fda4af;
+        }
+        .tiktok-subtab.subtab-khongma:hover:not(.active) {
+          background: rgba(244, 63, 94, 0.16);
+          border-color: #f43f5e;
+        }
+        .tiktok-subtab.subtab-khongma.active {
+          background: linear-gradient(135deg, #e11d48, #be123c) !important;
+          color: #ffffff !important;
+          border-color: #fb7185 !important;
+          box-shadow: 0 4px 14px rgba(225, 29, 72, 0.4);
+          transform: translateY(-1px);
+        }
+        .tiktok-subtab.subtab-khongma.active .subtab-badge {
+          background: #ffffff;
+          color: #be123c;
+        }
+
+        /* Pagination Bar & Buttons */
+        .tiktok-page-bar {
+          padding: 10px 16px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid var(--border);
+          background: rgba(255, 255, 255, 0.02);
+        }
+        .tiktok-page-info-badge {
+          font-size: 13px;
+          font-weight: 700;
+          color: #fbbf24;
+          background: rgba(245, 158, 11, 0.12);
+          border: 1px solid rgba(245, 158, 11, 0.3);
+          padding: 5px 14px;
+          border-radius: 8px;
+        }
+        .tiktok-page-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 14px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: 1px solid transparent;
+        }
+        .tiktok-page-btn.btn-prev-page {
+          background: linear-gradient(135deg, #6366f1, #4f46e5);
+          color: #ffffff;
+          border-color: #818cf8;
+          box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+        }
+        .tiktok-page-btn.btn-prev-page:hover:not(:disabled) {
+          background: linear-gradient(135deg, #4f46e5, #4338ca);
+          transform: translateY(-1px);
+        }
+        .tiktok-page-btn.btn-next-page {
+          background: linear-gradient(135deg, #f97316, #ea580c);
+          color: #ffffff;
+          border-color: #fb923c;
+          box-shadow: 0 2px 8px rgba(249, 115, 22, 0.35);
+        }
+        .tiktok-page-btn.btn-next-page:hover:not(:disabled) {
+          background: linear-gradient(135deg, #ea580c, #c2410c);
+          transform: translateY(-1px);
+        }
+        .tiktok-page-btn:disabled {
+          background: var(--surface2) !important;
+          color: var(--text-muted) !important;
+          border-color: var(--border) !important;
+          box-shadow: none !important;
+          opacity: 0.45;
+          cursor: not-allowed;
+          transform: none !important;
         }
       </style>
       <div class="card-body" style="display: block; padding: 0;">
-        <div style="padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);">
-          <span id="tiktokPageInfo" style="font-size: 13px; color: var(--text-muted);">Trang 1 / 1</span>
+        <div class="tiktok-page-bar">
+          <span id="tiktokPageInfo" class="tiktok-page-info-badge">Trang 1 / 1</span>
           <div style="display: flex; gap: 10px;">
-            <button class="btn btn-secondary btn-sm" id="btnPrevTiktok" onclick="changeTiktokPage(-1)" disabled>Trang trước</button>
-            <button class="btn btn-secondary btn-sm" id="btnNextTiktok" onclick="changeTiktokPage(1)" disabled>Trang sau</button>
+            <button class="tiktok-page-btn btn-prev-page" id="btnPrevTiktok" onclick="changeTiktokPage(-1)" disabled>⬅️ Trang trước</button>
+            <button class="tiktok-page-btn btn-next-page" id="btnNextTiktok" onclick="changeTiktokPage(1)" disabled>Trang sau ➡️</button>
           </div>
         </div>
         <div style="overflow-x: auto; max-height: calc(100vh - 350px); overflow-y: auto;">
@@ -3018,11 +3153,9 @@ function switchTiktokSubTab(tab, btn) {
   tiktokCurrentPage = 1;
   document.querySelectorAll('.tiktok-subtab').forEach(b => {
     b.classList.remove('active');
-    b.style.color = 'var(--text-muted)';
   });
   if (btn) {
     btn.classList.add('active');
-    btn.style.color = 'var(--primary)';
   }
   renderTiktokTable();
 }
