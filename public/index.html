@@ -1657,7 +1657,7 @@
           📋 Chưa check <span id="tiktokCount_chua_check" style="background: var(--primary); color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 11px; margin-left: 4px;">0</span>
         </button>
         <button class="tiktok-subtab" data-tab="co_ma" onclick="switchTiktokSubTab('co_ma', this)" style="flex:1; padding: 10px 16px; border: none; background: none; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; position: relative; transition: all 0.2s;">
-          ✅ Có mã <span id="tiktokCount_co_ma" style="background: #4caf50; color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 11px; margin-left: 4px;">0</span>
+          ✅ Đặt thành công <span id="tiktokCount_co_ma" style="background: #4caf50; color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 11px; margin-left: 4px;">0</span>
         </button>
         <button class="tiktok-subtab" data-tab="khong_ma" onclick="switchTiktokSubTab('khong_ma', this)" style="flex:1; padding: 10px 16px; border: none; background: none; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; position: relative; transition: all 0.2s;">
           ❌ Không mã <span id="tiktokCount_khong_ma" style="background: #b71c1c; color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 11px; margin-left: 4px;">0</span>
@@ -1672,6 +1672,26 @@
         }
         .tiktok-subtab.active::after { display: none; }
         .tiktok-subtab:hover:not(.active) { background: rgba(255,255,255,0.05); }
+        #tab-tiktok .compact-table {
+          border: 1px solid var(--border);
+        }
+        #tab-tiktok .compact-table th,
+        #tab-tiktok .compact-table td {
+          border: 1px solid rgba(255, 255, 255, 0.12) !important;
+          padding: 6px 8px !important;
+        }
+        #tab-tiktok .compact-table thead tr {
+          background-color: var(--surface2);
+        }
+        #tiktokTableBody tr:nth-child(odd) {
+          background-color: var(--surface);
+        }
+        #tiktokTableBody tr:nth-child(even) {
+          background-color: rgba(255, 255, 255, 0.045);
+        }
+        #tiktokTableBody tr:hover {
+          background-color: rgba(255, 87, 34, 0.08);
+        }
       </style>
       <div class="card-body" style="display: block; padding: 0;">
         <div style="padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);">
@@ -3012,8 +3032,27 @@ function getTiktokSubTabCategory(item) {
   const status = (item.status || '').trim();
   if (result === 'Đã ngâm Acc') return item.ngamSubTab || 'chua_check';
   if (result === 'Rớt mã/Hủy') return 'khong_ma';
-  if (status && status !== '' && result !== 'Rớt mã/Hủy') return 'co_ma';
+  if (result === 'Đặt thành công' || (status && status !== '' && result !== 'Rớt mã/Hủy')) return 'co_ma';
   return 'chua_check';
+}
+
+function parseTiktokTimeMs(str) {
+  if (!str) return 0;
+  const parts = str.trim().split(' ');
+  if (parts.length === 2 && (parts[0].includes('/') || parts[1].includes('/'))) {
+    let t = parts[0], d = parts[1];
+    if (parts[1].includes(':')) { t = parts[1]; d = parts[0]; }
+    const hms = t.split(':').map(Number);
+    const dmy = d.split('/').map(Number);
+    return new Date(dmy[2] || 0, (dmy[1] || 1) - 1, dmy[0] || 1, hms[0] || 0, hms[1] || 0, hms[2] || 0).getTime() || 0;
+  }
+  return new Date(str).getTime() || 0;
+}
+
+function getTiktokItemSortTime(item) {
+  if (item.subTabTime) return parseTiktokTimeMs(item.subTabTime);
+  if (tiktokActiveSubTab === 'co_ma' && item.coMaTime) return parseTiktokTimeMs(item.coMaTime);
+  return parseTiktokTimeMs(item.time);
 }
 
 function updateTiktokSubTabCounts() {
@@ -3037,9 +3076,7 @@ function renderTiktokTable() {
   
   let htmlText = '';
   
-  const allEntries = Object.entries(tiktokData).sort((a, b) => {
-    return new Date(b[1].time || 0) - new Date(a[1].time || 0);
-  });
+  const allEntries = Object.entries(tiktokData);
 
   const searchFiltered = allEntries.filter(([id, item]) => {
     if (!search) return true;
@@ -3049,6 +3086,8 @@ function renderTiktokTable() {
 
   const filteredEntries = searchFiltered.filter(([id, item]) => {
     return getTiktokSubTabCategory(item) === tiktokActiveSubTab;
+  }).sort((a, b) => {
+    return getTiktokItemSortTime(a[1]) - getTiktokItemSortTime(b[1]);
   });
 
   updateTiktokSubTabCounts();
@@ -3162,6 +3201,7 @@ async function syncTiktokField(event, id, field) {
   }
   
   if (!tiktokData[id]) return;
+  const oldCat = getTiktokSubTabCategory(tiktokData[id]);
   tiktokData[id][field] = val;
 
   if (field === 'result') {
@@ -3174,7 +3214,14 @@ async function syncTiktokField(event, id, field) {
     }
   }
 
-  if (getTiktokSubTabCategory(tiktokData[id]) === 'co_ma' && !tiktokData[id].coMaTime) {
+  const newCat = getTiktokSubTabCategory(tiktokData[id]);
+  if (newCat !== oldCat) {
+    const nowIso = new Date().toISOString();
+    tiktokData[id].subTabTime = nowIso;
+    if (newCat === 'co_ma') {
+      tiktokData[id].coMaTime = nowIso;
+    }
+  } else if (newCat === 'co_ma' && !tiktokData[id].coMaTime) {
     tiktokData[id].coMaTime = new Date().toISOString();
   }
 
@@ -3229,6 +3276,7 @@ function editTiktok(id) {
 async function saveTiktok() {
   const id = $('tiktokId').value;
   const existing = (id && tiktokData[id]) ? tiktokData[id] : {};
+  const oldCat = id && tiktokData[id] ? getTiktokSubTabCategory(existing) : null;
   const newStatus = $('tk_status').value;
   const newResult = $('tk_result').value;
 
@@ -3254,10 +3302,16 @@ async function saveTiktok() {
     result: newResult,
     notes: existing.notes || '',
     coMaTime: existing.coMaTime || '',
+    subTabTime: existing.subTabTime || '',
     ngamTime,
     ngamSubTab
   };
-  if (getTiktokSubTabCategory(data) === 'co_ma' && !data.coMaTime) {
+  const newCat = getTiktokSubTabCategory(data);
+  if (!id || newCat !== oldCat) {
+    const nowIso = new Date().toISOString();
+    data.subTabTime = nowIso;
+    if (newCat === 'co_ma') data.coMaTime = nowIso;
+  } else if (newCat === 'co_ma' && !data.coMaTime) {
     data.coMaTime = new Date().toISOString();
   }
   
