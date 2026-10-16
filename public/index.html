@@ -1827,6 +1827,27 @@
           cursor: not-allowed;
           transform: none !important;
         }
+        /* Kẻ bảng chia ngăn và sọc xen kẽ chỉ riêng bảng dữ liệu TikTok */
+        #tiktokDataTable {
+          border: 1px solid var(--border);
+        }
+        #tiktokDataTable th,
+        #tiktokDataTable td {
+          border: 1px solid rgba(255, 255, 255, 0.12) !important;
+          padding: 6px 8px !important;
+        }
+        #tiktokDataTable thead tr {
+          background-color: var(--surface2);
+        }
+        #tiktokTableBody tr:nth-child(odd) {
+          background-color: var(--surface);
+        }
+        #tiktokTableBody tr:nth-child(even) {
+          background-color: rgba(255, 255, 255, 0.045);
+        }
+        #tiktokTableBody tr:hover {
+          background-color: rgba(255, 87, 34, 0.08);
+        }
       </style>
       <div class="card-body" style="display: block; padding: 0;">
         <div class="tiktok-page-bar">
@@ -1837,7 +1858,7 @@
           </div>
         </div>
         <div style="overflow-x: auto; max-height: calc(100vh - 350px); overflow-y: auto;">
-          <table class="compact-table" style="min-width: 1000px; width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+          <table id="tiktokDataTable" class="compact-table" style="min-width: 1000px; width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
             <thead>
               <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
                 <th style="padding: 6px;">Thời gian add</th>
