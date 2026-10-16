@@ -1902,14 +1902,14 @@ app.get('/api/tiktok/all', async (req, res) => {
 });
 
 app.post('/api/tiktok/save', async (req, res) => {
-  const { id, identifier, mail, username, password, session, status, result, coMaTime, ngamTime, ngamSubTab } = req.body;
+  const { id, identifier, mail, username, password, session, status, result, notes, coMaTime, ngamTime, ngamSubTab } = req.body;
   try {
     const ref = db.ref('tiktok_accounts');
     if (id) {
-      await ref.child(id).update({ identifier, mail, username, password, session, status, result, coMaTime: coMaTime || '', ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '' });
+      await ref.child(id).update({ identifier, mail, username, password, session, status, result, notes: notes || '', coMaTime: coMaTime || '', ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '' });
     } else {
       const time = getFormattedTime();
-      await ref.push().set({ identifier, mail, username, password, session, status, result, time, coMaTime: coMaTime || '', ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '' });
+      await ref.push().set({ identifier, mail, username, password, session, status, result, notes: notes || '', time, coMaTime: coMaTime || '', ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '' });
     }
     res.json({ success: true });
   } catch(e) {

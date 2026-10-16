@@ -1695,11 +1695,12 @@
                 <th style="padding: 6px;">Account Status</th>
                 <th style="padding: 6px;">Result</th>
                 <th style="padding: 6px;">Time Ngâm</th>
+                <th style="padding: 6px;">Notes</th>
                 <th style="padding: 6px;">Hành động</th>
               </tr>
             </thead>
             <tbody id="tiktokTableBody">
-              <tr><td colspan="11" style="text-align:center; padding:10px;">Đang tải dữ liệu...</td></tr>
+              <tr><td colspan="12" style="text-align:center; padding:10px;">Đang tải dữ liệu...</td></tr>
             </tbody>
           </table>
         </div>
@@ -3074,6 +3075,9 @@ function renderTiktokTable() {
       <td style="padding:6px;">${renderTiktokResultDropdown(item.result || '', id)}</td>
       <td style="padding:6px;">${timeNgamHtml}</td>
       <td style="padding:6px;">
+        <input type="text" class="proxy-input" value="${escapeHtml(item.notes || '')}" placeholder="Ghi chú..." oninput="autoSaveTiktokNote('${id}', this.value)" onclick="event.stopPropagation()" style="width:100%; min-width:120px; padding:4px 8px; font-size:11px; height:26px; box-sizing:border-box;">
+      </td>
+      <td style="padding:6px;">
         <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px;" onclick="editTiktok('${id}')">✏️</button>
         <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px; color:var(--error);" onclick="deleteTiktok('${id}')">❌</button>
       </td>
@@ -3081,7 +3085,7 @@ function renderTiktokTable() {
     }
   
   if (filteredEntries.length === 0) {
-    htmlText = `<tr><td colspan="11" style="text-align:center; padding:10px;">Không có dữ liệu Tiktok</td></tr>`;
+    htmlText = `<tr><td colspan="12" style="text-align:center; padding:10px;">Không có dữ liệu Tiktok</td></tr>`;
   }
   tbody.innerHTML = htmlText;
 
@@ -3092,6 +3096,25 @@ function renderTiktokTable() {
   if (pageInfoEl) pageInfoEl.textContent = `Trang ${tiktokCurrentPage} / ${totalPages} (${filteredEntries.length} dòng)`;
   if (btnPrev) btnPrev.disabled = (tiktokCurrentPage <= 1);
   if (btnNext) btnNext.disabled = (tiktokCurrentPage >= totalPages);
+}
+
+let tiktokNoteSaveTimeouts = {};
+function autoSaveTiktokNote(id, val) {
+  if (!tiktokData[id]) return;
+  tiktokData[id].notes = val;
+  if (tiktokNoteSaveTimeouts[id]) clearTimeout(tiktokNoteSaveTimeouts[id]);
+  tiktokNoteSaveTimeouts[id] = setTimeout(async () => {
+    try {
+      const payload = { ...tiktokData[id], id };
+      await fetch('/api/tiktok/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      toast('Lỗi lưu ghi chú', 'error');
+    }
+  }, 400);
 }
 
 
@@ -3229,6 +3252,7 @@ async function saveTiktok() {
     session: $('tk_session').value.trim(),
     status: newStatus,
     result: newResult,
+    notes: existing.notes || '',
     coMaTime: existing.coMaTime || '',
     ngamTime,
     ngamSubTab
