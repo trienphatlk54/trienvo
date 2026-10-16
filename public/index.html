@@ -1694,11 +1694,12 @@
                 <th style="padding: 6px;">Session ID</th>
                 <th style="padding: 6px;">Account Status</th>
                 <th style="padding: 6px;">Result</th>
+                <th style="padding: 6px;">Time Ngâm</th>
                 <th style="padding: 6px;">Hành động</th>
               </tr>
             </thead>
             <tbody id="tiktokTableBody">
-              <tr><td colspan="13" style="text-align:center; padding:10px;">Đang tải dữ liệu...</td></tr>
+              <tr><td colspan="11" style="text-align:center; padding:10px;">Đang tải dữ liệu...</td></tr>
             </tbody>
           </table>
         </div>
@@ -2952,19 +2953,28 @@ function changeTiktokPage(delta) {
 let tiktokData = {};
 
 function getTiktokStatusColor(status) {
-  if (status === 'Mã 50') return '#c8e6c9'; 
-  if (status === 'Mã 60') return '#81c784'; 
-  if (status === 'Mã 70') return '#4caf50'; 
-  if (status === 'Mã 50 ko freeship') return '#fff9c4'; 
-  if (status === 'Mã 60 ko freeship') return '#fff176'; 
-  if (status === 'Mã 70 ko freeship') return '#ffeb3b'; 
+  if (status === 'Mã 40k') return '#e8f5e9';
+  if (status === 'Mã 55k') return '#c8e6c9';
+  if (status === 'Mã 60k') return '#a5d6a7';
+  if (status === 'Mã 68k') return '#81c784';
+  if (status === 'Mã 70k') return '#66bb6a';
+  if (status === 'Mã 80k') return '#4caf50';
+  if (status === 'Mã 90k') return '#43a047';
+  if (status === 'Mã 100k') return '#2e7d32';
+  if (status === 'Mã 110k') return '#1b5e20';
   return '';
+}
+
+function getTiktokStatusTextColor(status) {
+  if (status === 'Mã 80k' || status === 'Mã 90k' || status === 'Mã 100k' || status === 'Mã 110k') return '#fff';
+  return '#000';
 }
 
 function getTiktokResultColor(result) {
   if (result === 'Đặt thành công') return '#4caf50'; 
   if (result === 'Bất thường') return '#fbc02d'; 
   if (result === 'Rớt mã/Hủy') return '#b71c1c'; 
+  if (result === 'Đã ngâm Acc') return '#1976d2';
   return '';
 }
 
@@ -2999,6 +3009,7 @@ function switchTiktokSubTab(tab, btn) {
 function getTiktokSubTabCategory(item) {
   const result = (item.result || '').trim();
   const status = (item.status || '').trim();
+  if (result === 'Đã ngâm Acc') return item.ngamSubTab || 'chua_check';
   if (result === 'Rớt mã/Hủy') return 'khong_ma';
   if (status && status !== '' && result !== 'Rớt mã/Hủy') return 'co_ma';
   return 'chua_check';
@@ -3050,7 +3061,7 @@ function renderTiktokTable() {
   const pageEntries = filteredEntries.slice(start, end);
 
   for (const [id, item] of pageEntries) {
-    
+    const timeNgamHtml = (item.result === 'Đã ngâm Acc' && item.ngamTime) ? formatElapsed(item.ngamTime) : '<span style="color:var(--text-muted); font-size:11px;">---</span>';
     htmlText += `<tr>
       <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${item.time || ''}</td>
       <td style="padding:6px;">${tiktokActiveSubTab === 'co_ma' && item.coMaTime ? formatElapsed(item.coMaTime) : formatElapsed(item.time)}</td>
@@ -3061,6 +3072,7 @@ function renderTiktokTable() {
       <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.session || '')}</td>
       <td style="padding:6px;">${renderTiktokStatusDropdown(item.status || '', id)}</td>
       <td style="padding:6px;">${renderTiktokResultDropdown(item.result || '', id)}</td>
+      <td style="padding:6px;">${timeNgamHtml}</td>
       <td style="padding:6px;">
         <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px;" onclick="editTiktok('${id}')">✏️</button>
         <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px; color:var(--error);" onclick="deleteTiktok('${id}')">❌</button>
@@ -3069,7 +3081,7 @@ function renderTiktokTable() {
     }
   
   if (filteredEntries.length === 0) {
-    htmlText = `<tr><td colspan="10" style="text-align:center; padding:10px;">Không có dữ liệu Tiktok</td></tr>`;
+    htmlText = `<tr><td colspan="11" style="text-align:center; padding:10px;">Không có dữ liệu Tiktok</td></tr>`;
   }
   tbody.innerHTML = htmlText;
 
@@ -3085,13 +3097,16 @@ function renderTiktokTable() {
 
 function renderTiktokStatusDropdown(currentStatus, id) {
   const color = getTiktokStatusColor(currentStatus);
-  const options = ['Mã 50', 'Mã 60', 'Mã 70', 'Mã 50 ko freeship', 'Mã 60 ko freeship', 'Mã 70 ko freeship'];
+  const textColor = color ? getTiktokStatusTextColor(currentStatus) : 'var(--text)';
+  const options = ['Mã 40k', 'Mã 55k', 'Mã 60k', 'Mã 68k', 'Mã 70k', 'Mã 80k', 'Mã 90k', 'Mã 100k', 'Mã 110k'];
   let optsHtml = '<option value="" style="background:#fff; color:#000;">-- Chọn --</option>';
   options.forEach(opt => {
-    optsHtml += `<option value="${opt}" ${currentStatus === opt ? 'selected' : ''} style="background:#fff; color:#000;">${opt}</option>`;
+    const optBg = getTiktokStatusColor(opt) || '#fff';
+    const optText = getTiktokStatusColor(opt) ? getTiktokStatusTextColor(opt) : '#000';
+    optsHtml += `<option value="${opt}" ${currentStatus === opt ? 'selected' : ''} style="background:${optBg}; color:${optText}; font-weight:600;">${opt}</option>`;
   });
   return `
-    <select class="status-dropdown" style="background-color: ${color || 'var(--surface)'}; color: ${color ? '#000' : 'var(--text)'}; border: 1px solid var(--border); border-radius: 4px; padding: 4px; font-size: 11px;" onchange="syncTiktokField(event, '${id}', 'status')" onclick="event.stopPropagation()">
+    <select class="status-dropdown" style="background-color: ${color || 'var(--surface)'}; color: ${textColor}; border: 1px solid var(--border); border-radius: 4px; padding: 4px; font-size: 11px; font-weight: ${color ? '600' : '400'};" onchange="syncTiktokField(event, '${id}', 'status')" onclick="event.stopPropagation()">
       ${optsHtml}
     </select>
   `;
@@ -3099,13 +3114,13 @@ function renderTiktokStatusDropdown(currentStatus, id) {
 
 function renderTiktokResultDropdown(currentResult, id) {
   const color = getTiktokResultColor(currentResult);
-  const options = ['Đặt thành công', 'Bất thường', 'Rớt mã/Hủy'];
+  const options = ['Đặt thành công', 'Bất thường', 'Rớt mã/Hủy', 'Đã ngâm Acc'];
   let optsHtml = '<option value="" style="background:#fff; color:#000;">-- Chọn --</option>';
   options.forEach(opt => {
     optsHtml += `<option value="${opt}" ${currentResult === opt ? 'selected' : ''} style="background:#fff; color:#000;">${opt}</option>`;
   });
   return `
-    <select class="status-dropdown" style="background-color: ${color || 'var(--surface)'}; color: ${color ? '#fff' : 'var(--text)'}; border: 1px solid var(--border); border-radius: 4px; padding: 4px; font-size: 11px;" onchange="syncTiktokField(event, '${id}', 'result')" onclick="event.stopPropagation()">
+    <select class="status-dropdown" style="background-color: ${color || 'var(--surface)'}; color: ${color ? '#fff' : 'var(--text)'}; border: 1px solid var(--border); border-radius: 4px; padding: 4px; font-size: 11px; font-weight: ${color ? '600' : '400'};" onchange="syncTiktokField(event, '${id}', 'result')" onclick="event.stopPropagation()">
       ${optsHtml}
     </select>
   `;
@@ -3114,16 +3129,33 @@ function renderTiktokResultDropdown(currentResult, id) {
 async function syncTiktokField(event, id, field) {
   const val = event.target.value;
   if (field === 'status') {
-    event.target.style.backgroundColor = getTiktokStatusColor(val) || 'var(--surface)';
-    event.target.style.color = getTiktokStatusColor(val) ? '#000' : 'var(--text)';
+    const sc = getTiktokStatusColor(val);
+    event.target.style.backgroundColor = sc || 'var(--surface)';
+    event.target.style.color = sc ? getTiktokStatusTextColor(val) : 'var(--text)';
   } else {
-    event.target.style.backgroundColor = getTiktokResultColor(val) || 'var(--surface)';
-    event.target.style.color = getTiktokResultColor(val) ? '#fff' : 'var(--text)';
+    const rc = getTiktokResultColor(val);
+    event.target.style.backgroundColor = rc || 'var(--surface)';
+    event.target.style.color = rc ? '#fff' : 'var(--text)';
   }
   
   if (!tiktokData[id]) return;
+  tiktokData[id][field] = val;
+
+  if (field === 'result') {
+    if (val === 'Đã ngâm Acc') {
+      tiktokData[id].ngamTime = new Date().toISOString();
+      tiktokData[id].ngamSubTab = tiktokActiveSubTab;
+    } else {
+      tiktokData[id].ngamTime = '';
+      tiktokData[id].ngamSubTab = '';
+    }
+  }
+
+  if (getTiktokSubTabCategory(tiktokData[id]) === 'co_ma' && !tiktokData[id].coMaTime) {
+    tiktokData[id].coMaTime = new Date().toISOString();
+  }
+
   const payload = { ...tiktokData[id], id };
-  payload[field] = val;
   
   try {
     await fetch('/api/tiktok/save', {
@@ -3132,18 +3164,6 @@ async function syncTiktokField(event, id, field) {
       body: JSON.stringify(payload)
     });
     toast('Đã lưu ' + field, 'success', 1500);
-    tiktokData[id][field] = val;
-    // Record timestamp when item moves to 'co_ma' tab
-    if (getTiktokSubTabCategory(tiktokData[id]) === 'co_ma' && !tiktokData[id].coMaTime) {
-      tiktokData[id].coMaTime = new Date().toISOString();
-      // Save coMaTime to backend
-      const coMaPayload = { ...tiktokData[id], id, coMaTime: tiktokData[id].coMaTime };
-      fetch('/api/tiktok/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(coMaPayload)
-      }).catch(() => {});
-    }
     renderTiktokTable();
   } catch (e) {
     toast('Lỗi kết nối', 'error');
@@ -3185,15 +3205,37 @@ function editTiktok(id) {
 
 async function saveTiktok() {
   const id = $('tiktokId').value;
+  const existing = (id && tiktokData[id]) ? tiktokData[id] : {};
+  const newStatus = $('tk_status').value;
+  const newResult = $('tk_result').value;
+
+  let ngamTime = existing.ngamTime || '';
+  let ngamSubTab = existing.ngamSubTab || '';
+  if (newResult === 'Đã ngâm Acc') {
+    if (existing.result !== 'Đã ngâm Acc' || !ngamTime) {
+      ngamTime = new Date().toISOString();
+      ngamSubTab = tiktokActiveSubTab;
+    }
+  } else {
+    ngamTime = '';
+    ngamSubTab = '';
+  }
+
   const data = {
     identifier: $('tk_identifier').value.trim(),
     mail: $('tk_mail').value.trim(),
     username: $('tk_username').value.trim(),
     password: $('tk_password').value.trim(),
     session: $('tk_session').value.trim(),
-    status: $('tk_status').value,
-    result: $('tk_result').value,
+    status: newStatus,
+    result: newResult,
+    coMaTime: existing.coMaTime || '',
+    ngamTime,
+    ngamSubTab
   };
+  if (getTiktokSubTabCategory(data) === 'co_ma' && !data.coMaTime) {
+    data.coMaTime = new Date().toISOString();
+  }
   
   if (id) data.id = id;
   
@@ -5979,12 +6021,15 @@ async function clearAllNotes() {
         <label>Account Status</label>
         <select id="tk_status" class="proxy-input" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text);">
           <option value="">-- Chọn Trạng Thái --</option>
-          <option value="Mã 50">Mã 50</option>
-          <option value="Mã 60">Mã 60</option>
-          <option value="Mã 70">Mã 70</option>
-          <option value="Mã 50 ko freeship">Mã 50 ko freeship</option>
-          <option value="Mã 60 ko freeship">Mã 60 ko freeship</option>
-          <option value="Mã 70 ko freeship">Mã 70 ko freeship</option>
+          <option value="Mã 40k">Mã 40k</option>
+          <option value="Mã 55k">Mã 55k</option>
+          <option value="Mã 60k">Mã 60k</option>
+          <option value="Mã 68k">Mã 68k</option>
+          <option value="Mã 70k">Mã 70k</option>
+          <option value="Mã 80k">Mã 80k</option>
+          <option value="Mã 90k">Mã 90k</option>
+          <option value="Mã 100k">Mã 100k</option>
+          <option value="Mã 110k">Mã 110k</option>
         </select>
       </div>
 
@@ -5994,7 +6039,8 @@ async function clearAllNotes() {
           <option value="">-- Chọn Result --</option>
           <option value="Đặt thành công">Đặt thành công</option>
           <option value="Bất thường">Bất thường</option>
-          <option value="Mất mã/Hủy">Mất mã/Hủy</option>
+          <option value="Rớt mã/Hủy">Rớt mã/Hủy</option>
+          <option value="Đã ngâm Acc">Đã ngâm Acc</option>
         </select>
       </div>
     </div>
