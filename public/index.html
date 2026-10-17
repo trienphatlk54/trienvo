@@ -3187,7 +3187,7 @@ function switchTiktokSubTab(tab, btn) {
 function getTiktokSubTabCategory(item) {
   const result = (item.result || '').trim();
   const status = (item.status || '').trim();
-  if (result === 'Đã ngâm Acc') return item.ngamSubTab || 'chua_check';
+  if (result === 'Đã ngâm Acc' || result === 'Bất thường') return item.ngamSubTab || 'chua_check';
   if (result === 'Rớt mã/Hủy') return 'khong_ma';
   if (result === 'Đặt thành công' || (status && status !== '' && result !== 'Rớt mã/Hủy')) return 'co_ma';
   return 'chua_check';
@@ -3365,6 +3365,9 @@ async function syncTiktokField(event, id, field) {
     if (val === 'Đã ngâm Acc') {
       tiktokData[id].ngamTime = new Date().toISOString();
       tiktokData[id].ngamSubTab = tiktokActiveSubTab;
+    } else if (val === 'Bất thường') {
+      tiktokData[id].ngamTime = '';
+      tiktokData[id].ngamSubTab = tiktokActiveSubTab;
     } else {
       tiktokData[id].ngamTime = '';
       tiktokData[id].ngamSubTab = '';
@@ -3442,6 +3445,11 @@ async function saveTiktok() {
   if (newResult === 'Đã ngâm Acc') {
     if (existing.result !== 'Đã ngâm Acc' || !ngamTime) {
       ngamTime = new Date().toISOString();
+      ngamSubTab = tiktokActiveSubTab;
+    }
+  } else if (newResult === 'Bất thường') {
+    ngamTime = '';
+    if (existing.result !== 'Bất thường' || !ngamSubTab) {
       ngamSubTab = tiktokActiveSubTab;
     }
   } else {
