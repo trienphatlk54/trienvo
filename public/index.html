@@ -1926,8 +1926,12 @@
           <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
             <!-- Area tạo Gmail tự động -->
             <div style="display:flex; align-items:center; gap:6px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 8px; padding: 2px 8px;">
-              <span style="font-size:12px; font-weight:700; color:#60a5fa; white-space:nowrap;">⚡ Số lượng:</span>
-              <input type="number" id="gmailGenCount" min="1" max="100" value="5" style="width: 52px; height: 26px; text-align: center; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-weight: bold; font-size: 13px;" title="Số lượng Gmail cần tạo">
+              <select id="gmailGenLang" style="height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 11px; font-weight: 600; padding: 0 4px; cursor: pointer;" title="Chọn định dạng ngôn ngữ">
+                <option value="vi">🇻🇳 Tiếng Việt</option>
+                <option value="en">🇺🇸 Tiếng Anh</option>
+              </select>
+              <span style="font-size:12px; font-weight:700; color:#60a5fa; white-space:nowrap;">SL:</span>
+              <input type="number" id="gmailGenCount" min="1" max="100" value="5" style="width: 46px; height: 26px; text-align: center; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-weight: bold; font-size: 13px;" title="Số lượng Gmail cần tạo">
               <button class="btn btn-primary" onclick="generateAutoGmail()" style="height: 28px; padding: 2px 10px; font-size: 12px; background: linear-gradient(135deg, #2563eb, #1d4ed8); border:none; font-weight:700; white-space:nowrap;">⚡ Tạo Gmail</button>
             </div>
             
@@ -2723,30 +2727,55 @@ async function generateAutoGmail() {
   let count = countInput ? parseInt(countInput.value) : 5;
   if (!count || count < 1) count = 1;
   if (count > 100) count = 100;
-  
-  const firstNames = ['Anh', 'Bình', 'Châu', 'Cường', 'Dũng', 'Đạt', 'Duy', 'Giang', 'Hà', 'Hải', 'Hiếu', 'Hoàng', 'Huy', 'Hùng', 'Khánh', 'Khoa', 'Lâm', 'Linh', 'Long', 'Minh', 'Nam', 'Nga', 'Nghĩa', 'Ngọc', 'Nhung', 'Phong', 'Phúc', 'Quân', 'Quang', 'Sơn', 'Tài', 'Tâm', 'Thắng', 'Thành', 'Thảo', 'Thịnh', 'Thủy', 'Tiến', 'Trang', 'Trung', 'Tuấn', 'Tùng', 'Vân', 'Việt', 'Vy', 'Yến'];
-  const lastNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý', 'Đinh', 'Đoàn'];
-  const meaningfulWords = ['Thanhcong', 'Binhminh', 'Hanhphuc', 'Mayman', 'Phattai', 'Tuonglai', 'Khatvong', 'Chienthang', 'Hyvong', 'BinhAn', 'Phatloc', 'Vungben', 'Toasang', 'Thinhvuong', 'PhucLoc', 'TaiLoc', 'DaiPhat', 'TrienVong', 'AnLanh', 'TamAn', 'KhangThinh', 'VinhHoa'];
-  
-  toast(`Đang tạo ${count} tài khoản Gmail...`, 'info', 2000);
-  
+
+  const langSelect = document.getElementById('gmailGenLang');
+  const lang = langSelect ? langSelect.value : 'vi';
+
+  const viFirstNames = ['Anh', 'Bình', 'Châu', 'Cường', 'Dũng', 'Đạt', 'Duy', 'Giang', 'Hà', 'Hải', 'Hiếu', 'Hoàng', 'Huy', 'Hùng', 'Khánh', 'Khoa', 'Lâm', 'Linh', 'Long', 'Minh', 'Nam', 'Nga', 'Nghĩa', 'Ngọc', 'Nhung', 'Phong', 'Phúc', 'Quân', 'Quang', 'Sơn', 'Tài', 'Tâm', 'Thắng', 'Thành', 'Thảo', 'Thịnh', 'Thủy', 'Tiến', 'Trang', 'Trung', 'Tuấn', 'Tùng', 'Vân', 'Việt', 'Vy', 'Yến'];
+  const viLastNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý', 'Đinh', 'Đoàn'];
+  const viWords = ['Thanhcong', 'Binhminh', 'Hanhphuc', 'Mayman', 'Phattai', 'Tuonglai', 'Khatvong', 'Chienthang', 'Hyvong', 'BinhAn', 'Phatloc', 'Vungben', 'Toasang', 'Thinhvuong', 'PhucLoc', 'TaiLoc', 'DaiPhat', 'TrienVong', 'AnLanh', 'TamAn', 'KhangThinh', 'VinhHoa'];
+
+  const enFirstNames = ['James', 'John', 'Robert', 'Michael', 'William', 'David', 'Richard', 'Joseph', 'Thomas', 'Charles', 'Daniel', 'Matthew', 'Anthony', 'Mark', 'Donald', 'Steven', 'Paul', 'Andrew', 'Joshua', 'Kevin', 'Brian', 'George', 'Edward', 'Ronald', 'Timothy', 'Jason', 'Jeffrey', 'Ryan', 'Jacob', 'Gary', 'Nicholas', 'Eric', 'Stephen', 'Jonathan', 'Larry', 'Justin', 'Scott', 'Brandon', 'Benjamin', 'Samuel', 'Gregory', 'Alexander', 'Frank', 'Patrick', 'Raymond', 'Jack', 'Dennis', 'Jerry', 'Tyler', 'Aaron', 'Henry', 'Douglas', 'Peter', 'Zachary', 'Kyle', 'Walter', 'Harold', 'Jeremy', 'Ethan', 'Christian', 'Keith', 'Austin', 'Noah', 'Sean', 'Arthur', 'Lawrence', 'Jesse', 'Dylan', 'Bryan', 'Jordan', 'Billy', 'Bruce', 'Gabriel', 'Logan', 'Alan', 'Mary', 'Patricia', 'Jennifer', 'Linda', 'Elizabeth', 'Barbara', 'Susan', 'Jessica', 'Sarah', 'Karen', 'Lisa', 'Nancy', 'Betty', 'Margaret', 'Sandra', 'Ashley', 'Kimberly', 'Emily', 'Donna', 'Michelle', 'Carol', 'Amanda', 'Melissa', 'Deborah', 'Stephanie', 'Rebecca', 'Sharon', 'Laura', 'Cynthia', 'Kathleen', 'Amy', 'Angela', 'Shirley', 'Anna', 'Brenda', 'Pamela', 'Emma', 'Nicole', 'Helen', 'Samantha', 'Katherine', 'Christine', 'Debra', 'Rachel', 'Carolyn', 'Janet', 'Maria', 'Heather', 'Diane', 'Julie', 'Joyce', 'Victoria', 'Kelly', 'Christina', 'Lauren', 'Joan', 'Evelyn', 'Olivia', 'Judith', 'Megan', 'Cheryl', 'Martha', 'Andrea', 'Frances', 'Hannah', 'Jacqueline', 'Ann', 'Gloria', 'Jean', 'Kathryn', 'Alice', 'Teresa', 'Sara', 'Janice', 'Doris', 'Madison', 'Julia', 'Grace', 'Judy', 'Abigail', 'Marie', 'Denise', 'Beverly', 'Amber', 'Theresa', 'Marilyn', 'Diana', 'Danielle', 'Sophia', 'Rose', 'Brittany', 'Charlotte'];
+  const enLastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson', 'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson', 'Walker', 'Young', 'Allen', 'King', 'Wright', 'Scott', 'Torres', 'Hill', 'Flores', 'Green', 'Adams', 'Nelson', 'Baker', 'Hall', 'Rivera', 'Campbell', 'Mitchell', 'Carter', 'Roberts', 'Gomez', 'Phillips', 'Evans', 'Turner', 'Diaz', 'Parker', 'Cruz', 'Edwards', 'Collins', 'Reyes', 'Stewart', 'Morris', 'Morales', 'Murphy', 'Cook', 'Rogers', 'Gutierrez', 'Ortiz', 'Morgan', 'Cooper', 'Peterson', 'Bailey', 'Reed', 'Kelly', 'Howard', 'Ramos', 'Kim', 'Cox', 'Ward', 'Richardson', 'Watson', 'Brooks', 'Chavez', 'Wood', 'James', 'Bennett', 'Gray', 'Mendoza', 'Ruiz', 'Hughes', 'Price', 'Alvarez', 'Castillo', 'Sanders', 'Patel', 'Myers', 'Long', 'Ross', 'Foster', 'Jimenez'];
+  const enWords = ['Victory', 'Freedom', 'Miracle', 'Sunshine', 'Rainbow', 'Harmony', 'Diamond', 'Treasure', 'Horizon', 'Journey', 'Destiny', 'Blossom', 'Crystal', 'Phoenix', 'Pioneer', 'Courage', 'Triumph', 'Twilight', 'Infinity', 'Serenity', 'Champion', 'Wonder', 'Paradise', 'Radiance', 'Velocity', 'Starlight', 'Prosper', 'Fortune', 'Evergreen', 'Braveheart', 'TrueLove', 'NewHope', 'Brilliant', 'Golden', 'Wisdom', 'Loyalty', 'Kindness', 'Majestic', 'Peaceful', 'Bountiful'];
+
+  toast(`Đang tạo ${count} tài khoản Gmail (${lang === 'en' ? 'Tiếng Anh' : 'Tiếng Việt'})...`, 'info', 2000);
+
   const newAccounts = [];
   const baseTime = Date.now();
   for (let i = 0; i < count; i++) {
-    const fn = firstNames[Math.floor(Math.random() * firstNames.length)];
-    const ln = lastNames[Math.floor(Math.random() * lastNames.length)];
-    const cleanFn = removeVietnameseAccents(fn).toLowerCase();
-    const cleanLn = removeVietnameseAccents(ln).toLowerCase();
-    const randDigits = Math.floor(1000 + Math.random() * 9000);
-    const gmail = `${cleanLn}${cleanFn}${randDigits}@gmail.com`;
-    
-    const word = meaningfulWords[Math.floor(Math.random() * meaningfulWords.length)];
+    let fn = '', ln = '', gmail = '', password = '';
     const birthYear = 1990 + Math.floor(Math.random() * 16); // 1990 -> 2005
-    const password = `${word}@${birthYear}`;
-    
+
+    if (lang === 'en') {
+      fn = enFirstNames[Math.floor(Math.random() * enFirstNames.length)];
+      ln = enLastNames[Math.floor(Math.random() * enLastNames.length)];
+      const cleanFn = fn.toLowerCase().replace(/[^a-z]/g, '');
+      const cleanLn = ln.toLowerCase().replace(/[^a-z]/g, '');
+      // Kéo dài chuỗi số từ 2-4 ký tự để tránh trùng mail
+      const numDigits = Math.floor(Math.random() * 3) + 2; // 2, 3, hoặc 4 ký tự số
+      let randDigits = '' + (Math.floor(Math.random() * 9) + 1);
+      for (let d = 1; d < numDigits; d++) {
+        randDigits += Math.floor(Math.random() * 10);
+      }
+      gmail = (Math.random() > 0.5 ? (cleanFn + cleanLn) : (cleanLn + cleanFn)) + randDigits + '@gmail.com';
+      const word = enWords[Math.floor(Math.random() * enWords.length)];
+      password = `${word}@${birthYear}`;
+    } else {
+      // Giữ nguyên như cũ nếu chọn Tiếng Việt
+      fn = viFirstNames[Math.floor(Math.random() * viFirstNames.length)];
+      ln = viLastNames[Math.floor(Math.random() * viLastNames.length)];
+      const cleanFn = removeVietnameseAccents(fn).toLowerCase();
+      const cleanLn = removeVietnameseAccents(ln).toLowerCase();
+      const randDigits = Math.floor(1000 + Math.random() * 9000);
+      gmail = `${cleanLn}${cleanFn}${randDigits}@gmail.com`;
+      const word = viWords[Math.floor(Math.random() * viWords.length)];
+      password = `${word}@${birthYear}`;
+    }
+
     const itemDate = new Date(baseTime + i * 1000);
     const timeStr = formatGmailTime(itemDate);
-    
+
     newAccounts.push({
       firstName: fn,
       lastName: ln,
@@ -2757,7 +2786,7 @@ async function generateAutoGmail() {
       time: timeStr
     });
   }
-  
+
   try {
     const res = await fetch('/api/gmail/bulk-save', {
       method: 'POST',
@@ -2766,12 +2795,12 @@ async function generateAutoGmail() {
     });
     const r = await res.json();
     if (r.success) {
-      toast(`Đã tạo thành công ${count} tài khoản Gmail!`, 'success', 2500);
+      toast(`Đã tạo thành công ${count} tài khoản Gmail (${lang === 'en' ? 'Tiếng Anh' : 'Tiếng Việt'})!`, 'success', 2500);
       await loadGmailData();
       gmailActiveSubTab = 'trang';
       const trangBtn = document.querySelector('.gmail-subtab[data-tab="trang"]');
       if (trangBtn) switchGmailSubTab('trang', trangBtn);
-      
+
       const allEntries = Object.entries(gmailData).filter(([id, item]) => getGmailSubTabCategory(item) === 'trang');
       const totalPages = Math.ceil(allEntries.length / GMAIL_PAGE_SIZE) || 1;
       gmailCurrentPage = totalPages;
