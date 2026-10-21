@@ -1929,6 +1929,83 @@ app.post('/api/tiktok/delete', async (req, res) => {
   }
 });
 
+// ✉️ GMAIL ACCOUNTS API ✉️
+app.get('/api/gmail/all', async (req, res) => {
+  try {
+    const ref = db.ref('gmail_accounts');
+    const snap = await ref.once('value');
+    res.json(snap.val() || {});
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/gmail/save', async (req, res) => {
+  const { id, firstName, lastName, gmail, password, service, status, time } = req.body;
+  try {
+    const ref = db.ref('gmail_accounts');
+    if (id) {
+      await ref.child(id).update({
+        firstName: firstName || '',
+        lastName: lastName || '',
+        gmail: gmail || '',
+        password: password || '',
+        service: service || '',
+        status: status || 'Chưa tạo'
+      });
+    } else {
+      const addedTime = time || getFormattedTime();
+      await ref.push().set({
+        firstName: firstName || '',
+        lastName: lastName || '',
+        gmail: gmail || '',
+        password: password || '',
+        service: service || '',
+        status: status || 'Chưa tạo',
+        time: addedTime
+      });
+    }
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/gmail/bulk-save', async (req, res) => {
+  const { accounts } = req.body;
+  if (!accounts || !Array.isArray(accounts)) return res.json({ success: false, error: 'Dữ liệu không hợp lệ' });
+  try {
+    const ref = db.ref('gmail_accounts');
+    const nowTime = getFormattedTime();
+    for (const acc of accounts) {
+      await ref.push().set({
+        firstName: acc.firstName || '',
+        lastName: acc.lastName || '',
+        gmail: acc.gmail || '',
+        password: acc.password || '',
+        service: acc.service || '',
+        status: acc.status || 'Chưa tạo',
+        time: acc.time || nowTime
+      });
+    }
+    res.json({ success: true, count: accounts.length });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/gmail/delete', async (req, res) => {
+  const { id } = req.body;
+  try {
+    if (id) {
+      await db.ref('gmail_accounts').child(id).remove();
+    }
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // ─── FLOPPYDATA PROXY API ──────────────────────────────────────────
 
 const FLOPPY_BASE_URL = 'https://api.floppydata.net';

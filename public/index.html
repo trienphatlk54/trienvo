@@ -1192,6 +1192,9 @@
       <div class="nav-item" onclick="switchTab('tiktok')">
         <span class="icon">🎵</span> Tiktok Accounts
       </div>
+      <div class="nav-item" onclick="switchTab('gmail')">
+        <span class="icon">✉️</span> Gmail Accounts
+      </div>
       <div class="nav-item" onclick="switchTab('phone')">
         <span class="icon">📱</span> Phone Sessions
       </div>
@@ -1912,6 +1915,171 @@
       </div>
     </div>
     
+    <!-- GMAIL TAB -->
+    <div id="tab-gmail" class="tab-pane">
+      <div class="main-card" style="max-width: 100%;">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h2>✉️ Gmail Accounts</h2>
+            <p>Quản lý và tạo hàng loạt tài khoản Gmail, phân loại Gmail tạo trắng và đã sử dụng.</p>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <!-- Area tạo Gmail tự động -->
+            <div style="display:flex; align-items:center; gap:6px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 8px; padding: 2px 8px;">
+              <span style="font-size:12px; font-weight:700; color:#60a5fa; white-space:nowrap;">⚡ Số lượng:</span>
+              <input type="number" id="gmailGenCount" min="1" max="100" value="5" style="width: 52px; height: 26px; text-align: center; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-weight: bold; font-size: 13px;" title="Số lượng Gmail cần tạo">
+              <button class="btn btn-primary" onclick="generateAutoGmail()" style="height: 28px; padding: 2px 10px; font-size: 12px; background: linear-gradient(135deg, #2563eb, #1d4ed8); border:none; font-weight:700; white-space:nowrap;">⚡ Tạo Gmail</button>
+            </div>
+            
+            <input type="text" id="gmailSearch" class="proxy-input" placeholder="🔍 Tìm kiếm..." onkeyup="renderGmailTable()" style="max-width: 170px; padding: 6px 12px; font-size: 12px; height: 32px; box-sizing: border-box;">
+            <button class="btn btn-secondary btn-sm" onclick="zoomGmailTable(0.1)" title="Phóng to">🔍 +</button>
+            <button class="btn btn-secondary btn-sm" onclick="zoomGmailTable(-0.1)" title="Thu nhỏ">🔍 -</button>
+            <button class="btn btn-primary" onclick="openGmailModal()" style="height: 32px; padding: 6px 12px; font-size: 12px;">➕ Thêm Mới</button>
+            <button class="btn btn-primary" onclick="openGmailBulkModal()" style="height: 32px; padding: 6px 12px; font-size: 12px; background: linear-gradient(135deg, #10b981, #059669); border:none;">📋 Thêm hàng loạt</button>
+          </div>
+        </div>
+
+        <!-- Sub-tabs for Gmail filtering -->
+        <div id="gmailSubTabs" style="display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface2);">
+          <button class="gmail-subtab subtab-trang active" data-tab="trang" onclick="switchGmailSubTab('trang', this)">
+            <span>📋 Gmail tạo trắng</span>
+            <span id="gmailCount_trang" class="subtab-badge">0</span>
+          </button>
+          <button class="gmail-subtab subtab-dadung" data-tab="da_dung" onclick="switchGmailSubTab('da_dung', this)">
+            <span>📦 Gmail đã sử dụng</span>
+            <span id="gmailCount_da_dung" class="subtab-badge">0</span>
+          </button>
+        </div>
+
+        <style>
+          .gmail-subtab {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-muted);
+          }
+          .gmail-subtab .subtab-badge {
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-size: 11px;
+            font-weight: 800;
+            transition: all 0.2s ease;
+          }
+          /* Subtab 1: Gmail tạo trắng (Cyan/Blue) */
+          .gmail-subtab.subtab-trang {
+            border-color: rgba(6, 182, 212, 0.35);
+            color: #22d3ee;
+            background: rgba(6, 182, 212, 0.08);
+          }
+          .gmail-subtab.subtab-trang .subtab-badge {
+            background: rgba(6, 182, 212, 0.25);
+            color: #67e8f9;
+          }
+          .gmail-subtab.subtab-trang:hover:not(.active) {
+            background: rgba(6, 182, 212, 0.16);
+            border-color: #06b6d4;
+          }
+          .gmail-subtab.subtab-trang.active {
+            background: linear-gradient(135deg, #0891b2, #0e7490) !important;
+            color: #ffffff !important;
+            border-color: #22d3ee !important;
+            box-shadow: 0 4px 14px rgba(6, 182, 212, 0.4);
+            transform: translateY(-1px);
+          }
+          .gmail-subtab.subtab-trang.active .subtab-badge {
+            background: #ffffff;
+            color: #0e7490;
+          }
+
+          /* Subtab 2: Gmail đã sử dụng (Amber/Orange) */
+          .gmail-subtab.subtab-dadung {
+            border-color: rgba(245, 158, 11, 0.35);
+            color: #fbbf24;
+            background: rgba(245, 158, 11, 0.08);
+          }
+          .gmail-subtab.subtab-dadung .subtab-badge {
+            background: rgba(245, 158, 11, 0.25);
+            color: #fde68a;
+          }
+          .gmail-subtab.subtab-dadung:hover:not(.active) {
+            background: rgba(245, 158, 11, 0.16);
+            border-color: #f59e0b;
+          }
+          .gmail-subtab.subtab-dadung.active {
+            background: linear-gradient(135deg, #d97706, #b45309) !important;
+            color: #ffffff !important;
+            border-color: #fbbf24 !important;
+            box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);
+            transform: translateY(-1px);
+          }
+          .gmail-subtab.subtab-dadung.active .subtab-badge {
+            background: #ffffff;
+            color: #b45309;
+          }
+
+          #gmailDataTable {
+            border: 1px solid var(--border);
+          }
+          #gmailDataTable th,
+          #gmailDataTable td {
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            padding: 6px 8px !important;
+          }
+          #gmailDataTable thead tr {
+            background-color: var(--surface2);
+          }
+          #gmailTableBody tr:nth-child(odd) {
+            background-color: var(--surface);
+          }
+          #gmailTableBody tr:nth-child(even) {
+            background-color: rgba(255, 255, 255, 0.045);
+          }
+          #gmailTableBody tr:hover {
+            background-color: rgba(6, 182, 212, 0.08);
+          }
+        </style>
+
+        <div class="card-body" style="display: block; padding: 0;">
+          <div class="tiktok-page-bar">
+            <span id="gmailPageInfo" class="tiktok-page-info-badge">Trang 1 / 1</span>
+            <div style="display: flex; gap: 10px;">
+              <button class="tiktok-page-btn btn-prev-page" id="btnPrevGmail" onclick="changeGmailPage(-1)" disabled>⬅️ Trang trước</button>
+              <button class="tiktok-page-btn btn-next-page" id="btnNextGmail" onclick="changeGmailPage(1)" disabled>Trang sau ➡️</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto; max-height: calc(100vh - 350px); overflow-y: auto;">
+            <table id="gmailDataTable" class="compact-table" style="min-width: 1000px; width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                  <th style="padding: 6px;">Time Added</th>
+                  <th style="padding: 6px;">First Name</th>
+                  <th style="padding: 6px;">Last Name</th>
+                  <th style="padding: 6px;">Gmail</th>
+                  <th style="padding: 6px;">Password</th>
+                  <th style="padding: 6px; width: 120px;">Service</th>
+                  <th style="padding: 6px; width: 120px;">Status</th>
+                  <th style="padding: 6px; width: 80px; text-align: center;">Hành động</th>
+                </tr>
+              </thead>
+              <tbody id="gmailTableBody">
+                <tr><td colspan="8" style="text-align:center; padding:12px; color:var(--text-muted);">Đang tải dữ liệu...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <div id="tab-analytics" class="tab-pane">
     <div class="main-card">
       <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
@@ -2341,6 +2509,528 @@ async function checkAuthSession() {
   }
 }
 
+
+// ── GMAIL ACCOUNTS LOGIC ──────────────────────────────────────────────────
+let gmailCurrentPage = 1;
+const GMAIL_PAGE_SIZE = 15;
+
+function changeGmailPage(delta) {
+  gmailCurrentPage += delta;
+  renderGmailTable();
+}
+
+let gmailData = {};
+let gmailActiveSubTab = 'trang'; // 'trang' | 'da_dung'
+
+let gmailTableZoom = parseFloat(localStorage.getItem('gmailTableZoom')) || 1.0;
+function zoomGmailTable(delta) {
+  gmailTableZoom += delta;
+  if (gmailTableZoom < 0.3) gmailTableZoom = 0.3;
+  if (gmailTableZoom > 2.0) gmailTableZoom = 2.0;
+  localStorage.setItem('gmailTableZoom', gmailTableZoom);
+  const table = document.querySelector('#tab-gmail table');
+  if (table) table.style.zoom = gmailTableZoom;
+}
+
+function switchGmailSubTab(tab, btn) {
+  gmailActiveSubTab = tab;
+  gmailCurrentPage = 1;
+  document.querySelectorAll('.gmail-subtab').forEach(b => {
+    b.classList.remove('active');
+  });
+  if (btn) {
+    btn.classList.add('active');
+  }
+  renderGmailTable();
+}
+
+function getGmailSubTabCategory(item) {
+  const service = (item.service || '').trim();
+  if (service === 'Shopee' || service !== '') {
+    return 'da_dung';
+  }
+  return 'trang';
+}
+
+function updateGmailSubTabCounts() {
+  let counts = { trang: 0, da_dung: 0 };
+  for (const [id, item] of Object.entries(gmailData)) {
+    const cat = getGmailSubTabCategory(item);
+    if (counts[cat] !== undefined) counts[cat]++;
+  }
+  const el1 = document.getElementById('gmailCount_trang');
+  const el2 = document.getElementById('gmailCount_da_dung');
+  if (el1) el1.textContent = counts.trang;
+  if (el2) el2.textContent = counts.da_dung;
+}
+
+async function loadGmailData() {
+  try {
+    const res = await fetch('/api/gmail/all');
+    const data = await res.json();
+    gmailData = data || {};
+    renderGmailTable();
+  } catch (e) {
+    console.error('Lỗi tải dữ liệu Gmail:', e);
+  }
+}
+
+function formatGmailTime(dateInput) {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const DD = d.getDate().toString().padStart(2, '0');
+  const MM = (d.getMonth() + 1).toString().padStart(2, '0');
+  const YYYY = d.getFullYear();
+  const HH = d.getHours().toString().padStart(2, '0');
+  const mm = d.getMinutes().toString().padStart(2, '0');
+  const ss = d.getSeconds().toString().padStart(2, '0');
+  return `${HH}:${mm}:${ss} ${DD}/${MM}/${YYYY}`;
+}
+
+function parseGmailTimeMs(str) {
+  if (!str) return 0;
+  const parts = str.trim().split(' ');
+  if (parts.length === 2 && (parts[0].includes('/') || parts[1].includes('/'))) {
+    let t = parts[0], d = parts[1];
+    if (parts[1].includes(':')) { t = parts[1]; d = parts[0]; }
+    const hms = t.split(':').map(Number);
+    const dmy = d.split('/').map(Number);
+    return new Date(dmy[2] || 0, (dmy[1] || 1) - 1, dmy[0] || 1, hms[0] || 0, hms[1] || 0, hms[2] || 0).getTime() || 0;
+  }
+  return new Date(str).getTime() || 0;
+}
+
+function renderGmailServiceDropdown(currentService, id) {
+  const isShopee = currentService === 'Shopee';
+  const color = isShopee ? '#ff5722' : 'var(--text-muted)';
+  const bg = isShopee ? 'rgba(255, 87, 34, 0.15)' : 'var(--surface)';
+  return `
+    <select class="status-dropdown" style="background-color: ${bg}; color: ${color}; border: 1px solid ${isShopee ? '#ff5722' : 'var(--border)'}; border-radius: 4px; padding: 4px 6px; font-size: 11px; font-weight: ${isShopee ? '700' : '400'}; width: 100%; box-sizing:border-box;" onchange="syncGmailField(event, '${id}', 'service')" onclick="event.stopPropagation()">
+      <option value="" ${!currentService ? 'selected' : ''} style="background:var(--surface); color:var(--text);">-- Chọn --</option>
+      <option value="Shopee" ${isShopee ? 'selected' : ''} style="background:var(--surface); color:#ff5722; font-weight:700;">Shopee</option>
+    </select>
+  `;
+}
+
+function renderGmailStatusDropdown(currentStatus, id) {
+  const isDaTao = currentStatus === 'Đã tạo';
+  const bg = isDaTao ? '#10b981' : '#ef4444';
+  return `
+    <select class="status-dropdown" style="background-color: ${bg}; color: #ffffff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 4px 6px; font-size: 11px; font-weight: 700; width: 100%; box-sizing:border-box;" onchange="syncGmailField(event, '${id}', 'status')" onclick="event.stopPropagation()">
+      <option value="Chưa tạo" ${!isDaTao ? 'selected' : ''} style="background:#ef4444; color:#ffffff; font-weight:700;">Chưa tạo</option>
+      <option value="Đã tạo" ${isDaTao ? 'selected' : ''} style="background:#10b981; color:#ffffff; font-weight:700;">Đã tạo</option>
+    </select>
+  `;
+}
+
+async function syncGmailField(event, id, field) {
+  const val = event.target.value;
+  if (!gmailData[id]) return;
+  
+  gmailData[id][field] = val;
+  
+  if (field === 'status') {
+    event.target.style.backgroundColor = val === 'Đã tạo' ? '#10b981' : '#ef4444';
+  } else if (field === 'service') {
+    const isShopee = val === 'Shopee';
+    event.target.style.backgroundColor = isShopee ? 'rgba(255, 87, 34, 0.15)' : 'var(--surface)';
+    event.target.style.color = isShopee ? '#ff5722' : 'var(--text-muted)';
+    event.target.style.borderColor = isShopee ? '#ff5722' : 'var(--border)';
+  }
+  
+  const payload = { ...gmailData[id], id };
+  try {
+    await fetch('/api/gmail/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    toast('Đã lưu ' + field, 'success', 1200);
+    renderGmailTable();
+  } catch (e) {
+    toast('Lỗi kết nối máy chủ', 'error');
+  }
+}
+
+function renderGmailTable() {
+  const tbody = $('gmailTableBody');
+  if (!tbody) return;
+  const searchInput = $('gmailSearch');
+  const search = (searchInput ? searchInput.value : '').toLowerCase().trim();
+  
+  let htmlText = '';
+  const allEntries = Object.entries(gmailData);
+  
+  const searchFiltered = allEntries.filter(([id, item]) => {
+    if (!search) return true;
+    const txt = Object.values(item).join(' ').toLowerCase();
+    return txt.includes(search);
+  });
+  
+  const filteredEntries = searchFiltered.filter(([id, item]) => {
+    return getGmailSubTabCategory(item) === gmailActiveSubTab;
+  }).sort((a, b) => {
+    return parseGmailTimeMs(a[1].time) - parseGmailTimeMs(b[1].time);
+  });
+  
+  updateGmailSubTabCounts();
+  
+  const totalPages = Math.ceil(filteredEntries.length / GMAIL_PAGE_SIZE) || 1;
+  if (gmailCurrentPage > totalPages) gmailCurrentPage = totalPages;
+  if (gmailCurrentPage < 1) gmailCurrentPage = 1;
+  
+  const start = (gmailCurrentPage - 1) * GMAIL_PAGE_SIZE;
+  const end = start + GMAIL_PAGE_SIZE;
+  const pageEntries = filteredEntries.slice(start, end);
+  
+  for (const [id, item] of pageEntries) {
+    htmlText += `<tr>
+      <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.time || '')}</td>
+      <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.firstName || '')}</td>
+      <td style="padding:6px; cursor:pointer;" onclick="copyText(this.innerText)">${escapeHtml(item.lastName || '')}</td>
+      <td style="padding:6px; cursor:pointer; font-family:monospace; font-size:12px; font-weight:600; color:var(--primary);" onclick="copyText(this.innerText)" title="Click để copy Gmail">${escapeHtml(item.gmail || '')}</td>
+      <td style="padding:6px; cursor:pointer; font-family:monospace; font-size:12px;" onclick="copyText(this.innerText)" title="Click để copy Mật khẩu">${escapeHtml(item.password || '')}</td>
+      <td style="padding:6px;">${renderGmailServiceDropdown(item.service || '', id)}</td>
+      <td style="padding:6px;">${renderGmailStatusDropdown(item.status || 'Chưa tạo', id)}</td>
+      <td style="padding:6px; text-align:center;">
+        <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px;" onclick="editGmail('${id}')" title="Sửa">✏️</button>
+        <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px; color:var(--error);" onclick="deleteGmail('${id}')" title="Xóa">❌</button>
+      </td>
+    </tr>`;
+  }
+  
+  if (filteredEntries.length === 0) {
+    htmlText = `<tr><td colspan="8" style="text-align:center; padding:12px; color:var(--text-muted);">Không có dữ liệu Gmail</td></tr>`;
+  }
+  tbody.innerHTML = htmlText;
+  
+  const pageInfoEl = document.getElementById('gmailPageInfo');
+  const btnPrev = document.getElementById('btnPrevGmail');
+  const btnNext = document.getElementById('btnNextGmail');
+  
+  if (pageInfoEl) pageInfoEl.textContent = `Trang ${gmailCurrentPage} / ${totalPages} (${filteredEntries.length} dòng)`;
+  if (btnPrev) btnPrev.disabled = (gmailCurrentPage <= 1);
+  if (btnNext) btnNext.disabled = (gmailCurrentPage >= totalPages);
+}
+
+// ── Tự động tạo Gmail ────────────────────────────────────────────────────────
+function removeVietnameseAccents(str) {
+  if (!str) return '';
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+}
+
+async function generateAutoGmail() {
+  const countInput = document.getElementById('gmailGenCount');
+  let count = countInput ? parseInt(countInput.value) : 5;
+  if (!count || count < 1) count = 1;
+  if (count > 100) count = 100;
+  
+  const firstNames = ['Anh', 'Bình', 'Châu', 'Cường', 'Dũng', 'Đạt', 'Duy', 'Giang', 'Hà', 'Hải', 'Hiếu', 'Hoàng', 'Huy', 'Hùng', 'Khánh', 'Khoa', 'Lâm', 'Linh', 'Long', 'Minh', 'Nam', 'Nga', 'Nghĩa', 'Ngọc', 'Nhung', 'Phong', 'Phúc', 'Quân', 'Quang', 'Sơn', 'Tài', 'Tâm', 'Thắng', 'Thành', 'Thảo', 'Thịnh', 'Thủy', 'Tiến', 'Trang', 'Trung', 'Tuấn', 'Tùng', 'Vân', 'Việt', 'Vy', 'Yến'];
+  const lastNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý', 'Đinh', 'Đoàn'];
+  const meaningfulWords = ['Thanhcong', 'Binhminh', 'Hanhphuc', 'Mayman', 'Phattai', 'Tuonglai', 'Khatvong', 'Chienthang', 'Hyvong', 'BinhAn', 'Phatloc', 'Vungben', 'Toasang', 'Thinhvuong', 'PhucLoc', 'TaiLoc', 'DaiPhat', 'TrienVong', 'AnLanh', 'TamAn', 'KhangThinh', 'VinhHoa'];
+  
+  toast(`Đang tạo ${count} tài khoản Gmail...`, 'info', 2000);
+  
+  const newAccounts = [];
+  const baseTime = Date.now();
+  for (let i = 0; i < count; i++) {
+    const fn = firstNames[Math.floor(Math.random() * firstNames.length)];
+    const ln = lastNames[Math.floor(Math.random() * lastNames.length)];
+    const cleanFn = removeVietnameseAccents(fn).toLowerCase();
+    const cleanLn = removeVietnameseAccents(ln).toLowerCase();
+    const randDigits = Math.floor(1000 + Math.random() * 9000);
+    const gmail = `${cleanLn}${cleanFn}${randDigits}@gmail.com`;
+    
+    const word = meaningfulWords[Math.floor(Math.random() * meaningfulWords.length)];
+    const birthYear = 1990 + Math.floor(Math.random() * 16); // 1990 -> 2005
+    const password = `${word}@${birthYear}`;
+    
+    const itemDate = new Date(baseTime + i * 1000);
+    const timeStr = formatGmailTime(itemDate);
+    
+    newAccounts.push({
+      firstName: fn,
+      lastName: ln,
+      gmail,
+      password,
+      service: '',
+      status: 'Chưa tạo',
+      time: timeStr
+    });
+  }
+  
+  try {
+    const res = await fetch('/api/gmail/bulk-save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accounts: newAccounts })
+    });
+    const r = await res.json();
+    if (r.success) {
+      toast(`Đã tạo thành công ${count} tài khoản Gmail!`, 'success', 2500);
+      await loadGmailData();
+      gmailActiveSubTab = 'trang';
+      const trangBtn = document.querySelector('.gmail-subtab[data-tab="trang"]');
+      if (trangBtn) switchGmailSubTab('trang', trangBtn);
+      
+      const allEntries = Object.entries(gmailData).filter(([id, item]) => getGmailSubTabCategory(item) === 'trang');
+      const totalPages = Math.ceil(allEntries.length / GMAIL_PAGE_SIZE) || 1;
+      gmailCurrentPage = totalPages;
+      renderGmailTable();
+    } else {
+      toast('Lỗi tạo Gmail: ' + (r.error || 'Thất bại'), 'error');
+    }
+  } catch (e) {
+    toast('Lỗi kết nối máy chủ', 'error');
+  }
+}
+
+// ── Gmail Single Modal ───────────────────────────────────────────────────────
+function openGmailModal() {
+  $('gmailId').value = '';
+  $('gm_firstName').value = '';
+  $('gm_lastName').value = '';
+  $('gm_gmail').value = '';
+  $('gm_password').value = '';
+  $('gm_service').value = '';
+  $('gm_status').value = 'Chưa tạo';
+  $('gmailModalTitle').innerText = 'Thêm Gmail Account';
+  $('gmailModal').classList.add('active');
+}
+
+function closeGmailModal() {
+  $('gmailModal').classList.remove('active');
+}
+
+function editGmail(id) {
+  const item = gmailData[id];
+  if (!item) return;
+  $('gmailId').value = id;
+  $('gm_firstName').value = item.firstName || '';
+  $('gm_lastName').value = item.lastName || '';
+  $('gm_gmail').value = item.gmail || '';
+  $('gm_password').value = item.password || '';
+  $('gm_service').value = item.service || '';
+  $('gm_status').value = item.status || 'Chưa tạo';
+  $('gmailModalTitle').innerText = 'Sửa Gmail Account';
+  $('gmailModal').classList.add('active');
+}
+
+async function saveGmail() {
+  const id = $('gmailId').value;
+  const existing = (id && gmailData[id]) ? gmailData[id] : {};
+  
+  const gmail = $('gm_gmail').value.trim();
+  if (!gmail) {
+    toast('Vui lòng nhập địa chỉ Gmail', 'warning');
+    return;
+  }
+  
+  const data = {
+    firstName: $('gm_firstName').value.trim(),
+    lastName: $('gm_lastName').value.trim(),
+    gmail,
+    password: $('gm_password').value.trim(),
+    service: $('gm_service').value,
+    status: $('gm_status').value || 'Chưa tạo',
+    time: existing.time || formatGmailTime()
+  };
+  if (id) data.id = id;
+  
+  try {
+    const res = await fetch('/api/gmail/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const r = await res.json();
+    if (r.success) {
+      toast('Lưu Gmail thành công!', 'success');
+      closeGmailModal();
+      loadGmailData();
+    } else {
+      toast('Lỗi: ' + r.error, 'error');
+    }
+  } catch (e) {
+    toast('Lỗi kết nối', 'error');
+  }
+}
+
+async function deleteGmail(id) {
+  if (!confirm('Bạn có chắc muốn xóa tài khoản Gmail này?')) return;
+  try {
+    const res = await fetch('/api/gmail/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    const r = await res.json();
+    if (r.success) {
+      toast('Đã xóa Gmail Account', 'success');
+      delete gmailData[id];
+      renderGmailTable();
+    } else {
+      toast('Lỗi: ' + r.error, 'error');
+    }
+  } catch (e) {
+    toast('Lỗi kết nối', 'error');
+  }
+}
+
+// ── Gmail Bulk Modal ────────────────────────────────────────────────────────
+function openGmailBulkModal() {
+  document.getElementById('gmailBulkText').value = '';
+  document.getElementById('gmailBulkPreview').style.display = 'none';
+  document.getElementById('gmailBulkPreview').innerHTML = '';
+  document.getElementById('gmailBulkModal').classList.add('active');
+}
+
+function closeGmailBulkModal() {
+  document.getElementById('gmailBulkModal').classList.remove('active');
+}
+
+function parseGmailBulkLine(line) {
+  line = line.trim();
+  if (!line) return null;
+  let parts = line.includes('\t') ? line.split('\t') : line.split('|');
+  parts = parts.map(p => p.trim());
+  if (parts.length < 2) return null;
+  
+  const result = {
+    firstName: '',
+    lastName: '',
+    gmail: '',
+    password: '',
+    service: '',
+    status: 'Chưa tạo',
+    time: formatGmailTime()
+  };
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailIdx = parts.findIndex(p => emailRegex.test(p));
+  
+  if (emailIdx !== -1) {
+    result.gmail = parts[emailIdx];
+    if (emailIdx === 0 && parts.length >= 2) {
+      result.password = parts[1];
+      if (parts.length >= 3) result.firstName = parts[2];
+      if (parts.length >= 4) result.lastName = parts[3];
+      if (parts.length >= 5) result.service = parts[4];
+      if (parts.length >= 6) result.status = parts[5];
+    } else if (emailIdx === 2 && parts.length >= 4) {
+      result.firstName = parts[0];
+      result.lastName = parts[1];
+      result.password = parts[3];
+      if (parts.length >= 5) result.service = parts[4];
+      if (parts.length >= 6) result.status = parts[5];
+    } else {
+      const otherParts = parts.filter((_, idx) => idx !== emailIdx);
+      if (otherParts.length >= 1) result.password = otherParts[0];
+      if (otherParts.length >= 2) result.firstName = otherParts[1];
+      if (otherParts.length >= 3) result.lastName = otherParts[2];
+      if (otherParts.length >= 4) result.service = otherParts[3];
+      if (otherParts.length >= 5) result.status = otherParts[4];
+    }
+  } else {
+    if (parts.length === 2) {
+      result.gmail = parts[0];
+      result.password = parts[1];
+    } else if (parts.length >= 4) {
+      result.firstName = parts[0];
+      result.lastName = parts[1];
+      result.gmail = parts[2];
+      result.password = parts[3];
+      if (parts.length >= 5) result.service = parts[4];
+      if (parts.length >= 6) result.status = parts[5];
+    }
+  }
+  
+  if (result.service !== 'Shopee') result.service = '';
+  if (result.status !== 'Đã tạo') result.status = 'Chưa tạo';
+  return result;
+}
+
+function previewGmailBulk() {
+  const text = document.getElementById('gmailBulkText').value;
+  const lines = text.split('\n').filter(l => l.trim());
+  const previewDiv = document.getElementById('gmailBulkPreview');
+  
+  if (lines.length === 0) {
+    toast('Chưa có dữ liệu để xem trước', 'error');
+    return;
+  }
+  
+  let tableHtml = '<table style="width:100%; border-collapse:collapse; font-size:11px;">';
+  tableHtml += '<thead><tr style="border-bottom:1px solid var(--border); color:var(--text-muted); position:sticky; top:0; background:var(--surface2);">';
+  tableHtml += '<th style="padding:6px; text-align:left;">#</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">First Name</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Last Name</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Gmail</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Password</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Service</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Status</th>';
+  tableHtml += '</tr></thead><tbody>';
+  
+  let validCount = 0;
+  lines.forEach((line, idx) => {
+    const parsed = parseGmailBulkLine(line);
+    if (parsed) {
+      validCount++;
+      tableHtml += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">';
+      tableHtml += `<td style="padding:4px 6px; color:var(--text-muted);">${idx + 1}</td>`;
+      tableHtml += `<td style="padding:4px 6px;">${escapeHtml(parsed.firstName)}</td>`;
+      tableHtml += `<td style="padding:4px 6px;">${escapeHtml(parsed.lastName)}</td>`;
+      tableHtml += `<td style="padding:4px 6px; color:var(--primary); font-weight:600;">${escapeHtml(parsed.gmail)}</td>`;
+      tableHtml += `<td style="padding:4px 6px;">${escapeHtml(parsed.password)}</td>`;
+      tableHtml += `<td style="padding:4px 6px;">${escapeHtml(parsed.service || '--')}</td>`;
+      tableHtml += `<td style="padding:4px 6px; color:${parsed.status === 'Đã tạo' ? 'var(--success)' : 'var(--error)'}; font-weight:700;">${escapeHtml(parsed.status)}</td>`;
+      tableHtml += '</tr>';
+    }
+  });
+  
+  tableHtml += '</tbody></table>';
+  tableHtml += `<div style="padding:8px; font-size:12px; color:var(--success); text-align:center; border-top:1px solid var(--border);">Nhận diện được <strong>${validCount}</strong> / ${lines.length} dòng hợp lệ</div>`;
+  previewDiv.innerHTML = tableHtml;
+  previewDiv.style.display = 'block';
+}
+
+async function saveGmailBulk() {
+  const text = document.getElementById('gmailBulkText').value;
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length === 0) {
+    toast('Chưa có dữ liệu để nhập', 'error');
+    return;
+  }
+  
+  const accounts = [];
+  lines.forEach(line => {
+    const parsed = parseGmailBulkLine(line);
+    if (parsed) accounts.push(parsed);
+  });
+  
+  if (accounts.length === 0) {
+    toast('Không nhận diện được dữ liệu hợp lệ', 'error');
+    return;
+  }
+  
+  toast(`Đang nhập ${accounts.length} tài khoản Gmail...`, 'info');
+  try {
+    const res = await fetch('/api/gmail/bulk-save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accounts })
+    });
+    const r = await res.json();
+    if (r.success) {
+      toast(`Đã nhập thành công ${accounts.length} tài khoản Gmail!`, 'success');
+      closeGmailBulkModal();
+      await loadGmailData();
+    } else {
+      toast('Lỗi nhập dữ liệu: ' + (r.error || 'Thất bại'), 'error');
+    }
+  } catch (e) {
+    toast('Lỗi kết nối máy chủ', 'error');
+  }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#loginUsername, #loginPassword').forEach(el => {
@@ -2823,6 +3513,9 @@ switchTab = function(tabId) {
   originalSwitchTab(tabId);
   if (tabId === 'analytics') {
     loadFirebaseData();
+  }
+  if (tabId === 'gmail') {
+    loadGmailData();
   }
   if (tabId === 'floppyproxy') {
     loadFloppyProxies();
@@ -3754,6 +4447,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadPhones();
   loadTiktokData(); // Initial load for Tiktok
+  loadGmailData(); // Initial load for Gmail
+  const t_gm = document.querySelector('#tab-gmail table');
+  if (t_gm) t_gm.style.zoom = gmailTableZoom;
 
   // Sao chép khối proxy-section và main-card
   // proxy moved inside card
@@ -3806,6 +4502,7 @@ function switchTab(tabId) {
   if (tabId === 'phone') loadPhones();
   if (tabId === 'notes') loadNotes();
   if (tabId === 'tiktok') { loadTiktokData(); loadPandaProxies(); }
+  if (tabId === 'gmail') { loadGmailData(); }
   // Update nav items
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.remove('active');
@@ -6317,6 +7014,70 @@ async function clearAllNotes() {
       <button class="btn btn-secondary" onclick="closeTiktokBulkModal()">Hủy</button>
       <button class="btn btn-ghost" onclick="previewTiktokBulk()" style="border:1px solid var(--primary); color:var(--primary);">👁️ Xem trước</button>
       <button class="btn btn-primary" onclick="saveTiktokBulk()" style="background:linear-gradient(135deg, #10b981, #059669); border:none;">💾 Nhập tất cả</button>
+    </div>
+  </div>
+</div>
+
+<!-- Gmail Single Modal -->
+<div id="gmailModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3 id="gmailModalTitle">Thêm Gmail Account</h3>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:10px;">
+      <input type="hidden" id="gmailId">
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div class="form-group"><label>First Name</label><input type="text" id="gm_firstName" class="proxy-input" placeholder="Họ / Tên"></div>
+        <div class="form-group"><label>Last Name</label><input type="text" id="gm_lastName" class="proxy-input" placeholder="Tên đệm / Tên"></div>
+      </div>
+      <div class="form-group"><label>Gmail</label><input type="text" id="gm_gmail" class="proxy-input" placeholder="example@gmail.com"></div>
+      <div class="form-group"><label>Password</label><input type="text" id="gm_password" class="proxy-input" placeholder="Mật khẩu"></div>
+      
+      <div class="form-group">
+        <label>Service</label>
+        <select id="gm_service" class="proxy-input" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text);">
+          <option value="">-- Chọn --</option>
+          <option value="Shopee">Shopee</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Status</label>
+        <select id="gm_status" class="proxy-input" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text);">
+          <option value="Chưa tạo" selected>Chưa tạo</option>
+          <option value="Đã tạo">Đã tạo</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn btn-secondary" onclick="closeGmailModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveGmail()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Gmail Bulk Import Modal -->
+<div id="gmailBulkModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 700px;">
+    <div class="modal-header">
+      <h3>📋 Thêm hàng loạt Gmail Accounts</h3>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
+      <div style="font-size:12px; color:var(--text-muted); line-height:1.6;">
+        <strong>Hướng dẫn:</strong> Dán danh sách tài khoản vào ô bên dưới, mỗi dòng là 1 tài khoản.<br>
+        Hệ thống hỗ trợ phân cách bằng dấu <code>|</code> hoặc phím Tab:<br>
+        <div style="margin-top:6px; padding:8px; background:rgba(0,0,0,0.3); border-radius:6px; font-family:monospace; font-size:11px;">
+          <strong style="color:var(--success);">Định dạng 1:</strong> FirstName|LastName|gmail@gmail.com|password<br>
+          <strong style="color:var(--primary);">Định dạng 2:</strong> gmail@gmail.com|password
+        </div>
+      </div>
+      <textarea id="gmailBulkText" class="proxy-input" rows="12" style="width:100%; font-family:monospace; font-size:12px; padding:10px; border:1px dashed var(--primary); background:rgba(0,0,0,0.2); color:var(--text); border-radius:8px; resize:vertical;" placeholder="Dán dữ liệu ở đây, mỗi dòng 1 tài khoản..."></textarea>
+      <div id="gmailBulkPreview" style="display:none; max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; background:rgba(0,0,0,0.2);"></div>
+    </div>
+    <div class="modal-footer" style="display:flex; gap:10px; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeGmailBulkModal()">Hủy</button>
+      <button class="btn btn-ghost" onclick="previewGmailBulk()" style="border:1px solid var(--primary); color:var(--primary);">👁️ Xem trước</button>
+      <button class="btn btn-primary" onclick="saveGmailBulk()" style="background:linear-gradient(135deg, #10b981, #059669); border:none;">📥 Nhập tất cả</button>
     </div>
   </div>
 </div>
