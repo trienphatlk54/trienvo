@@ -2241,21 +2241,22 @@
             </div>
           </div>
           <div style="overflow-x: auto; max-height: calc(100vh - 350px); overflow-y: auto;">
-            <table id="hotmailDataTable" class="compact-table" style="min-width: 1100px; width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+            <table id="hotmailDataTable" class="compact-table" style="min-width: 1250px; width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
               <thead>
                 <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
-                  <th style="padding: 6px; width: 140px;">Time Added</th>
-                  <th style="padding: 6px; width: 180px;">Hotmail</th>
-                  <th style="padding: 6px; width: 140px;">Password</th>
-                  <th style="padding: 6px; width: 180px;">Authenticator Cookies</th>
-                  <th style="padding: 6px; width: 140px;">Session ID</th>
-                  <th style="padding: 6px; width: 160px;">Restore Mail</th>
-                  <th style="padding: 6px; width: 140px;">Service</th>
+                  <th style="padding: 6px; width: 130px;">Time Added</th>
+                  <th style="padding: 6px; width: 170px;">Hotmail</th>
+                  <th style="padding: 6px; width: 130px;">Password</th>
+                  <th style="padding: 6px; width: 170px;">Authenticator Cookies</th>
+                  <th style="padding: 6px; width: 130px;">Session ID</th>
+                  <th style="padding: 6px; width: 150px;">Restore Mail</th>
+                  <th style="padding: 6px; width: 130px;">Service</th>
+                  <th style="padding: 6px; width: 160px; text-align: center;">OTP Code</th>
                   <th style="padding: 6px; width: 80px; text-align: center;">Hành động</th>
                 </tr>
               </thead>
               <tbody id="hotmailTableBody">
-                <tr><td colspan="8" style="text-align:center; padding:12px; color:var(--text-muted);">Đang tải dữ liệu...</td></tr>
+                <tr><td colspan="9" style="text-align:center; padding:12px; color:var(--text-muted);">Đang tải dữ liệu...</td></tr>
               </tbody>
             </table>
           </div>
@@ -3429,6 +3430,12 @@ function renderHotmailTable() {
         <td style="padding:6px; cursor:pointer; font-size:12px; color:var(--text-muted);" onclick="copyText(this.innerText)" title="Click để copy Restore Mail">${escapeHtml(item.restoreMail || '')}</td>
         <td style="padding:6px;">${renderHotmailServiceDropdown(item.service || '', id)}</td>
         <td style="padding:6px; text-align:center; white-space:nowrap;">
+          <div style="display:inline-flex; align-items:center; justify-content:center; gap:6px;">
+            <button class="btn btn-primary btn-sm btn-get-otp" id="btnOtp_${id}" onclick="getHotmailOtp('${id}', this)" style="padding:3px 8px; font-size:11px; height:24px; background:linear-gradient(135deg, #0284c7, #0078d4); border:none; font-weight:700; white-space:nowrap;">⚡ Get OTP</button>
+            <span id="otpResult_${id}" class="otp-display-badge" onclick="if(this.innerText && this.innerText !== '--' && !this.innerText.includes('Lỗi')) copyText(this.innerText)" title="${item.otpCode ? 'Mã OTP: ' + item.otpCode + ' (Click để copy)' : 'Chưa có OTP'}" style="font-family:monospace; font-size:12px; font-weight:800; padding:2px 7px; border-radius:4px; ${item.otpCode ? 'background:rgba(16,185,129,0.2); color:#34d399; border:1px solid rgba(16,185,129,0.4); cursor:pointer;' : 'color:var(--text-muted);'}">${item.otpCode || '--'}</span>
+          </div>
+        </td>
+        <td style="padding:6px; text-align:center; white-space:nowrap;">
           <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px;" onclick="editHotmail('${id}')" title="Sửa">✏️</button>
           <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px; color:var(--error);" onclick="deleteHotmail('${id}')" title="Xóa">❌</button>
         </td>
@@ -3437,7 +3444,7 @@ function renderHotmailTable() {
   });
   
   if (pageEntries.length === 0) {
-    htmlText = `<tr><td colspan="8" style="text-align:center; padding:12px; color:var(--text-muted);">Không có dữ liệu Hotmail</td></tr>`;
+    htmlText = `<tr><td colspan="9" style="text-align:center; padding:12px; color:var(--text-muted);">Không có dữ liệu Hotmail</td></tr>`;
   }
   
   tbody.innerHTML = htmlText;
@@ -3481,6 +3488,86 @@ function editHotmail(id) {
   $('hotmailModal').classList.add('active');
 }
 
+
+async function getHotmailOtp(id, btn) {
+  const item = hotmailData[id];
+  if (!item) {
+    toast('Không tìm thấy tài khoản Hotmail', 'error');
+    return;
+  }
+  
+  const otpResultEl = document.getElementById('otpResult_' + id);
+  const origBtnText = btn ? btn.innerHTML : '⚡ Get OTP';
+  
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Đang đọc...';
+  }
+  if (otpResultEl) {
+    otpResultEl.innerText = '...';
+    otpResultEl.style.color = 'var(--text-muted)';
+    otpResultEl.style.background = 'none';
+    otpResultEl.style.border = 'none';
+  }
+  
+  toast('Đang đọc hộp thư qua OAuth2...', 'info', 2000);
+  
+  try {
+    const res = await fetch('/api/hotmail/get-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...item })
+    });
+    
+    const r = await res.json();
+    if (r.success && r.otp) {
+      const otp = r.otp;
+      item.otpCode = otp;
+      if (otpResultEl) {
+        otpResultEl.innerText = otp;
+        otpResultEl.style.background = 'rgba(16, 185, 129, 0.2)';
+        otpResultEl.style.color = '#34d399';
+        otpResultEl.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+        otpResultEl.style.cursor = 'pointer';
+        otpResultEl.title = `Mã OTP: ${otp}\nTừ: ${r.sender || 'Unknown'}\nTiêu đề: ${r.subject || ''}\n(Click để copy)`;
+      }
+      if (btn) {
+        btn.innerHTML = '🔄 Lấy lại';
+      }
+      copyText(otp);
+      toast(`✅ Mã OTP: ${otp} (Đã tự động copy)`, 'success', 3500);
+      
+      // Save otpCode to backend
+      fetch('/api/hotmail/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...item, otpCode: otp })
+      }).catch(() => {});
+    } else {
+      if (otpResultEl) {
+        otpResultEl.innerText = '❌ Lỗi';
+        otpResultEl.style.color = 'var(--error)';
+        otpResultEl.title = r.error || 'Lỗi đọc OTP';
+      }
+      if (btn) {
+        btn.innerHTML = '⚡ Get OTP';
+      }
+      toast('Lỗi đọc OTP: ' + (r.error || 'Không tìm thấy OTP'), 'error', 4500);
+    }
+  } catch (err) {
+    if (otpResultEl) {
+      otpResultEl.innerText = '❌ Lỗi';
+      otpResultEl.style.color = 'var(--error)';
+    }
+    if (btn) {
+      btn.innerHTML = '⚡ Get OTP';
+    }
+    toast('Lỗi kết nối khi lấy OTP: ' + err.message, 'error', 3000);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 async function saveHotmail() {
   const id = $('hotmailId').value;
   const existing = (id && hotmailData[id]) ? hotmailData[id] : {};
@@ -3498,6 +3585,7 @@ async function saveHotmail() {
     sessionId: $('hm_sessionId').value.trim(),
     restoreMail: $('hm_restoreMail').value.trim(),
     service: $('hm_service').value,
+    otpCode: existing.otpCode || '',
     time: existing.time || formatHotmailTime()
   };
   if (id) data.id = id;
