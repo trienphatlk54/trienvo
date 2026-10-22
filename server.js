@@ -2006,6 +2006,84 @@ app.post('/api/gmail/delete', async (req, res) => {
   }
 });
 
+// 📬 HOTMAIL ACCOUNTS API 📬
+app.get('/api/hotmail/all', async (req, res) => {
+  try {
+    const ref = db.ref('hotmail_accounts');
+    const snap = await ref.once('value');
+    res.json(snap.val() || {});
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/hotmail/save', async (req, res) => {
+  const { id, hotmail, password, authCookies, sessionId, restoreMail, service, time } = req.body;
+  try {
+    const ref = db.ref('hotmail_accounts');
+    if (id) {
+      await ref.child(id).update({
+        hotmail: hotmail || '',
+        password: password || '',
+        authCookies: authCookies || '',
+        sessionId: sessionId || '',
+        restoreMail: restoreMail || '',
+        service: service || ''
+      });
+    } else {
+      const addedTime = time || getFormattedTime();
+      await ref.push().set({
+        hotmail: hotmail || '',
+        password: password || '',
+        authCookies: authCookies || '',
+        sessionId: sessionId || '',
+        restoreMail: restoreMail || '',
+        service: service || '',
+        time: addedTime
+      });
+    }
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/hotmail/bulk-save', async (req, res) => {
+  const { accounts } = req.body;
+  if (!accounts || !Array.isArray(accounts)) return res.json({ success: false, error: 'Dữ liệu không hợp lệ' });
+  try {
+    const ref = db.ref('hotmail_accounts');
+    const nowTime = getFormattedTime();
+    for (const acc of accounts) {
+      await ref.push().set({
+        hotmail: acc.hotmail || '',
+        password: acc.password || '',
+        authCookies: acc.authCookies || '',
+        sessionId: acc.sessionId || '',
+        restoreMail: acc.restoreMail || '',
+        service: acc.service || '',
+        time: acc.time || nowTime
+      });
+    }
+    res.json({ success: true, count: accounts.length });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/hotmail/delete', async (req, res) => {
+  const { id } = req.body;
+  try {
+    if (id) {
+      await db.ref('hotmail_accounts').child(id).remove();
+    }
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+
 // ─── FLOPPYDATA PROXY API ──────────────────────────────────────────
 
 const FLOPPY_BASE_URL = 'https://api.floppydata.net';

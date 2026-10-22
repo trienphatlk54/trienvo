@@ -61,58 +61,65 @@
       margin: 0 auto;
     }
 
-    /* ── Sidebar ──────────────────────────────────── */
+    /* ── Sidebar (Compact 2-Row Header on Desktop) ─────────── */
     .sidebar {
       width: 100%;
       background: rgba(18,18,26,0.6);
       backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--border);
-      padding: 10px 20px;
+      padding: 6px 16px;
       display: flex;
       flex-direction: row;
       align-items: center;
       justify-content: space-between;
       flex-shrink: 0;
+      box-sizing: border-box;
+      max-height: 62px;
     }
     .sidebar-header {
-      display: flex; align-items: center; gap: 12px;
+      display: flex; align-items: center; gap: 10px;
       margin-bottom: 0;
+      flex-shrink: 0;
     }
     .sidebar-header .logo {
-      width: 36px; height: 36px;
+      width: 32px; height: 32px;
       background: linear-gradient(135deg, var(--shopee), var(--shopee-light));
-      border-radius: 10px;
+      border-radius: 8px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-      box-shadow: 0 0 16px rgba(238,77,45,0.4);
+      font-size: 15px;
+      box-shadow: 0 0 12px rgba(238,77,45,0.4);
       flex-shrink: 0;
     }
     .sidebar-header h2 {
-      font-size: 16px; font-weight: 800;
+      font-size: 13.5px; font-weight: 800;
       background: linear-gradient(135deg, #fff 40%, var(--shopee-light));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      line-height: 1.2;
+      line-height: 1.15;
     }
     .nav-menu {
-      display: flex; flex-direction: row; gap: 8px; flex-wrap: nowrap; align-items: center;
-      overflow-x: auto; scrollbar-width: none; /* Firefox */
+      display: flex; flex-direction: row; flex-wrap: wrap; row-gap: 3px; column-gap: 5px; align-items: center; justify-content: flex-end;
+      overflow: visible;
+      flex: 1;
+      margin-left: 10px;
+      max-height: 52px;
     }
     .nav-menu::-webkit-scrollbar {
-      display: none; /* Chrome/Safari */
+      display: none;
     }
     .nav-item {
-      display: flex; align-items: center; gap: 12px;
-      padding: 10px 12px;
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px;
       white-space: nowrap;
-      border-radius: 12px;
+      border-radius: 6px;
       color: var(--text-muted);
-      font-weight: 600; font-size: 14px;
+      font-weight: 600; font-size: 11px;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: all 0.2s;
       border: 1px solid transparent;
+      line-height: 1.2;
     }
     .nav-item:hover {
-      background: rgba(255,255,255,0.03);
+      background: rgba(255,255,255,0.04);
       color: var(--text);
     }
     .nav-item.active {
@@ -120,7 +127,8 @@
       color: var(--shopee-light);
       border-color: rgba(238,77,45,0.2);
     }
-    .nav-icon { font-size: 18px; }
+    .nav-icon, .nav-item .icon { font-size: 12px; }
+    .nav-break { flex-basis: 100%; height: 0; margin: 0; padding: 0; }
 
     /* ── Main Content ─────────────────────────────── */
     .main-content {
@@ -828,33 +836,38 @@
     /* ── Responsive ───────────────────────────── */
     @media (min-width: 901px) and (max-width: 1350px) {
       .sidebar {
-        padding: 8px 12px;
+        padding: 5px 10px;
+        max-height: 62px;
       }
       .sidebar-header {
-        gap: 8px;
+        gap: 6px;
       }
       .sidebar-header h2 {
-        font-size: 13px;
+        font-size: 12.5px;
       }
       .sidebar-header .logo {
         width: 28px; height: 28px;
-        font-size: 14px;
+        font-size: 13px;
       }
       .nav-menu {
-        gap: 4px;
+        row-gap: 2px;
+        column-gap: 4px;
+        max-height: 52px;
       }
       .nav-item {
-        padding: 8px 10px;
-        gap: 6px;
-        font-size: 12.5px;
+        padding: 2.5px 6px;
+        gap: 3px;
+        font-size: 10.5px;
       }
+      .nav-icon, .nav-item .icon { font-size: 11px; }
     }
     @media (max-width: 900px) {
       .sidebar { 
         position: fixed; 
         top: 0; 
         left: -300px; 
-        height: 100vh;
+        height: 100vh; 
+        max-height: none;
         width: 260px;
         background: rgba(18,18,26,0.95);
         z-index: 9999; 
@@ -865,9 +878,13 @@
         flex-direction: column;
         justify-content: flex-start;
         align-items: flex-start;
+        padding: 20px;
       }
       .sidebar-header { margin-bottom: 20px; }
-      .nav-menu { flex-direction: column; width: 100%; align-items: stretch; }
+      .nav-break { display: none !important; }
+      .nav-menu { flex-direction: column; flex-wrap: nowrap; width: 100%; align-items: stretch; max-height: none; margin-left: 0; gap: 8px; }
+      .nav-item { padding: 10px 14px; font-size: 13.5px; gap: 10px; border-radius: 10px; }
+      .nav-icon, .nav-item .icon { font-size: 16px; }
       .sidebar.open { left: 0; }
       #sidebarToggleBtn { display: flex !important; z-index: 10000; }
     }
@@ -1195,6 +1212,10 @@
       <div class="nav-item" onclick="switchTab('gmail')">
         <span class="icon">✉️</span> Gmail Accounts
       </div>
+      <div class="nav-item" onclick="switchTab('hotmail')">
+        <span class="icon">📬</span> Hotmail Accounts
+      </div>
+      <div class="nav-break"></div>
       <div class="nav-item" onclick="switchTab('phone')">
         <span class="icon">📱</span> Phone Sessions
       </div>
@@ -2076,6 +2097,164 @@
                 </tr>
               </thead>
               <tbody id="gmailTableBody">
+                <tr><td colspan="8" style="text-align:center; padding:12px; color:var(--text-muted);">Đang tải dữ liệu...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- HOTMAIL TAB -->
+    <div id="tab-hotmail" class="tab-pane">
+      <div class="main-card" style="max-width: 100%;">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h2>📬 Hotmail Accounts</h2>
+            <p>Quản lý và lưu trữ tài khoản Hotmail, phân loại Hotmail trắng và đã dịch vụ.</p>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="hotmailSearch" class="proxy-input" placeholder="🔍 Tìm kiếm..." onkeyup="renderHotmailTable()" style="max-width: 170px; padding: 6px 12px; font-size: 12px; height: 32px; box-sizing: border-box;">
+            <button class="btn btn-secondary btn-sm" onclick="zoomHotmailTable(0.1)" title="Phóng to">🔍 +</button>
+            <button class="btn btn-secondary btn-sm" onclick="zoomHotmailTable(-0.1)" title="Thu nhỏ">🔍 -</button>
+            <button class="btn btn-primary" onclick="openHotmailModal()" style="height: 32px; padding: 6px 12px; font-size: 12px; background: linear-gradient(135deg, #0284c7, #0078d4); border:none;">➕ Thêm Mới</button>
+            <button class="btn btn-primary" onclick="openHotmailBulkModal()" style="height: 32px; padding: 6px 12px; font-size: 12px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); border:none;">📋 Thêm hàng loạt</button>
+          </div>
+        </div>
+
+        <!-- Sub-tabs for Hotmail filtering -->
+        <div id="hotmailSubTabs" style="display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface2);">
+          <button class="hotmail-subtab subtab-trang active" data-tab="trang" onclick="switchHotmailSubTab('trang', this)">
+            <span>📋 Hotmail trắng</span>
+            <span id="hotmailCount_trang" class="subtab-badge">0</span>
+          </button>
+          <button class="hotmail-subtab subtab-dadichvu" data-tab="da_dich_vu" onclick="switchHotmailSubTab('da_dich_vu', this)">
+            <span>📦 Hotmail đã dịch vụ</span>
+            <span id="hotmailCount_da_dich_vu" class="subtab-badge">0</span>
+          </button>
+        </div>
+
+        <style>
+          .hotmail-subtab {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-muted);
+          }
+          .hotmail-subtab .subtab-badge {
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-size: 11px;
+            font-weight: 800;
+            transition: all 0.2s ease;
+          }
+          /* Subtab 1: Hotmail trắng (Microsoft Hotmail Sky Blue) */
+          .hotmail-subtab.subtab-trang {
+            border-color: rgba(2, 132, 199, 0.35);
+            color: #38bdf8;
+            background: rgba(2, 132, 199, 0.08);
+          }
+          .hotmail-subtab.subtab-trang .subtab-badge {
+            background: rgba(2, 132, 199, 0.25);
+            color: #7dd3fc;
+          }
+          .hotmail-subtab.subtab-trang:hover:not(.active) {
+            background: rgba(2, 132, 199, 0.16);
+            border-color: #0284c7;
+          }
+          .hotmail-subtab.subtab-trang.active {
+            background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+            color: #ffffff !important;
+            border-color: #38bdf8 !important;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
+            transform: translateY(-1px);
+          }
+          .hotmail-subtab.subtab-trang.active .subtab-badge {
+            background: #ffffff;
+            color: #0369a1;
+          }
+
+          /* Subtab 2: Hotmail đã dịch vụ (Purple / Indigo) */
+          .hotmail-subtab.subtab-dadichvu {
+            border-color: rgba(139, 92, 246, 0.35);
+            color: #c084fc;
+            background: rgba(139, 92, 246, 0.08);
+          }
+          .hotmail-subtab.subtab-dadichvu .subtab-badge {
+            background: rgba(139, 92, 246, 0.25);
+            color: #e9d5ff;
+          }
+          .hotmail-subtab.subtab-dadichvu:hover:not(.active) {
+            background: rgba(139, 92, 246, 0.16);
+            border-color: #8b5cf6;
+          }
+          .hotmail-subtab.subtab-dadichvu.active {
+            background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
+            color: #ffffff !important;
+            border-color: #c084fc !important;
+            box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
+            transform: translateY(-1px);
+          }
+          .hotmail-subtab.subtab-dadichvu.active .subtab-badge {
+            background: #ffffff;
+            color: #6d28d9;
+          }
+
+          #hotmailDataTable {
+            border: 1px solid var(--border);
+          }
+          #hotmailDataTable th,
+          #hotmailDataTable td {
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            padding: 6px 8px !important;
+          }
+          #hotmailDataTable thead tr {
+            background-color: var(--surface2);
+          }
+          #hotmailTableBody tr:nth-child(odd) {
+            background-color: var(--surface);
+          }
+          #hotmailTableBody tr:nth-child(even) {
+            background-color: rgba(255, 255, 255, 0.045);
+          }
+          #hotmailTableBody tr:hover {
+            background-color: rgba(2, 132, 199, 0.08);
+          }
+        </style>
+
+        <div class="card-body" style="display: block; padding: 0;">
+          <div class="tiktok-page-bar">
+            <span id="hotmailPageInfo" class="tiktok-page-info-badge">Trang 1 / 1</span>
+            <div style="display: flex; gap: 10px;">
+              <button class="tiktok-page-btn btn-prev-page" id="btnPrevHotmail" onclick="changeHotmailPage(-1)" disabled>⬅️ Trang trước</button>
+              <button class="tiktok-page-btn btn-next-page" id="btnNextHotmail" onclick="changeHotmailPage(1)" disabled>Trang sau ➡️</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto; max-height: calc(100vh - 350px); overflow-y: auto;">
+            <table id="hotmailDataTable" class="compact-table" style="min-width: 1100px; width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                  <th style="padding: 6px; width: 140px;">Time Added</th>
+                  <th style="padding: 6px; width: 180px;">Hotmail</th>
+                  <th style="padding: 6px; width: 140px;">Password</th>
+                  <th style="padding: 6px; width: 180px;">Authenticator Cookies</th>
+                  <th style="padding: 6px; width: 140px;">Session ID</th>
+                  <th style="padding: 6px; width: 160px;">Restore Mail</th>
+                  <th style="padding: 6px; width: 140px;">Service</th>
+                  <th style="padding: 6px; width: 80px; text-align: center;">Hành động</th>
+                </tr>
+              </thead>
+              <tbody id="hotmailTableBody">
                 <tr><td colspan="8" style="text-align:center; padding:12px; color:var(--text-muted);">Đang tải dữ liệu...</td></tr>
               </tbody>
             </table>
@@ -3061,6 +3240,472 @@ async function saveGmailBulk() {
   }
 }
 
+// ── Hotmail Accounts Logic ──────────────────────────────────────────────────
+let hotmailCurrentPage = 1;
+const HOTMAIL_PAGE_SIZE = 100;
+
+function changeHotmailPage(delta) {
+  hotmailCurrentPage += delta;
+  renderHotmailTable();
+}
+
+let hotmailData = {};
+let hotmailActiveSubTab = 'trang'; // 'trang' | 'da_dich_vu'
+
+let hotmailTableZoom = parseFloat(localStorage.getItem('hotmailTableZoom')) || 1.0;
+function zoomHotmailTable(delta) {
+  hotmailTableZoom += delta;
+  if (hotmailTableZoom < 0.3) hotmailTableZoom = 0.3;
+  if (hotmailTableZoom > 2.0) hotmailTableZoom = 2.0;
+  localStorage.setItem('hotmailTableZoom', hotmailTableZoom);
+  const table = document.querySelector('#tab-hotmail table');
+  if (table) table.style.zoom = hotmailTableZoom;
+}
+
+function switchHotmailSubTab(tab, btn) {
+  hotmailActiveSubTab = tab;
+  hotmailCurrentPage = 1;
+  document.querySelectorAll('.hotmail-subtab').forEach(b => {
+    b.classList.remove('active');
+  });
+  if (btn) {
+    btn.classList.add('active');
+  }
+  renderHotmailTable();
+}
+
+function getHotmailSubTabCategory(item) {
+  const service = (item.service || '').trim();
+  if (service !== '') {
+    return 'da_dich_vu';
+  }
+  return 'trang';
+}
+
+function updateHotmailSubTabCounts() {
+  let counts = { trang: 0, da_dich_vu: 0 };
+  for (const [id, item] of Object.entries(hotmailData)) {
+    const cat = getHotmailSubTabCategory(item);
+    if (counts[cat] !== undefined) counts[cat]++;
+  }
+  const el1 = document.getElementById('hotmailCount_trang');
+  const el2 = document.getElementById('hotmailCount_da_dich_vu');
+  if (el1) el1.textContent = counts.trang;
+  if (el2) el2.textContent = counts.da_dich_vu;
+}
+
+async function loadHotmailData() {
+  try {
+    const res = await fetch('/api/hotmail/all');
+    const data = await res.json();
+    hotmailData = data || {};
+    renderHotmailTable();
+  } catch (e) {
+    console.error('Lỗi tải dữ liệu Hotmail:', e);
+  }
+}
+
+function formatHotmailTime(dateInput) {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const DD = d.getDate().toString().padStart(2, '0');
+  const MM = (d.getMonth() + 1).toString().padStart(2, '0');
+  const YYYY = d.getFullYear();
+  const HH = d.getHours().toString().padStart(2, '0');
+  const mm = d.getMinutes().toString().padStart(2, '0');
+  const ss = d.getSeconds().toString().padStart(2, '0');
+  return `${HH}:${mm}:${ss} ${DD}/${MM}/${YYYY}`;
+}
+
+function parseHotmailTimeMs(str) {
+  if (!str) return 0;
+  const parts = str.trim().split(' ');
+  if (parts.length === 2 && (parts[0].includes('/') || parts[1].includes('/'))) {
+    let t = parts[0], d = parts[1];
+    if (parts[1].includes(':')) { t = parts[1]; d = parts[0]; }
+    const hms = t.split(':').map(Number);
+    const dmy = d.split('/').map(Number);
+    return new Date(dmy[2] || 0, (dmy[1] || 1) - 1, dmy[0] || 1, hms[0] || 0, hms[1] || 0, hms[2] || 0).getTime() || 0;
+  }
+  return new Date(str).getTime() || 0;
+}
+
+function renderHotmailServiceDropdown(currentService, id) {
+  const s = (currentService || '').trim();
+  let bg = 'var(--surface)';
+  let color = 'var(--text-muted)';
+  let border = 'var(--border)';
+  let fontWeight = '400';
+
+  if (s === 'Duoplus') {
+    bg = 'rgba(139, 92, 246, 0.2)';
+    color = '#c084fc';
+    border = '#8b5cf6';
+    fontWeight = '700';
+  } else if (s === 'BitCloud') {
+    bg = 'rgba(2, 132, 199, 0.2)';
+    color = '#38bdf8';
+    border = '#0284c7';
+    fontWeight = '700';
+  } else if (s.includes('Duoplus') && s.includes('BitCloud')) {
+    bg = 'rgba(236, 72, 153, 0.2)';
+    color = '#f472b6';
+    border = '#ec4899';
+    fontWeight = '800';
+  }
+
+  return `
+    <select class="status-dropdown" style="background-color: ${bg}; color: ${color}; border: 1px solid ${border}; border-radius: 4px; padding: 4px 6px; font-size: 11px; font-weight: ${fontWeight}; width: 100%; box-sizing:border-box;" onchange="syncHotmailField(event, '${id}', 'service')" onclick="event.stopPropagation()">
+      <option value="" ${!s ? 'selected' : ''} style="background:var(--surface); color:var(--text);">-- Chưa chọn --</option>
+      <option value="Duoplus" ${s === 'Duoplus' ? 'selected' : ''} style="background:var(--surface); color:#c084fc; font-weight:700;">Duoplus</option>
+      <option value="BitCloud" ${s === 'BitCloud' ? 'selected' : ''} style="background:var(--surface); color:#38bdf8; font-weight:700;">BitCloud</option>
+      <option value="Duoplus, BitCloud" ${(s.includes('Duoplus') && s.includes('BitCloud')) ? 'selected' : ''} style="background:var(--surface); color:#f472b6; font-weight:800;">Duoplus, BitCloud</option>
+    </select>
+  `;
+}
+
+async function syncHotmailField(event, id, field) {
+  const val = event.target.value;
+  if (!hotmailData[id]) return;
+  
+  hotmailData[id][field] = val;
+  
+  const payload = { ...hotmailData[id], id };
+  try {
+    await fetch('/api/hotmail/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    toast('Đã lưu ' + field, 'success', 1200);
+    renderHotmailTable();
+  } catch (e) {
+    toast('Lỗi kết nối máy chủ', 'error');
+  }
+}
+
+function renderHotmailTable() {
+  const tbody = $('hotmailTableBody');
+  if (!tbody) return;
+  const searchInput = $('hotmailSearch');
+  const search = (searchInput ? searchInput.value : '').toLowerCase().trim();
+  
+  let htmlText = '';
+  const allEntries = Object.entries(hotmailData);
+  
+  const searchFiltered = allEntries.filter(([id, item]) => {
+    if (!search) return true;
+    const txt = Object.values(item).join(' ').toLowerCase();
+    return txt.includes(search);
+  });
+  
+  const filteredEntries = searchFiltered.filter(([id, item]) => {
+    return getHotmailSubTabCategory(item) === hotmailActiveSubTab;
+  }).sort((a, b) => {
+    return parseHotmailTimeMs(a[1].time) - parseHotmailTimeMs(b[1].time);
+  });
+  
+  updateHotmailSubTabCounts();
+  
+  const totalPages = Math.ceil(filteredEntries.length / HOTMAIL_PAGE_SIZE) || 1;
+  if (hotmailCurrentPage > totalPages) hotmailCurrentPage = totalPages;
+  if (hotmailCurrentPage < 1) hotmailCurrentPage = 1;
+  
+  const start = (hotmailCurrentPage - 1) * HOTMAIL_PAGE_SIZE;
+  const pageEntries = filteredEntries.slice(start, start + HOTMAIL_PAGE_SIZE);
+  
+  pageEntries.forEach(([id, item]) => {
+    const rawCookies = item.authCookies || '';
+    const safeCookies = escapeHtml(rawCookies).replace(/'/g, "\\'");
+    const rawSession = item.sessionId || '';
+    const safeSession = escapeHtml(rawSession).replace(/'/g, "\\'");
+
+    htmlText += `
+      <tr data-id="${id}">
+        <td style="padding:6px; font-size:12px; color:var(--text-muted);">${escapeHtml(item.time || '')}</td>
+        <td style="padding:6px; cursor:pointer; font-family:monospace; font-size:12px; font-weight:600; color:#38bdf8;" onclick="copyText(this.innerText)" title="Click để copy Hotmail">${escapeHtml(item.hotmail || '')}</td>
+        <td style="padding:6px; cursor:pointer; font-family:monospace; font-size:12px;" onclick="copyText(this.innerText)" title="Click để copy Password">${escapeHtml(item.password || '')}</td>
+        <td style="padding:6px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; font-family:monospace; font-size:11px;" onclick="copyText('${safeCookies}')" title="${escapeHtml(rawCookies)}">${escapeHtml(rawCookies)}</td>
+        <td style="padding:6px; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; font-family:monospace; font-size:11px;" onclick="copyText('${safeSession}')" title="${escapeHtml(rawSession)}">${escapeHtml(rawSession)}</td>
+        <td style="padding:6px; cursor:pointer; font-size:12px; color:var(--text-muted);" onclick="copyText(this.innerText)" title="Click để copy Restore Mail">${escapeHtml(item.restoreMail || '')}</td>
+        <td style="padding:6px;">${renderHotmailServiceDropdown(item.service || '', id)}</td>
+        <td style="padding:6px; text-align:center; white-space:nowrap;">
+          <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px;" onclick="editHotmail('${id}')" title="Sửa">✏️</button>
+          <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px; color:var(--error);" onclick="deleteHotmail('${id}')" title="Xóa">❌</button>
+        </td>
+      </tr>
+    `;
+  });
+  
+  if (pageEntries.length === 0) {
+    htmlText = `<tr><td colspan="8" style="text-align:center; padding:12px; color:var(--text-muted);">Không có dữ liệu Hotmail</td></tr>`;
+  }
+  
+  tbody.innerHTML = htmlText;
+  
+  const pageInfoEl = document.getElementById('hotmailPageInfo');
+  const btnPrev = document.getElementById('btnPrevHotmail');
+  const btnNext = document.getElementById('btnNextHotmail');
+  
+  if (pageInfoEl) pageInfoEl.textContent = `Trang ${hotmailCurrentPage} / ${totalPages} (${filteredEntries.length} dòng)`;
+  if (btnPrev) btnPrev.disabled = (hotmailCurrentPage <= 1);
+  if (btnNext) btnNext.disabled = (hotmailCurrentPage >= totalPages);
+}
+
+function openHotmailModal() {
+  $('hotmailId').value = '';
+  $('hm_hotmail').value = '';
+  $('hm_password').value = '';
+  $('hm_authCookies').value = '';
+  $('hm_sessionId').value = '';
+  $('hm_restoreMail').value = '';
+  $('hm_service').value = '';
+  $('hotmailModalTitle').innerText = 'Thêm Hotmail Account';
+  $('hotmailModal').classList.add('active');
+}
+
+function closeHotmailModal() {
+  $('hotmailModal').classList.remove('active');
+}
+
+function editHotmail(id) {
+  const item = hotmailData[id];
+  if (!item) return;
+  $('hotmailId').value = id;
+  $('hm_hotmail').value = item.hotmail || '';
+  $('hm_password').value = item.password || '';
+  $('hm_authCookies').value = item.authCookies || '';
+  $('hm_sessionId').value = item.sessionId || '';
+  $('hm_restoreMail').value = item.restoreMail || '';
+  $('hm_service').value = item.service || '';
+  $('hotmailModalTitle').innerText = 'Sửa Hotmail Account';
+  $('hotmailModal').classList.add('active');
+}
+
+async function saveHotmail() {
+  const id = $('hotmailId').value;
+  const existing = (id && hotmailData[id]) ? hotmailData[id] : {};
+  
+  const hotmail = $('hm_hotmail').value.trim();
+  if (!hotmail) {
+    toast('Vui lòng nhập địa chỉ Hotmail', 'warning');
+    return;
+  }
+  
+  const data = {
+    hotmail,
+    password: $('hm_password').value.trim(),
+    authCookies: $('hm_authCookies').value.trim(),
+    sessionId: $('hm_sessionId').value.trim(),
+    restoreMail: $('hm_restoreMail').value.trim(),
+    service: $('hm_service').value,
+    time: existing.time || formatHotmailTime()
+  };
+  if (id) data.id = id;
+  
+  try {
+    const res = await fetch('/api/hotmail/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const r = await res.json();
+    if (r.success) {
+      toast('Lưu Hotmail thành công!', 'success');
+      closeHotmailModal();
+      loadHotmailData();
+    } else {
+      toast('Lỗi: ' + r.error, 'error');
+    }
+  } catch (e) {
+    toast('Lỗi kết nối', 'error');
+  }
+}
+
+async function deleteHotmail(id) {
+  if (!confirm('Bạn có chắc muốn xóa tài khoản Hotmail này?')) return;
+  try {
+    const res = await fetch('/api/hotmail/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    const r = await res.json();
+    if (r.success) {
+      toast('Đã xóa Hotmail Account', 'success');
+      delete hotmailData[id];
+      renderHotmailTable();
+    } else {
+      toast('Lỗi: ' + r.error, 'error');
+    }
+  } catch (e) {
+    toast('Lỗi kết nối', 'error');
+  }
+}
+
+function openHotmailBulkModal() {
+  document.getElementById('hotmailBulkText').value = '';
+  document.getElementById('hotmailBulkPreview').style.display = 'none';
+  document.getElementById('hotmailBulkPreview').innerHTML = '';
+  document.getElementById('hotmailBulkModal').classList.add('active');
+}
+
+function closeHotmailBulkModal() {
+  document.getElementById('hotmailBulkModal').classList.remove('active');
+}
+
+function parseHotmailBulkLine(line) {
+  line = line.trim();
+  if (!line) return null;
+  let parts = line.includes('\t') ? line.split('\t') : line.split('|');
+  parts = parts.map(p => p.trim());
+  if (parts.length < 2) return null;
+  
+  const result = {
+    hotmail: '',
+    password: '',
+    authCookies: '',
+    sessionId: '',
+    restoreMail: '',
+    service: '',
+    time: formatHotmailTime()
+  };
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailIdx = parts.findIndex(p => emailRegex.test(p));
+  
+  if (emailIdx !== -1) {
+    result.hotmail = parts[emailIdx];
+    const rem = parts.filter((_, i) => i !== emailIdx);
+    if (rem.length >= 1) result.password = rem[0];
+    if (rem.length === 2) {
+      if (emailRegex.test(rem[1])) {
+        result.restoreMail = rem[1];
+      } else {
+        result.authCookies = rem[1];
+      }
+    } else if (rem.length === 3) {
+      result.authCookies = rem[1];
+      if (emailRegex.test(rem[2])) result.restoreMail = rem[2];
+      else result.sessionId = rem[2];
+    } else if (rem.length === 4) {
+      result.authCookies = rem[1];
+      result.sessionId = rem[2];
+      result.restoreMail = rem[3];
+    } else if (rem.length >= 5) {
+      result.authCookies = rem[1];
+      result.sessionId = rem[2];
+      result.restoreMail = rem[3];
+      result.service = rem[4];
+    }
+  } else {
+    result.hotmail = parts[0];
+    result.password = parts[1] || '';
+    if (parts.length >= 3) result.authCookies = parts[2];
+    if (parts.length >= 4) result.sessionId = parts[3];
+    if (parts.length >= 5) result.restoreMail = parts[4];
+    if (parts.length >= 6) result.service = parts[5];
+  }
+
+  // Validate or normalize service
+  const sLow = (result.service || '').toLowerCase();
+  if (sLow.includes('duo') && sLow.includes('bit')) {
+    result.service = 'Duoplus, BitCloud';
+  } else if (sLow.includes('duo')) {
+    result.service = 'Duoplus';
+  } else if (sLow.includes('bit')) {
+    result.service = 'BitCloud';
+  } else {
+    result.service = '';
+  }
+
+  return result;
+}
+
+function previewHotmailBulk() {
+  const text = document.getElementById('hotmailBulkText').value;
+  const lines = text.split('\n').filter(l => l.trim());
+  const previewDiv = document.getElementById('hotmailBulkPreview');
+  
+  if (lines.length === 0) {
+    toast('Chưa có dữ liệu để xem trước', 'error');
+    return;
+  }
+  
+  let tableHtml = '<table style="width:100%; border-collapse:collapse; font-size:11px;">';
+  tableHtml += '<thead><tr style="border-bottom:1px solid var(--border); color:var(--text-muted); position:sticky; top:0; background:var(--surface2);">';
+  tableHtml += '<th style="padding:6px; text-align:left;">#</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Hotmail</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Password</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Auth Cookies</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Session ID</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Restore Mail</th>';
+  tableHtml += '<th style="padding:6px; text-align:left;">Service</th>';
+  tableHtml += '</tr></thead><tbody>';
+  
+  let validCount = 0;
+  lines.forEach((line, idx) => {
+    const parsed = parseHotmailBulkLine(line);
+    if (parsed) {
+      validCount++;
+      tableHtml += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">';
+      tableHtml += `<td style="padding:4px 6px; color:var(--text-muted);">${idx + 1}</td>`;
+      tableHtml += `<td style="padding:4px 6px; color:#38bdf8; font-weight:600;">${escapeHtml(parsed.hotmail)}</td>`;
+      tableHtml += `<td style="padding:4px 6px;">${escapeHtml(parsed.password)}</td>`;
+      tableHtml += `<td style="padding:4px 6px; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(parsed.authCookies)}</td>`;
+      tableHtml += `<td style="padding:4px 6px; max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(parsed.sessionId)}</td>`;
+      tableHtml += `<td style="padding:4px 6px;">${escapeHtml(parsed.restoreMail)}</td>`;
+      tableHtml += `<td style="padding:4px 6px; color:${parsed.service ? '#c084fc' : 'var(--text-muted)'}; font-weight:700;">${escapeHtml(parsed.service || '--')}</td>`;
+      tableHtml += '</tr>';
+    }
+  });
+  
+  tableHtml += '</tbody></table>';
+  tableHtml += `<div style="padding:8px; font-size:12px; color:var(--success); text-align:center; border-top:1px solid var(--border);">Nhận diện được <strong>${validCount}</strong> / ${lines.length} dòng hợp lệ</div>`;
+  previewDiv.innerHTML = tableHtml;
+  previewDiv.style.display = 'block';
+}
+
+async function saveHotmailBulk() {
+  const text = document.getElementById('hotmailBulkText').value;
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length === 0) {
+    toast('Chưa có dữ liệu để nhập', 'error');
+    return;
+  }
+  
+  const accounts = [];
+  lines.forEach(line => {
+    const parsed = parseHotmailBulkLine(line);
+    if (parsed && parsed.hotmail) accounts.push(parsed);
+  });
+  
+  if (accounts.length === 0) {
+    toast('Không tìm thấy tài khoản hợp lệ nào trong dữ liệu dán', 'error');
+    return;
+  }
+  
+  toast(`Đang nhập ${accounts.length} tài khoản Hotmail...`, 'info', 2000);
+  
+  try {
+    const res = await fetch('/api/hotmail/bulk-save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accounts })
+    });
+    const r = await res.json();
+    if (r.success) {
+      toast(`Đã nhập thành công ${r.count || accounts.length} tài khoản Hotmail!`, 'success');
+      closeHotmailBulkModal();
+      await loadHotmailData();
+    } else {
+      toast('Lỗi nhập dữ liệu: ' + r.error, 'error');
+    }
+  } catch (e) {
+    toast('Lỗi kết nối khi lưu dữ liệu hàng loạt', 'error');
+  }
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#loginUsername, #loginPassword').forEach(el => {
     el.addEventListener('focus', () => {
@@ -3545,6 +4190,9 @@ switchTab = function(tabId) {
   }
   if (tabId === 'gmail') {
     loadGmailData();
+  }
+  if (tabId === 'hotmail') {
+    loadHotmailData();
   }
   if (tabId === 'floppyproxy') {
     loadFloppyProxies();
@@ -4480,6 +5128,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const t_gm = document.querySelector('#tab-gmail table');
   if (t_gm) t_gm.style.zoom = gmailTableZoom;
 
+  loadHotmailData(); // Initial load for Hotmail
+  const t_hm = document.querySelector('#tab-hotmail table');
+  if (t_hm) t_hm.style.zoom = hotmailTableZoom;
+
   // Sao chép khối proxy-section và main-card
   // proxy moved inside card
   const cardClone  = document.querySelector('#tab-shopee .main-card').cloneNode(true);
@@ -4532,6 +5184,7 @@ function switchTab(tabId) {
   if (tabId === 'notes') loadNotes();
   if (tabId === 'tiktok') { loadTiktokData(); loadPandaProxies(); }
   if (tabId === 'gmail') { loadGmailData(); }
+  if (tabId === 'hotmail') { loadHotmailData(); }
   // Update nav items
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.remove('active');
@@ -7107,6 +7760,79 @@ async function clearAllNotes() {
       <button class="btn btn-secondary" onclick="closeGmailBulkModal()">Hủy</button>
       <button class="btn btn-ghost" onclick="previewGmailBulk()" style="border:1px solid var(--primary); color:var(--primary);">👁️ Xem trước</button>
       <button class="btn btn-primary" onclick="saveGmailBulk()" style="background:linear-gradient(135deg, #10b981, #059669); border:none;">📥 Nhập tất cả</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hotmail Single Add/Edit Modal -->
+<div id="hotmailModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 520px;">
+    <div class="modal-header">
+      <h3 id="hotmailModalTitle">Thêm Hotmail Account</h3>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:10px;">
+      <input type="hidden" id="hotmailId">
+      <div class="form-group">
+        <label>Hotmail</label>
+        <input type="text" id="hm_hotmail" class="proxy-input" placeholder="example@hotmail.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="text" id="hm_password" class="proxy-input" placeholder="Mật khẩu">
+      </div>
+      <div class="form-group">
+        <label>Authenticator Cookies</label>
+        <input type="text" id="hm_authCookies" class="proxy-input" placeholder="Authenticator / Cookies">
+      </div>
+      <div class="form-group">
+        <label>Session ID</label>
+        <input type="text" id="hm_sessionId" class="proxy-input" placeholder="Session ID">
+      </div>
+      <div class="form-group">
+        <label>Restore Mail</label>
+        <input type="text" id="hm_restoreMail" class="proxy-input" placeholder="mail_khoiphuc@example.com">
+      </div>
+      <div class="form-group">
+        <label>Service</label>
+        <select id="hm_service" class="proxy-input" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text);">
+          <option value="">-- Chưa chọn --</option>
+          <option value="Duoplus">Duoplus</option>
+          <option value="BitCloud">BitCloud</option>
+          <option value="Duoplus, BitCloud">Duoplus, BitCloud</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn btn-secondary" onclick="closeHotmailModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveHotmail()" style="background:linear-gradient(135deg, #0284c7, #0078d4); border:none;">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hotmail Bulk Import Modal -->
+<div id="hotmailBulkModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 750px;">
+    <div class="modal-header">
+      <h3>📋 Thêm hàng loạt Hotmail Accounts</h3>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
+      <div style="font-size:12px; color:var(--text-muted); line-height:1.6;">
+        <strong>Hướng dẫn:</strong> Dán danh sách tài khoản vào ô bên dưới, mỗi dòng là 1 tài khoản.<br>
+        Hệ thống hỗ trợ phân cách bằng dấu <code>|</code> hoặc phím Tab:<br>
+        <div style="margin-top:6px; padding:8px; background:rgba(0,0,0,0.3); border-radius:6px; font-family:monospace; font-size:11px;">
+          <strong style="color:#38bdf8;">Định dạng 1 (Đầy đủ):</strong> hotmail@hotmail.com|password|authCookies|sessionId|restoreMail|service<br>
+          <strong style="color:#c084fc;">Định dạng 2:</strong> hotmail@hotmail.com|password|authCookies|sessionId|restoreMail<br>
+          <strong style="color:var(--success);">Định dạng 3:</strong> hotmail@hotmail.com|password|restoreMail<br>
+          <strong style="color:var(--primary);">Định dạng 4:</strong> hotmail@hotmail.com|password
+        </div>
+      </div>
+      <textarea id="hotmailBulkText" class="proxy-input" rows="12" style="width:100%; font-family:monospace; font-size:12px; padding:10px; border:1px dashed #0284c7; background:rgba(0,0,0,0.2); color:var(--text); border-radius:8px; resize:vertical;" placeholder="Dán dữ liệu ở đây, mỗi dòng 1 tài khoản..."></textarea>
+      <div id="hotmailBulkPreview" style="display:none; max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; background:rgba(0,0,0,0.2);"></div>
+    </div>
+    <div class="modal-footer" style="display:flex; gap:10px; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeHotmailBulkModal()">Hủy</button>
+      <button class="btn btn-ghost" onclick="previewHotmailBulk()" style="border:1px solid #0284c7; color:#38bdf8;">👁️ Xem trước</button>
+      <button class="btn btn-primary" onclick="saveHotmailBulk()" style="background:linear-gradient(135deg, #8b5cf6, #7c3aed); border:none;">📥 Nhập tất cả</button>
     </div>
   </div>
 </div>
