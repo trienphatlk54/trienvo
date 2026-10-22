@@ -1902,14 +1902,18 @@ app.get('/api/tiktok/all', async (req, res) => {
 });
 
 app.post('/api/tiktok/save', async (req, res) => {
-  const { id, identifier, mail, username, password, session, status, result, notes, coMaTime, subTabTime, ngamTime, ngamSubTab } = req.body;
+  const { id, identifier, mail, username, password, session, status, result, notes, coMaTime, subTabTime, ngamTime, ngamSubTab, duoplus, duoplusProfileId, bitcloud } = req.body;
   try {
     const ref = db.ref('tiktok_accounts');
     if (id) {
-      await ref.child(id).update({ identifier, mail, username, password, session, status, result, notes: notes || '', coMaTime: coMaTime || '', subTabTime: subTabTime || '', ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '' });
+      const updateData = { identifier, mail, username, password, session, status, result, notes: notes || '', coMaTime: coMaTime || '', subTabTime: subTabTime || '', ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '' };
+      if (duoplus !== undefined) updateData.duoplus = duoplus || '';
+      if (duoplusProfileId !== undefined) updateData.duoplusProfileId = duoplusProfileId || '';
+      if (bitcloud !== undefined) updateData.bitcloud = bitcloud || '';
+      await ref.child(id).update(updateData);
     } else {
       const time = getFormattedTime();
-      await ref.push().set({ identifier, mail, username, password, session, status, result, notes: notes || '', time, coMaTime: coMaTime || '', subTabTime: subTabTime || new Date().toISOString(), ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '' });
+      await ref.push().set({ identifier, mail, username, password, session, status, result, notes: notes || '', time, coMaTime: coMaTime || '', subTabTime: subTabTime || new Date().toISOString(), ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '', duoplus: duoplus || '', duoplusProfileId: duoplusProfileId || '', bitcloud: bitcloud || '' });
     }
     res.json({ success: true });
   } catch(e) {
@@ -1928,6 +1932,34 @@ app.post('/api/tiktok/delete', async (req, res) => {
     res.status(500).json({ success: false, error: e.message });
   }
 });
+
+// 🌐 GPMLogin Local API Proxy 🌐
+app.post('/api/gpm/create-profile', async (req, res) => {
+  const { port = '9495', payload } = req.body;
+  try {
+    const gpmRes = await fetch(`http://127.0.0.1:${port}/api/v1/profiles/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await gpmRes.json();
+    res.json(data);
+  } catch(e) {
+    res.status(500).json({ success: false, error: 'Không thể kết nối đến GPMLogin (Port ' + port + '): ' + e.message });
+  }
+});
+
+app.post('/api/gpm/start-profile', async (req, res) => {
+  const { port = '9495', profileId } = req.body;
+  try {
+    const gpmRes = await fetch(`http://127.0.0.1:${port}/api/v1/profiles/start/${profileId}`);
+    const data = await gpmRes.json();
+    res.json(data);
+  } catch(e) {
+    res.status(500).json({ success: false, error: 'Không thể mở profile: ' + e.message });
+  }
+});
+
 
 // ✉️ GMAIL ACCOUNTS API ✉️
 app.get('/api/gmail/all', async (req, res) => {

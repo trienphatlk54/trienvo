@@ -1674,6 +1674,7 @@
           <input type="text" id="tiktokSearch" class="proxy-input" placeholder="🔍 Tìm kiếm dữ liệu..." onkeyup="renderTiktokTable()" style="max-width: 200px; padding: 6px 12px; font-size: 12px; height: 32px; box-sizing: border-box;">
           <button class="btn btn-secondary btn-sm" onclick="zoomTiktokTable(0.1)" title="Phóng to">🔍 +</button>
           <button class="btn btn-secondary btn-sm" onclick="zoomTiktokTable(-0.1)" title="Thu nhỏ">🔍 -</button>
+          <button class="btn btn-ghost btn-sm" onclick="configureGpmPort()" style="height: 32px; padding: 6px 10px; font-size: 11px; border: 1px solid var(--border);" title="Cấu hình Port GPMLogin Local API (Mặc định: 9495)">⚙️ GPM Port: <span id="gpmPortBadge">9495</span></button>
           <button class="btn btn-primary" onclick="openTiktokModal()" style="height: 32px; padding: 6px 12px; font-size: 12px;">➕ Thêm Mới</button>
           <button class="btn btn-primary" onclick="openTiktokBulkModal()" style="height: 32px; padding: 6px 12px; font-size: 12px; background: linear-gradient(135deg, #10b981, #059669); border:none;">📋 Thêm hàng loạt</button>
         </div>
@@ -1885,7 +1886,7 @@
           </div>
         </div>
         <div style="overflow-x: auto; max-height: calc(100vh - 350px); overflow-y: auto;">
-          <table id="tiktokDataTable" class="compact-table" style="min-width: 1000px; width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+          <table id="tiktokDataTable" class="compact-table" style="min-width: 1300px; width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
             <thead>
               <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
                 <th style="padding: 6px;">Thời gian add</th>
@@ -1899,11 +1900,13 @@
                 <th style="padding: 6px;">Result</th>
                 <th style="padding: 6px;">Time Ngâm</th>
                 <th style="padding: 6px;">Notes</th>
-                <th style="padding: 6px;">Hành động</th>
+                <th style="padding: 6px; width: 160px; text-align: center;">Duoplus</th>
+                <th style="padding: 6px; width: 130px; text-align: center;">BitCloud</th>
+                <th style="padding: 6px; width: 80px; text-align: center;">Hành động</th>
               </tr>
             </thead>
             <tbody id="tiktokTableBody">
-              <tr><td colspan="12" style="text-align:center; padding:10px;">Đang tải dữ liệu...</td></tr>
+              <tr><td colspan="14" style="text-align:center; padding:10px;">Đang tải dữ liệu...</td></tr>
             </tbody>
           </table>
         </div>
@@ -4729,7 +4732,21 @@ function renderTiktokTable() {
       <td style="padding:6px;">${renderTiktokResultDropdown(item.result || '', id)}</td>
       <td style="padding:6px;">${timeNgamHtml}</td>
       <td style="padding:6px;">
-        <input type="text" class="proxy-input" value="${escapeHtml(item.notes || '')}" placeholder="Ghi chú..." oninput="autoSaveTiktokNote('${id}', this.value)" onclick="event.stopPropagation()" style="width:100%; min-width:120px; padding:4px 8px; font-size:11px; height:26px; box-sizing:border-box;">
+        <input type="text" class="proxy-input" value="${escapeHtml(item.notes || '')}" placeholder="Ghi chú..." oninput="autoSaveTiktokNote('${id}', this.value)" onclick="event.stopPropagation()" style="width:100%; min-width:110px; padding:4px 8px; font-size:11px; height:26px; box-sizing:border-box;">
+      </td>
+      <td style="padding:6px; text-align:center; white-space:nowrap;">
+        <div style="display:inline-flex; align-items:center; justify-content:center; gap:5px;">
+          <button class="btn btn-sm btn-gpm" id="btnGpm_${id}" onclick="createGpmProfileForTiktok('${id}', this)" title="Tạo profile trên GPMLogin với liên kết Duoplus.net" style="padding:3px 8px; font-size:11px; height:25px; background:linear-gradient(135deg, #0284c7, #0078d4); color:#fff; border:none; font-weight:700; white-space:nowrap; border-radius:4px; cursor:pointer;">
+            ${item.duoplusProfileId ? '🔄 Tạo lại' : '📱 Tạo Duoplus GPM'}
+          </button>
+          <span id="gpmStatus_${id}" class="gpm-profile-badge" onclick="if(this.innerText && this.innerText !== '---') copyText(this.innerText)" title="${item.duoplusProfileId ? 'Profile ID: ' + item.duoplusProfileId + ' (Click để copy)' : 'Chưa có profile'}" style="font-family:monospace; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; ${item.duoplusProfileId ? 'background:rgba(16,185,129,0.2); color:#34d399; border:1px solid rgba(16,185,129,0.4); cursor:pointer;' : 'color:var(--text-muted);'}">
+            ${item.duoplusProfileId || '---'}
+          </span>
+          ${item.duoplusProfileId ? `<button class="btn btn-ghost btn-sm" onclick="openGpmProfile('${item.duoplusProfileId}')" title="Mở Profile trong GPMLogin" style="padding:2px 5px; font-size:11px; height:24px; color:#38bdf8;">🚀</button>` : ''}
+        </div>
+      </td>
+      <td style="padding:6px; text-align:center;">
+        <input type="text" class="proxy-input" value="${escapeHtml(item.bitcloud || '')}" placeholder="BitCloud ID/Acc..." oninput="autoSaveTiktokBitCloud('${id}', this.value)" onclick="event.stopPropagation()" style="width:100%; min-width:110px; padding:4px 6px; font-size:11px; height:26px; box-sizing:border-box;">
       </td>
       <td style="padding:6px;">
         <button class="btn btn-ghost" style="padding:2px 6px; font-size:11px;" onclick="editTiktok('${id}')">✏️</button>
@@ -4739,7 +4756,7 @@ function renderTiktokTable() {
     }
   
   if (filteredEntries.length === 0) {
-    htmlText = `<tr><td colspan="12" style="text-align:center; padding:10px;">Không có dữ liệu Tiktok</td></tr>`;
+    htmlText = `<tr><td colspan="14" style="text-align:center; padding:10px;">Không có dữ liệu Tiktok</td></tr>`;
   }
   tbody.innerHTML = htmlText;
 
@@ -4750,6 +4767,168 @@ function renderTiktokTable() {
   if (pageInfoEl) pageInfoEl.textContent = `Trang ${tiktokCurrentPage} / ${totalPages} (${filteredEntries.length} dòng)`;
   if (btnPrev) btnPrev.disabled = (tiktokCurrentPage <= 1);
   if (btnNext) btnNext.disabled = (tiktokCurrentPage >= totalPages);
+}
+
+
+function configureGpmPort() {
+  const current = localStorage.getItem('gpm_api_port') || '9495';
+  const val = prompt('Nhập Port của GPMLogin Local API (mặc định: 9495):', current);
+  if (val && val.trim()) {
+    localStorage.setItem('gpm_api_port', val.trim());
+    const badge = document.getElementById('gpmPortBadge');
+    if (badge) badge.innerText = val.trim();
+    toast('Đã lưu GPM API Port: ' + val.trim(), 'success');
+  }
+}
+
+let tiktokBitCloudSaveTimeouts = {};
+function autoSaveTiktokBitCloud(id, val) {
+  if (!tiktokData[id]) return;
+  tiktokData[id].bitcloud = val;
+  if (tiktokBitCloudSaveTimeouts[id]) clearTimeout(tiktokBitCloudSaveTimeouts[id]);
+  tiktokBitCloudSaveTimeouts[id] = setTimeout(async () => {
+    try {
+      const payload = { ...tiktokData[id], id, bitcloud: val };
+      await fetch('/api/tiktok/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      toast('Lỗi lưu BitCloud', 'error');
+    }
+  }, 400);
+}
+
+async function createGpmProfileForTiktok(id, btn) {
+  const item = tiktokData[id];
+  if (!item) {
+    toast('Không tìm thấy tài khoản Tiktok', 'error');
+    return;
+  }
+
+  const port = localStorage.getItem('gpm_api_port') || '9495';
+  const rawName = (item.username || item.mail || item.identifier || id).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const profileName = `Duoplus_${rawName}`;
+  const origBtnText = btn ? btn.innerHTML : '📱 Tạo Duoplus GPM';
+  
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Đang tạo...';
+  }
+
+  toast(`Đang tạo profile GPMLogin: ${profileName}...`, 'info', 2000);
+
+  const payload = {
+    name: profileName,
+    note: `TikTok: ${item.username || ''} | Mail: ${item.mail || ''} | Duoplus.net`,
+    startup_urls: "https://my.duoplus.net/sign-in\nhttps://duoplus.net",
+    browser_type: 1,
+    canvas_mode: 1,
+    timezone_base_on_ip: true,
+    is_language_base_on_ip: true
+  };
+
+  let profileId = null;
+  let success = false;
+  let errorMsg = '';
+
+  // 1. Try direct fetch from browser to GPM Local API
+  try {
+    const gpmRes = await fetch(`http://127.0.0.1:${port}/api/v1/profiles/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const gpmData = await gpmRes.json();
+    if (gpmData && (gpmData.success || gpmData.data)) {
+      profileId = gpmData.data?.id || gpmData.data?.profile_id || gpmData.id || 'ok';
+      success = true;
+    } else {
+      errorMsg = gpmData.message || 'Lỗi từ GPMLogin';
+    }
+  } catch (err) {
+    // 2. Fallback to server proxy /api/gpm/create-profile
+    try {
+      const proxyRes = await fetch('/api/gpm/create-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ port, payload, id })
+      });
+      const proxyData = await proxyRes.json();
+      if (proxyData && proxyData.success) {
+        profileId = proxyData.data?.id || proxyData.data?.profile_id || 'ok';
+        success = true;
+      } else {
+        errorMsg = proxyData.error || err.message;
+      }
+    } catch (err2) {
+      errorMsg = 'Không thể kết nối đến GPMLogin (Port ' + port + '). Hãy mở GPMLogin trên máy tính.';
+    }
+  }
+
+  if (success && profileId) {
+    item.duoplusProfileId = profileId;
+    item.duoplus = profileId;
+    
+    // Save to backend
+    fetch('/api/tiktok/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...item, id, duoplusProfileId: profileId, duoplus: profileId })
+    }).catch(() => {});
+
+    // Update UI badge
+    const badgeEl = document.getElementById('gpmStatus_' + id);
+    if (badgeEl) {
+      badgeEl.innerText = profileId;
+      badgeEl.style.background = 'rgba(16, 185, 129, 0.2)';
+      badgeEl.style.color = '#34d399';
+      badgeEl.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+      badgeEl.style.cursor = 'pointer';
+      badgeEl.title = `Profile ID: ${profileId} (Click để copy)`;
+    }
+    if (btn) {
+      btn.innerHTML = '🔄 Tạo lại';
+    }
+    toast(`✅ Đã tạo profile GPMLogin: ${profileName}! ID: ${profileId}`, 'success', 3500);
+    renderTiktokTable();
+  } else {
+    if (btn) btn.innerHTML = origBtnText;
+    toast(`⚠️ ${errorMsg || 'Không kết nối được GPMLogin'}. Đảm bảo GPMLogin đang chạy trên máy tính (Port ${port}).`, 'warning', 5000);
+  }
+
+  if (btn) btn.disabled = false;
+}
+
+async function openGpmProfile(profileId) {
+  const port = localStorage.getItem('gpm_api_port') || '9495';
+  toast('🚀 Đang mở profile GPMLogin...', 'info', 1500);
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/v1/profiles/start/${profileId}`);
+    const data = await res.json();
+    if (data.success) {
+      toast('✅ Đã mở profile thành công!', 'success', 2000);
+    } else {
+      toast('Lỗi mở: ' + (data.message || 'Thất bại'), 'error');
+    }
+  } catch(e) {
+    try {
+      const pRes = await fetch('/api/gpm/start-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ port, profileId })
+      });
+      const pData = await pRes.json();
+      if (pData.success) {
+        toast('✅ Đã mở profile thành công!', 'success', 2000);
+      } else {
+        toast('Lỗi: ' + (pData.error || 'Thất bại'), 'error');
+      }
+    } catch(err2) {
+      toast('Không kết nối được GPMLogin trên máy tính (Port ' + port + ')', 'error');
+    }
+  }
 }
 
 let tiktokNoteSaveTimeouts = {};
@@ -4924,6 +5103,9 @@ async function saveTiktok() {
     status: newStatus,
     result: newResult,
     notes: existing.notes || '',
+    duoplus: existing.duoplus || '',
+    duoplusProfileId: existing.duoplusProfileId || '',
+    bitcloud: existing.bitcloud || '',
     coMaTime: existing.coMaTime || '',
     subTabTime: existing.subTabTime || '',
     ngamTime,
@@ -5217,6 +5399,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (t_gm) t_gm.style.zoom = gmailTableZoom;
 
   loadHotmailData(); // Initial load for Hotmail
+  const savedGpmPort = localStorage.getItem('gpm_api_port') || '9495';
+  const gpmBadge = document.getElementById('gpmPortBadge');
+  if (gpmBadge) gpmBadge.innerText = savedGpmPort;
   const t_hm = document.querySelector('#tab-hotmail table');
   if (t_hm) t_hm.style.zoom = hotmailTableZoom;
 
