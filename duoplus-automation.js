@@ -7,6 +7,8 @@
 // 5. Chờ người dùng giải Captcha (tự động phát hiện khi giải xong hoặc bấm bỏ qua)
 // 6. Quét hộp thư Hotmail lấy OTP mới (chỉ lọc từ khóa 'duoplus', không lọc thời gian, hỗ trợ Try Again khi quá giờ)
 // 7. Điền Verification Code & bấm Create Account
+// 8. Quét chuyển trang mới ➔ Chờ 1-2s ➔ Bấm "Get Started"
+// 9. Chờ trang tải ➔ Chờ 1-2s ➔ Tắt / ẩn hộp thông báo dialog ➔ Quét bấm "Claim Free" ➔ Quét bấm "Start Configuration"
 
 const puppeteer = require('puppeteer');
 const { fetchHotmailOAuth2Otp } = require('./hotmail-otp-helper');
@@ -24,7 +26,7 @@ function startDuoplusRegistration({ profileId, gpmPort = 9495, hotmailAccount, t
     profileId,
     hotmail: hotmailAccount.hotmail,
     tiktokUsername: tiktokAccount?.username || '',
-    status: 'starting', // starting | navigating | filling_form | waiting_captcha | polling_otp | otp_timeout | submitting | completed | error
+    status: 'starting', // starting | navigating | filling_form | waiting_captcha | polling_otp | otp_timeout | submitting | configuring | completed | error
     step: 1,
     message: 'Đang khởi động trình duyệt GPMLogin...',
     otp: null,
@@ -364,7 +366,7 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
     // BƯỚC 6: Quét mail Hotmail lấy OTP liên tục (chỉ lọc từ khóa 'duoplus', không lọc thời gian, có Try Again)
     task.status = 'polling_otp';
     task.step = 5;
-    task.message = '✅ Captcha hoàn tất! Đang quét hộp thư tìm email DuoPlus chứa mã OTP...';
+    task.message = '✅ Captcha hoàn tất! Đang quét hộp thư Hotmail tìm mail DuoPlus...';
     task.updatedAt = Date.now();
 
     let otpCode = null;
@@ -392,7 +394,7 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
         task.updatedAt = Date.now();
 
         try {
-          // Cơ chế mới: Quét thư mục Inbox & Junk, lọc từ khóa 'duoplus', không lọc thời gian
+          // Cơ chế: Quét thư mục Inbox & Junk, lọc từ khóa 'duoplus', không lọc thời gian
           const otpRes = await fetchHotmailOAuth2Otp(hotmailAccount, { keyword: 'duoplus' });
           if (otpRes && otpRes.success && otpRes.otp) {
             otpCode = otpRes.otp;
@@ -442,7 +444,7 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
     // BƯỚC 7: Điền Verification Code và Click Create Account
     task.status = 'submitting';
     task.step = 6;
-    task.message = `✅ Đã nhận mã OTP: [${otpCode}]! Đang điền mã và tạo tài khoản...`;
+    task.message = `✅ Đã nhận mã OTP: [${otpCode}]! Đang điền mã và bấm Create Account...`;
     task.updatedAt = Date.now();
 
     const codeInput = await page.$('input[name="verification_code"]') || 
@@ -490,12 +492,273 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
 
     if (!createClicked) throw new Error('Không tìm thấy nút Create Account');
 
-    // Chờ kết quả tạo tài khoản
-    await new Promise(r => setTimeout(r, 4000));
+    // BƯỚC 8: Quét chuyển sang trang mới ➔ Chờ 1-2s ➔ Bấm nút "Get Started"
+    task.message = 'Đang kiểm tra chuyển trang sau khi bấm Create Account...';
+    task.updatedAt = Date.now();
+
+    // Quét xem đã chuyển sang trang mới hay chưa (URL thay đổi hoặc xuất hiện nút Get Started)
+    const navWaitStart = Date.now();
+    let hasNavigated = false;
+    while (Date.now() - navWaitStart < 30000) {
+      if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
+
+      const currentUrl = page.url();
+      if (!currentUrl.includes('/sign-up')) {
+        hasNavigated = true;
+        break;
+      }
+
+      const foundGetStarted = await page.evaluate(() => {
+        const els = Array.from(document.querySelectorAll('button, a, div[role="button"], span'));
+        return els.some(e => {
+          const t = (e.innerText || '').trim().toLowerCase();
+          return t === 'get started' || t.includes('get started');
+        });
+      });
+
+      if (foundGetStarted) {
+        hasNavigated = true;
+        break;
+      }
+
+      await new Promise(r => setTimeout(r, 600));
+    }
+
+    // Chờ trang mới tải xong hoàn toàn
+    try {
+      await page.waitForFunction(() => document.readyState === 'complete', { timeout: 10000 });
+    } catch(e) {}
+
+    // (Từ bước này trở đi sau khi quét tải xong trang chờ 1-2 giây trước khi thao tác tiếp)
+    task.message = 'Đã chuyển sang trang mới! Chờ 1.8 giây...';
+    task.updatedAt = Date.now();
+    await new Promise(r => setTimeout(r, 1800));
+
+    // Quét tìm và Click vào nút "Get Started"
+    task.message = 'Đang tìm và click vào nút Get Started...';
+    task.updatedAt = Date.now();
+
+    let getStartedClicked = false;
+    const gsWaitStart = Date.now();
+    while (Date.now() - gsWaitStart < 25000) {
+      if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
+
+      // 1. Thử click native qua Puppeteer handle
+      const candidateHandles = await page.$$('button, a, div[role="button"], span');
+      for (const h of candidateHandles) {
+        const text = await page.evaluate(el => (el.innerText || '').trim().toLowerCase(), h);
+        if (text === 'get started' || text.includes('get started')) {
+          try {
+            await h.scrollIntoView();
+            await h.click();
+            getStartedClicked = true;
+            break;
+          } catch(e) {}
+        }
+      }
+
+      if (getStartedClicked) break;
+
+      // 2. Fallback click evaluate
+      getStartedClicked = await page.evaluate(() => {
+        const allEls = Array.from(document.querySelectorAll('button, a, div[role="button"], span, div'));
+        const target = allEls.find(e => {
+          const txt = (e.innerText || '').trim().toLowerCase();
+          return txt === 'get started' || (txt.includes('get started') && txt.length < 30);
+        });
+        if (target) {
+          target.click();
+          return true;
+        }
+        return false;
+      });
+
+      if (getStartedClicked) break;
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    if (getStartedClicked) {
+      task.message = 'Đã click nút Get Started!';
+      task.updatedAt = Date.now();
+    }
+
+    // Chờ load xong trang tiếp theo
+    try {
+      await page.waitForFunction(() => document.readyState === 'complete', { timeout: 10000 });
+    } catch(e) {}
+
+    // Chờ 1-2 giây trước khi thao tác tiếp
+    await new Promise(r => setTimeout(r, 1800));
+
+    // BƯỚC 9: Tắt / ẩn hộp thông báo dialog ➔ Quét nút Claim Free ➔ Quét nút Start Configuration
+    task.step = 7;
+    task.status = 'configuring';
+    task.message = 'Đang kiểm tra và tắt hộp thông báo dialog...';
+    task.updatedAt = Date.now();
+
+    // 9a. Tắt / ẩn hộp thông báo dialog
+    await page.evaluate(() => {
+      // Tìm nút đóng trong các modal / dialog (Radix, Ant Design, Tailwind)
+      const closeSelectors = [
+        'button[aria-label*="close" i]',
+        'button[aria-label*="Close" i]',
+        '.ant-modal-close',
+        '.ant-modal-close-x',
+        '.modal-close',
+        '.dialog-close',
+        'button.close',
+        '[data-dismiss="modal"]',
+        '[data-state="open"] button[aria-label*="close" i]'
+      ];
+
+      for (const sel of closeSelectors) {
+        const btns = document.querySelectorAll(sel);
+        for (const b of btns) {
+          if (b && window.getComputedStyle(b).display !== 'none') {
+            b.click();
+            return;
+          }
+        }
+      }
+
+      // Tìm nút bấm có chữ Close, Got it, Skip, Dismiss, ✕, ×
+      const allBtns = Array.from(document.querySelectorAll('button, span, div[role="button"]'));
+      const textCloseBtn = allBtns.find(b => {
+        const t = (b.innerText || '').trim().toLowerCase();
+        return t === '✕' || t === '×' || t === 'x' || t === 'close' || t === 'got it' || t === 'dismiss' || t === 'skip' || t === 'i understand' || t === 'later' || t === 'đóng';
+      });
+
+      if (textCloseBtn) {
+        textCloseBtn.click();
+        return;
+      }
+
+      // Ẩn lớp overlay che phủ nếu có
+      const overlays = document.querySelectorAll('[role="dialog"], [role="alertdialog"], .ant-modal-mask, .ant-modal-wrap');
+      overlays.forEach(o => {
+        const text = (o.innerText || '').toLowerCase();
+        if (!text.includes('claim free') && !text.includes('start config')) {
+          o.style.display = 'none';
+        }
+      });
+    });
+
+    // Thử phím Escape đóng dialog
+    try { await page.keyboard.press('Escape'); } catch(e) {}
+
+    // Chờ 1-2 giây trước khi thao tác tiếp
+    await new Promise(r => setTimeout(r, 1800));
+
+    // 9b. Quét nút Claim Free và click vào
+    task.message = 'Đang tìm và click nút Claim Free...';
+    task.updatedAt = Date.now();
+
+    let claimFreeClicked = false;
+    const claimWaitStart = Date.now();
+    while (Date.now() - claimWaitStart < 25000) {
+      if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
+
+      // 1. Tìm element bằng Puppeteer handle và click thật
+      const candidateHandles = await page.$$('button, a, div[role="button"], span');
+      for (const h of candidateHandles) {
+        const text = await page.evaluate(el => (el.innerText || '').trim().toLowerCase(), h);
+        if (text === 'claim free' || text.includes('claim free') || (text.includes('claim') && text.includes('free'))) {
+          try {
+            await h.scrollIntoView();
+            await h.click();
+            claimFreeClicked = true;
+            break;
+          } catch(e) {}
+        }
+      }
+
+      if (claimFreeClicked) break;
+
+      // 2. Fallback evaluate click
+      claimFreeClicked = await page.evaluate(() => {
+        const allEls = Array.from(document.querySelectorAll('button, a, div[role="button"], span, div'));
+        const target = allEls.find(e => {
+          const txt = (e.innerText || '').trim().toLowerCase();
+          return (txt === 'claim free' || txt.includes('claim free') || (txt.includes('claim') && txt.includes('free'))) && txt.length < 40;
+        });
+        if (target) {
+          target.click();
+          return true;
+        }
+        return false;
+      });
+
+      if (claimFreeClicked) break;
+
+      // Nhấn Escape phòng trường hợp dialog chưa tắt che mất nút
+      try { await page.keyboard.press('Escape'); } catch(e) {}
+
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    if (claimFreeClicked) {
+      task.message = 'Đã click nút Claim Free!';
+      task.updatedAt = Date.now();
+    }
+
+    // Chờ 1-2 giây trước khi thao tác tiếp
+    await new Promise(r => setTimeout(r, 1800));
+
+    // 9c. Quét click vào nút Start Configuration
+    task.message = 'Đang tìm và click nút Start Configuration...';
+    task.updatedAt = Date.now();
+
+    let startConfigClicked = false;
+    const configWaitStart = Date.now();
+    while (Date.now() - configWaitStart < 25000) {
+      if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
+
+      // 1. Tìm element bằng Puppeteer handle và click thật
+      const candidateHandles = await page.$$('button, a, div[role="button"], span');
+      for (const h of candidateHandles) {
+        const text = await page.evaluate(el => (el.innerText || '').trim().toLowerCase(), h);
+        if (text === 'start configuration' || text.includes('start configuration') || (text.includes('start') && text.includes('config'))) {
+          try {
+            await h.scrollIntoView();
+            await h.click();
+            startConfigClicked = true;
+            break;
+          } catch(e) {}
+        }
+      }
+
+      if (startConfigClicked) break;
+
+      // 2. Fallback evaluate click
+      startConfigClicked = await page.evaluate(() => {
+        const allEls = Array.from(document.querySelectorAll('button, a, div[role="button"], span, div'));
+        const target = allEls.find(e => {
+          const txt = (e.innerText || '').trim().toLowerCase();
+          return (txt === 'start configuration' || txt.includes('start configuration') || (txt.includes('start') && txt.includes('config'))) && txt.length < 40;
+        });
+        if (target) {
+          target.click();
+          return true;
+        }
+        return false;
+      });
+
+      if (startConfigClicked) break;
+
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    if (startConfigClicked) {
+      task.message = 'Đã click nút Start Configuration!';
+      task.updatedAt = Date.now();
+    }
+
+    // Chờ 2 giây để hoàn tất lưu cấu hình
+    await new Promise(r => setTimeout(r, 2000));
 
     task.status = 'completed';
     task.step = 7;
-    task.message = `🎉 Đăng ký tài khoản DuoPlus thành công! Mã OTP: ${otpCode}`;
+    task.message = `🎉 Đăng ký và cấu hình DuoPlus thành công! Mã OTP: ${otpCode}`;
     task.updatedAt = Date.now();
 
     // Ngắt kết nối Puppeteer nhưng giữ nguyên cửa sổ trình duyệt GPM mở cho người dùng
