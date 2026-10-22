@@ -4771,13 +4771,101 @@ function renderTiktokTable() {
 
 
 function configureGpmPort() {
-  const current = localStorage.getItem('gpm_api_port') || '9495';
-  const val = prompt('Nhập Port của GPMLogin Local API (mặc định: 9495):', current);
-  if (val && val.trim()) {
-    localStorage.setItem('gpm_api_port', val.trim());
-    const badge = document.getElementById('gpmPortBadge');
-    if (badge) badge.innerText = val.trim();
-    toast('Đã lưu GPM API Port: ' + val.trim(), 'success');
+  openGpmConfigModal();
+}
+
+function openGpmConfigModal() {
+  const gpmPort = localStorage.getItem('gpm_api_port') || '9495';
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+  if ($('cfg_gpm_port')) $('cfg_gpm_port').value = gpmPort;
+  if ($('cfg_bridge_port')) $('cfg_bridge_port').value = bridgePort;
+  const modal = document.getElementById('gpmConfigModal');
+  if (modal) modal.classList.add('active');
+  checkGpmConnectionStatus();
+}
+
+function closeGpmConfigModal() {
+  const modal = document.getElementById('gpmConfigModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function saveGpmConfig() {
+  const gpmPort = (($('cfg_gpm_port') && $('cfg_gpm_port').value) || '9495').trim();
+  const bridgePort = (($('cfg_bridge_port') && $('cfg_bridge_port').value) || '9497').trim();
+  localStorage.setItem('gpm_api_port', gpmPort);
+  localStorage.setItem('gpm_bridge_port', bridgePort);
+  const badge = document.getElementById('gpmPortBadge');
+  if (badge) badge.innerText = gpmPort;
+  toast('✅ Đã lưu cấu hình GPM (Port ' + gpmPort + ')', 'success');
+  closeGpmConfigModal();
+}
+
+async function checkGpmConnectionStatus(isManual = false) {
+  const detailsEl = document.getElementById('gpmStatusDetails');
+  if (!detailsEl) return;
+  detailsEl.innerHTML = '<span style="color:var(--text-muted);">⏳ Đang kiểm tra kết nối...</span>';
+  
+  const gpmPort = localStorage.getItem('gpm_api_port') || '9495';
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+
+  let bridgeOk = false;
+  let gpmOk = false;
+
+  // 1. Check GPM Bridge (Port 9497)
+  try {
+    const res = await fetch(`http://localhost:${bridgePort}/api/v1/ping`, { signal: AbortSignal.timeout(2000) });
+    const data = await res.json();
+    if (data && data.success) {
+      bridgeOk = true;
+      if (data.gpmOnline) gpmOk = true;
+    }
+  } catch(e) {}
+
+  // 2. Check Backend Proxy /api/gpm
+  let proxyOk = false;
+  try {
+    const pRes = await fetch('/api/gpm/create-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ port: gpmPort, testOnly: true }),
+      signal: AbortSignal.timeout(2500)
+    });
+    const pData = await pRes.json();
+    if (pData && (pData.success || (pData.data && !pData.error?.includes('fetch failed')))) {
+      proxyOk = true;
+      gpmOk = true;
+    }
+  } catch(e) {}
+
+  // 3. Check Direct GPM
+  try {
+    const dRes = await fetch(`http://127.0.0.1:${gpmPort}/api/v1/profiles?page=1&per_page=1`, { signal: AbortSignal.timeout(1500) });
+    const dData = await dRes.json();
+    if (dData && dData.success) {
+      gpmOk = true;
+    }
+  } catch(e) {}
+
+  let html = '';
+  if (bridgeOk) {
+    html += `<div style="color:#34d399; font-weight:600;">🟢 GPM Bridge (Port ${bridgePort}): <strong>Đang chạy tốt</strong></div>`;
+  } else {
+    html += `<div style="color:#fbbf24;">🟡 GPM Bridge (Port ${bridgePort}): Chưa chạy (Hãy chạy file <code>start-gpm-bridge.bat</code> trên máy tính)</div>`;
+  }
+
+  if (gpmOk) {
+    html += `<div style="color:#34d399; font-weight:600; margin-top:4px;">🟢 GPMLogin Global (Port ${gpmPort}): <strong>Đã kết nối sẵn sàng!</strong></div>`;
+  } else {
+    html += `<div style="color:#f87171; margin-top:4px;">🔴 GPMLogin Global (Port ${gpmPort}): Chưa kết nối (Hãy bật GPMLogin trên máy tính)</div>`;
+  }
+
+  detailsEl.innerHTML = html;
+  if (isManual) {
+    if (gpmOk || bridgeOk) {
+      toast('✅ Đã kết nối được với GPMLogin!', 'success', 2500);
+    } else {
+      toast('⚠️ Chưa kết nối được GPMLogin. Đảm bảo GPMLogin đang chạy trên máy tính!', 'warning', 3500);
+    }
   }
 }
 
@@ -4808,6 +4896,7 @@ async function createGpmProfileForTiktok(id, btn) {
   }
 
   const port = localStorage.getItem('gpm_api_port') || '9495';
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
   const rawName = (item.username || item.mail || item.identifier || id).replace(/[^a-zA-Z0-9_-]/g, '_');
   const profileName = `Duoplus_${rawName}`;
   const origBtnText = btn ? btn.innerHTML : '📱 Tạo Duoplus GPM';
@@ -4833,37 +4922,74 @@ async function createGpmProfileForTiktok(id, btn) {
   let success = false;
   let errorMsg = '';
 
-  // 1. Try direct fetch from browser to GPM Local API
-  try {
-    const gpmRes = await fetch(`http://127.0.0.1:${port}/api/v1/profiles/create`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const gpmData = await gpmRes.json();
-    if (gpmData && (gpmData.success || gpmData.data)) {
-      profileId = gpmData.data?.id || gpmData.data?.profile_id || gpmData.id || 'ok';
-      success = true;
-    } else {
-      errorMsg = gpmData.message || 'Lỗi từ GPMLogin';
-    }
-  } catch (err) {
-    // 2. Fallback to server proxy /api/gpm/create-profile
+  // 1. Tier 1: Try GPM Bridge (Port 9497) - Direct from browser to local bridge with CORS & PNA
+  const bridgeUrls = [
+    `http://localhost:${bridgePort}/api/v1/profiles/create`,
+    `http://127.0.0.1:${bridgePort}/api/v1/profiles/create`
+  ];
+  for (const bUrl of bridgeUrls) {
+    try {
+      const bRes = await fetch(bUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(4000)
+      });
+      const bData = await bRes.json();
+      if (bData && (bData.success || bData.data)) {
+        profileId = bData.data?.id || bData.data?.profile_id || bData.id;
+        if (profileId) {
+          success = true;
+          break;
+        }
+      } else if (bData && bData.error) {
+        errorMsg = bData.error;
+      }
+    } catch(e) {}
+  }
+
+  // 2. Tier 2: Try Server Proxy /api/gpm/create-profile (Works when web app is running locally on localhost:3000)
+  if (!success) {
     try {
       const proxyRes = await fetch('/api/gpm/create-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ port, payload, id })
+        body: JSON.stringify({ port, payload, id }),
+        signal: AbortSignal.timeout(6000)
       });
       const proxyData = await proxyRes.json();
       if (proxyData && proxyData.success) {
         profileId = proxyData.data?.id || proxyData.data?.profile_id || 'ok';
         success = true;
       } else {
-        errorMsg = proxyData.error || err.message;
+        errorMsg = proxyData.error || errorMsg;
       }
-    } catch (err2) {
-      errorMsg = 'Không thể kết nối đến GPMLogin (Port ' + port + '). Hãy mở GPMLogin trên máy tính.';
+    } catch(e) {}
+  }
+
+  // 3. Tier 3: Direct fetch to GPMLogin API (Port 9495)
+  if (!success) {
+    const directUrls = [
+      `http://127.0.0.1:${port}/api/v1/profiles/create`,
+      `http://localhost:${port}/api/v1/profiles/create`
+    ];
+    for (const dUrl of directUrls) {
+      try {
+        const gpmRes = await fetch(dUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(3000)
+        });
+        const gpmData = await gpmRes.json();
+        if (gpmData && (gpmData.success || gpmData.data)) {
+          profileId = gpmData.data?.id || gpmData.data?.profile_id || gpmData.id;
+          if (profileId) {
+            success = true;
+            break;
+          }
+        }
+      } catch(e) {}
     }
   }
 
@@ -4871,7 +4997,7 @@ async function createGpmProfileForTiktok(id, btn) {
     item.duoplusProfileId = profileId;
     item.duoplus = profileId;
     
-    // Save to backend
+    // Save to Firebase backend
     fetch('/api/tiktok/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -4895,7 +5021,8 @@ async function createGpmProfileForTiktok(id, btn) {
     renderTiktokTable();
   } else {
     if (btn) btn.innerHTML = origBtnText;
-    toast(`⚠️ ${errorMsg || 'Không kết nối được GPMLogin'}. Đảm bảo GPMLogin đang chạy trên máy tính (Port ${port}).`, 'warning', 5000);
+    const msg = errorMsg || `Không kết nối được GPMLogin (Port ${port})`;
+    toast(`⚠️ ${msg}. Nếu mở web trên VPS, hãy click đúp chạy file 'start-gpm-bridge.bat' trên máy tính!`, 'warning', 6000);
   }
 
   if (btn) btn.disabled = false;
@@ -4903,32 +5030,45 @@ async function createGpmProfileForTiktok(id, btn) {
 
 async function openGpmProfile(profileId) {
   const port = localStorage.getItem('gpm_api_port') || '9495';
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
   toast('🚀 Đang mở profile GPMLogin...', 'info', 1500);
+
+  // 1. Tier 1: GPM Bridge
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/api/v1/profiles/start/${profileId}`);
+    const res = await fetch(`http://localhost:${bridgePort}/api/v1/profiles/start/${profileId}`, { signal: AbortSignal.timeout(4000) });
     const data = await res.json();
     if (data.success) {
       toast('✅ Đã mở profile thành công!', 'success', 2000);
-    } else {
-      toast('Lỗi mở: ' + (data.message || 'Thất bại'), 'error');
+      return;
     }
-  } catch(e) {
-    try {
-      const pRes = await fetch('/api/gpm/start-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ port, profileId })
-      });
-      const pData = await pRes.json();
-      if (pData.success) {
-        toast('✅ Đã mở profile thành công!', 'success', 2000);
-      } else {
-        toast('Lỗi: ' + (pData.error || 'Thất bại'), 'error');
-      }
-    } catch(err2) {
-      toast('Không kết nối được GPMLogin trên máy tính (Port ' + port + ')', 'error');
+  } catch(e) {}
+
+  // 2. Tier 2: Server Proxy
+  try {
+    const pRes = await fetch('/api/gpm/start-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ port, profileId }),
+      signal: AbortSignal.timeout(6000)
+    });
+    const pData = await pRes.json();
+    if (pData.success) {
+      toast('✅ Đã mở profile thành công!', 'success', 2000);
+      return;
     }
-  }
+  } catch(e) {}
+
+  // 3. Tier 3: Direct GPM
+  try {
+    const dRes = await fetch(`http://127.0.0.1:${port}/api/v1/profiles/start/${profileId}`, { signal: AbortSignal.timeout(3000) });
+    const dData = await dRes.json();
+    if (dData.success) {
+      toast('✅ Đã mở profile thành công!', 'success', 2000);
+      return;
+    }
+  } catch(e) {}
+
+  toast(`⚠️ Không kết nối được GPMLogin (Port ${port}). Hãy chạy 'start-gpm-bridge.bat' trên máy tính!`, 'error', 4500);
 }
 
 let tiktokNoteSaveTimeouts = {};
@@ -6514,6 +6654,49 @@ function exportPhoneTableXLS() {
   
   tableHTML += `</tbody></table>
   
+
+<!-- Modal Cấu hình GPMLogin & Bridge -->
+<div id="gpmConfigModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 520px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface2); box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px;">
+      <h3 style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+        ⚙️ Cấu hình GPMLogin & Bridge
+      </h3>
+      <button class="btn btn-ghost" onclick="closeGpmConfigModal()" style="font-size:16px; padding:2px 8px;">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:14px; padding-top:14px;">
+      <div style="background:rgba(2, 132, 199, 0.1); border:1px solid rgba(2, 132, 199, 0.25); border-radius:8px; padding:10px 12px; font-size:12px; line-height:1.5; color:#93c5fd;">
+        💡 <strong>Cách kết nối GPMLogin với Web:</strong><br>
+        • <strong>Chạy trên máy tính (localhost:3000):</strong> Tự động kết nối sẵn sàng.<br>
+        • <strong>Dùng web từ xa (VPS):</strong> Bạn chỉ cần click đúp chạy file <code>start-gpm-bridge.bat</code> trong thư mục shopee-qr trên máy tính để kết nối an toàn!
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Cổng GPMLogin API</label>
+          <input type="number" id="cfg_gpm_port" class="proxy-input" value="9495" placeholder="9495" style="width:100%; height:34px; padding:4px 8px; font-size:13px;">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Cổng GPM Bridge</label>
+          <input type="number" id="cfg_bridge_port" class="proxy-input" value="9497" placeholder="9497" style="width:100%; height:34px; padding:4px 8px; font-size:13px;">
+        </div>
+      </div>
+
+      <div id="gpmStatusBox" style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:12px;">
+        <div style="font-weight:700; margin-bottom:6px; color:var(--text);">🔍 Trạng thái kết nối:</div>
+        <div id="gpmStatusDetails" style="display:flex; flex-direction:column; gap:4px; color:var(--text-muted); font-size:12px;">
+          Đang kiểm tra...
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:6px;">
+        <button class="btn btn-secondary btn-sm" onclick="checkGpmConnectionStatus(true)" style="height:32px; padding:4px 12px; font-size:12px;">🔄 Kiểm tra kết nối</button>
+        <button class="btn btn-primary btn-sm" onclick="saveGpmConfig()" style="height:32px; padding:4px 14px; font-size:12px; background:linear-gradient(135deg, #0284c7, #0078d4); border:none;">💾 Lưu cấu hình</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body></html>`;
   
   const blob = new Blob([tableHTML], { type: 'application/vnd.ms-excel' });

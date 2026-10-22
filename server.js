@@ -1933,31 +1933,60 @@ app.post('/api/tiktok/delete', async (req, res) => {
   }
 });
 
-// 🌐 GPMLogin Local API Proxy 🌐
+// 🌐 GPMLogin Local API Proxy & Bridge 🌐
+try {
+  require('./gpm-bridge');
+} catch (e) {}
+
 app.post('/api/gpm/create-profile', async (req, res) => {
   const { port = '9495', payload } = req.body;
-  try {
-    const gpmRes = await fetch(`http://127.0.0.1:${port}/api/v1/profiles/create`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await gpmRes.json();
-    res.json(data);
-  } catch(e) {
-    res.status(500).json({ success: false, error: 'Không thể kết nối đến GPMLogin (Port ' + port + '): ' + e.message });
+  const targets = [
+    `http://127.0.0.1:${port}/api/v1/profiles/create`,
+    `http://localhost:${port}/api/v1/profiles/create`
+  ];
+  let lastError = null;
+  for (const url of targets) {
+    try {
+      const gpmRes = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(6000)
+      });
+      const data = await gpmRes.json();
+      return res.json(data);
+    } catch(e) {
+      lastError = e;
+    }
   }
+  res.status(500).json({
+    success: false,
+    error: `Không thể kết nối đến GPMLogin (Port ${port}): ${lastError ? lastError.message : 'Timeout'}. Đảm bảo GPMLogin đang chạy trên máy tính.`
+  });
 });
 
 app.post('/api/gpm/start-profile', async (req, res) => {
   const { port = '9495', profileId } = req.body;
-  try {
-    const gpmRes = await fetch(`http://127.0.0.1:${port}/api/v1/profiles/start/${profileId}`);
-    const data = await gpmRes.json();
-    res.json(data);
-  } catch(e) {
-    res.status(500).json({ success: false, error: 'Không thể mở profile: ' + e.message });
+  const targets = [
+    `http://127.0.0.1:${port}/api/v1/profiles/start/${profileId}`,
+    `http://localhost:${port}/api/v1/profiles/start/${profileId}`
+  ];
+  let lastError = null;
+  for (const url of targets) {
+    try {
+      const gpmRes = await fetch(url, {
+        signal: AbortSignal.timeout(6000)
+      });
+      const data = await gpmRes.json();
+      return res.json(data);
+    } catch(e) {
+      lastError = e;
+    }
   }
+  res.status(500).json({
+    success: false,
+    error: `Không thể mở profile: ${lastError ? lastError.message : 'Timeout'}`
+  });
 });
 
 
