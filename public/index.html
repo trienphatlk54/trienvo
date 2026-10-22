@@ -2125,94 +2125,7 @@
           </div>
         </div>
 
-        <!-- Sub-tabs for Hotmail filtering -->
-        <div id="hotmailSubTabs" style="display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface2);">
-          <button class="hotmail-subtab subtab-trang active" data-tab="trang" onclick="switchHotmailSubTab('trang', this)">
-            <span>📋 Hotmail trắng</span>
-            <span id="hotmailCount_trang" class="subtab-badge">0</span>
-          </button>
-          <button class="hotmail-subtab subtab-dadichvu" data-tab="da_dich_vu" onclick="switchHotmailSubTab('da_dich_vu', this)">
-            <span>📦 Hotmail đã dịch vụ</span>
-            <span id="hotmailCount_da_dich_vu" class="subtab-badge">0</span>
-          </button>
-        </div>
-
         <style>
-          .hotmail-subtab {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 10px 16px;
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: 1px solid var(--border);
-            background: var(--surface);
-            color: var(--text-muted);
-          }
-          .hotmail-subtab .subtab-badge {
-            border-radius: 999px;
-            padding: 2px 10px;
-            font-size: 11px;
-            font-weight: 800;
-            transition: all 0.2s ease;
-          }
-          /* Subtab 1: Hotmail trắng (Microsoft Hotmail Sky Blue) */
-          .hotmail-subtab.subtab-trang {
-            border-color: rgba(2, 132, 199, 0.35);
-            color: #38bdf8;
-            background: rgba(2, 132, 199, 0.08);
-          }
-          .hotmail-subtab.subtab-trang .subtab-badge {
-            background: rgba(2, 132, 199, 0.25);
-            color: #7dd3fc;
-          }
-          .hotmail-subtab.subtab-trang:hover:not(.active) {
-            background: rgba(2, 132, 199, 0.16);
-            border-color: #0284c7;
-          }
-          .hotmail-subtab.subtab-trang.active {
-            background: linear-gradient(135deg, #0284c7, #0369a1) !important;
-            color: #ffffff !important;
-            border-color: #38bdf8 !important;
-            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
-            transform: translateY(-1px);
-          }
-          .hotmail-subtab.subtab-trang.active .subtab-badge {
-            background: #ffffff;
-            color: #0369a1;
-          }
-
-          /* Subtab 2: Hotmail đã dịch vụ (Purple / Indigo) */
-          .hotmail-subtab.subtab-dadichvu {
-            border-color: rgba(139, 92, 246, 0.35);
-            color: #c084fc;
-            background: rgba(139, 92, 246, 0.08);
-          }
-          .hotmail-subtab.subtab-dadichvu .subtab-badge {
-            background: rgba(139, 92, 246, 0.25);
-            color: #e9d5ff;
-          }
-          .hotmail-subtab.subtab-dadichvu:hover:not(.active) {
-            background: rgba(139, 92, 246, 0.16);
-            border-color: #8b5cf6;
-          }
-          .hotmail-subtab.subtab-dadichvu.active {
-            background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
-            color: #ffffff !important;
-            border-color: #c084fc !important;
-            box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
-            transform: translateY(-1px);
-          }
-          .hotmail-subtab.subtab-dadichvu.active .subtab-badge {
-            background: #ffffff;
-            color: #6d28d9;
-          }
-
           #hotmailDataTable {
             border: 1px solid var(--border);
           }
@@ -3402,13 +3315,9 @@ function renderHotmailTable() {
     return txt.includes(search);
   });
   
-  const filteredEntries = searchFiltered.filter(([id, item]) => {
-    return getHotmailSubTabCategory(item) === hotmailActiveSubTab;
-  }).sort((a, b) => {
+  const filteredEntries = searchFiltered.sort((a, b) => {
     return parseHotmailTimeMs(a[1].time) - parseHotmailTimeMs(b[1].time);
   });
-  
-  updateHotmailSubTabCounts();
   
   const totalPages = Math.ceil(filteredEntries.length / HOTMAIL_PAGE_SIZE) || 1;
   if (hotmailCurrentPage > totalPages) hotmailCurrentPage = totalPages;
@@ -4744,6 +4653,11 @@ function renderTiktokTable() {
           </span>
           ${item.duoplusProfileId ? `<button class="btn btn-ghost btn-sm" onclick="openGpmProfile('${item.duoplusProfileId}')" title="Mở Profile trong GPMLogin" style="padding:2px 5px; font-size:11px; height:24px; color:#38bdf8;">🚀</button>` : ''}
         </div>
+        ${item.duoplusHotmail ? `
+          <div style="font-size:11px; color:#38bdf8; margin-top:3px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; font-family:monospace;" onclick="copyText('${escapeHtml(item.duoplusHotmail)}')" title="Hotmail đã liên kết: ${escapeHtml(item.duoplusHotmail)} (Click để copy)">
+            ✉️ ${escapeHtml(item.duoplusHotmail)}
+          </div>
+        ` : ''}
       </td>
       <td style="padding:6px; text-align:center;">
         <input type="text" class="proxy-input" value="${escapeHtml(item.bitcloud || '')}" placeholder="BitCloud ID/Acc..." oninput="autoSaveTiktokBitCloud('${id}', this.value)" onclick="event.stopPropagation()" style="width:100%; min-width:110px; padding:4px 6px; font-size:11px; height:26px; box-sizing:border-box;">
@@ -4888,41 +4802,202 @@ function autoSaveTiktokBitCloud(id, val) {
   }, 400);
 }
 
+let currentPickerTiktokId = null;
+
 async function createGpmProfileForTiktok(id, btn) {
   const item = tiktokData[id];
   if (!item) {
     toast('Không tìm thấy tài khoản Tiktok', 'error');
     return;
   }
+  currentPickerTiktokId = id;
+  
+  // Ensure hotmail data is loaded
+  if (!hotmailData || Object.keys(hotmailData).length === 0) {
+    await loadHotmailData();
+  }
+  
+  openSelectHotmailModal(id);
+}
 
+function openSelectHotmailModal(tiktokId) {
+  currentPickerTiktokId = tiktokId;
+  const item = tiktokData[tiktokId] || {};
+  const userEl = document.getElementById('pickerTiktokUser');
+  if (userEl) userEl.innerText = item.username || item.mail || item.identifier || tiktokId;
+  
+  const searchInput = document.getElementById('pickerHotmailSearch');
+  if (searchInput) searchInput.value = '';
+  
+  renderHotmailPickerList();
+  
+  const modal = document.getElementById('selectHotmailModal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeSelectHotmailModal() {
+  const modal = document.getElementById('selectHotmailModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function renderHotmailPickerList() {
+  const tbody = document.getElementById('pickerHotmailTbody');
+  const summaryEl = document.getElementById('pickerHotmailSummary');
+  if (!tbody) return;
+  
+  const searchInput = document.getElementById('pickerHotmailSearch');
+  const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+  
+  const allEntries = Object.entries(hotmailData || {});
+  
+  if (allEntries.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:24px; color:var(--text-muted);">
+      Chưa có tài khoản Hotmail nào.<br>
+      <button class="btn btn-primary btn-sm" onclick="closeSelectHotmailModal(); switchTab('hotmail');" style="margin-top:10px; font-size:11px;">➡️ Đi đến tab Hotmail Accounts</button>
+    </td></tr>`;
+    if (summaryEl) summaryEl.textContent = '0 tài khoản';
+    return;
+  }
+  
+  const filtered = allEntries.filter(([id, item]) => {
+    if (!query) return true;
+    const txt = `${item.hotmail || ''} ${item.password || ''} ${item.service || ''}`.toLowerCase();
+    return txt.includes(query);
+  }).sort((a, b) => {
+    // Ưu tiên tài khoản chưa dùng Duoplus lên trước
+    const sA = (a[1].service || '').includes('Duoplus') ? 1 : 0;
+    const sB = (b[1].service || '').includes('Duoplus') ? 1 : 0;
+    return sA - sB;
+  });
+  
+  if (summaryEl) {
+    summaryEl.textContent = `Tổng: ${allEntries.length} | Khả dụng: ${filtered.length}`;
+  }
+  
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:16px; color:var(--text-muted);">Không tìm thấy Hotmail phù hợp</td></tr>';
+    return;
+  }
+  
+  const tiktokItem = tiktokData[currentPickerTiktokId] || {};
+  const currentLinkedHotmail = tiktokItem.duoplusHotmail || '';
+  
+  let html = '';
+  filtered.forEach(([hId, hItem]) => {
+    const s = (hItem.service || '').trim();
+    let serviceBadge = '<span style="color:var(--text-muted); font-size:11px;">-- Chưa dùng --</span>';
+    if (s === 'Duoplus') {
+      serviceBadge = '<span style="background:rgba(139, 92, 246, 0.2); color:#c084fc; border:1px solid rgba(139, 92, 246, 0.4); padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700;">Duoplus</span>';
+    } else if (s === 'BitCloud') {
+      serviceBadge = '<span style="background:rgba(2, 132, 199, 0.2); color:#38bdf8; border:1px solid rgba(2, 132, 199, 0.4); padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700;">BitCloud</span>';
+    } else if (s) {
+      serviceBadge = `<span style="background:rgba(236, 72, 153, 0.2); color:#f472b6; border:1px solid rgba(236, 72, 153, 0.4); padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700;">${escapeHtml(s)}</span>`;
+    }
+    
+    const isCurrentlySelected = currentLinkedHotmail && currentLinkedHotmail === hItem.hotmail;
+    const rowBg = isCurrentlySelected ? 'background:rgba(2, 132, 199, 0.12);' : '';
+    
+    html += `
+      <tr style="${rowBg} border-bottom:1px solid var(--border);">
+        <td style="padding:7px 10px; font-family:monospace; font-size:12px; font-weight:600; color:#38bdf8; cursor:pointer;" onclick="copyText('${escapeHtml(hItem.hotmail || '')}')" title="Click để copy email">
+          ${escapeHtml(hItem.hotmail || '')}
+          ${isCurrentlySelected ? '<span style="margin-left:6px; font-size:10px; background:#0284c7; color:#fff; padding:1px 5px; border-radius:3px;">Đang liên kết</span>' : ''}
+        </td>
+        <td style="padding:7px 10px; font-family:monospace; font-size:11px; cursor:pointer;" onclick="copyText('${escapeHtml(hItem.password || '')}')" title="Click để copy pass">
+          ${escapeHtml(hItem.password || '')}
+        </td>
+        <td style="padding:7px 10px;">
+          ${serviceBadge}
+        </td>
+        <td style="padding:7px 10px; text-align:center; white-space:nowrap;">
+          <button class="btn btn-sm btn-primary" onclick="confirmSelectHotmailForGpm('${hId}', '${escapeHtml(hItem.hotmail || '')}')" style="padding:3px 10px; font-size:11px; font-weight:700; background:linear-gradient(135deg, #0284c7, #0078d4); border:none; border-radius:4px; cursor:pointer; white-space:nowrap;">
+            ⚡ Chọn Mail này
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+  
+  tbody.innerHTML = html;
+}
+
+async function confirmSelectHotmailForGpm(hotmailId, hotmailEmail) {
+  const tiktokId = currentPickerTiktokId;
+  const item = tiktokData[tiktokId];
+  if (!item) {
+    toast('Không tìm thấy tài khoản TikTok', 'error');
+    closeSelectHotmailModal();
+    return;
+  }
+  
+  closeSelectHotmailModal();
+  
+  // 1. Tự động cập nhật ô Service ở tab Hotmail Accounts là Duoplus
+  if (hotmailData[hotmailId]) {
+    hotmailData[hotmailId].service = 'Duoplus';
+    fetch('/api/hotmail/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...hotmailData[hotmailId], id: hotmailId, service: 'Duoplus' })
+    }).catch(() => {});
+    renderHotmailTable();
+  }
+  
+  // 2. Lưu hotmail vào item TikTok
+  item.duoplusHotmail = hotmailEmail;
+  
+  // 3. Tiến hành tạo profile GPM
+  await executeGpmProfileCreation(tiktokId, hotmailEmail);
+}
+
+async function executeGpmProfileCreation(tiktokId, hotmailEmail) {
+  const item = tiktokData[tiktokId];
+  if (!item) return;
+  
   const port = localStorage.getItem('gpm_api_port') || '9495';
   const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
-  const rawName = (item.username || item.mail || item.identifier || id).replace(/[^a-zA-Z0-9_-]/g, '_');
-  const profileName = `Duoplus_${rawName}`;
-  const origBtnText = btn ? btn.innerHTML : '📱 Tạo Duoplus GPM';
   
+  // Tên profile: dữ liệu ô Username + Hotmail name
+  const username = (item.username || item.mail || item.identifier || 'User').trim();
+  const hotmailName = (hotmailEmail || '').trim();
+  const profileName = username ? `${username}_${hotmailName}` : hotmailName;
+  
+  const btn = document.getElementById('btnGpm_' + tiktokId);
+  const origBtnText = btn ? btn.innerHTML : '📱 Tạo Duoplus GPM';
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '⏳ Đang tạo...';
   }
-
+  
   toast(`Đang tạo profile GPMLogin: ${profileName}...`, 'info', 2000);
-
+  
+  // Cấu hình profile GPM mới:
+  // - Link mặc định: https://my.duoplus.net/sign-up
+  // - Trình duyệt: Chrome
+  // - Phiên bản: 154 (154.0.8037.98)
+  // - OS: Windows
+  // - Thông số ngẫu nhiên tránh trùng: canvas noise, audio noise, webgl noise, font masked, client_rect noise
   const payload = {
     name: profileName,
-    note: `TikTok: ${item.username || ''} | Mail: ${item.mail || ''} | Duoplus.net`,
-    startup_urls: "https://my.duoplus.net/sign-in\nhttps://duoplus.net",
-    browser_type: 1,
-    canvas_mode: 1,
+    note: `TikTok: ${username} | Hotmail: ${hotmailName} | Duoplus.net`,
+    startup_urls: "https://my.duoplus.net/sign-up",
+    browser_type: 1, // Chrome
+    browser_version: "154.0.8037.98", // Phiên bản 154
+    os: "windows", // OS: Windows
+    canvas_mode: 2, // Noise (Ngẫu nhiên thông số)
+    audio_mode: 2,  // Noise
+    webgl_mode: 2,  // Noise
+    client_rect_mode: 2, // Noise
+    font_mode: 2,   // Masked
     timezone_base_on_ip: true,
     is_language_base_on_ip: true
   };
-
+  
   let profileId = null;
   let success = false;
   let errorMsg = '';
-
-  // 1. Tier 1: Try GPM Bridge (Port 9497) - Direct from browser to local bridge with CORS & PNA
+  
+  // Tier 1: Local Bridge (Port 9497)
   const bridgeUrls = [
     `http://localhost:${bridgePort}/api/v1/profiles/create`,
     `http://127.0.0.1:${bridgePort}/api/v1/profiles/create`
@@ -4947,14 +5022,14 @@ async function createGpmProfileForTiktok(id, btn) {
       }
     } catch(e) {}
   }
-
-  // 2. Tier 2: Try Server Proxy /api/gpm/create-profile (Works when web app is running locally on localhost:3000)
+  
+  // Tier 2: Server Proxy
   if (!success) {
     try {
       const proxyRes = await fetch('/api/gpm/create-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ port, payload, id }),
+        body: JSON.stringify({ port, payload, id: tiktokId }),
         signal: AbortSignal.timeout(6000)
       });
       const proxyData = await proxyRes.json();
@@ -4966,8 +5041,8 @@ async function createGpmProfileForTiktok(id, btn) {
       }
     } catch(e) {}
   }
-
-  // 3. Tier 3: Direct fetch to GPMLogin API (Port 9495)
+  
+  // Tier 3: Direct GPM API
   if (!success) {
     const directUrls = [
       `http://127.0.0.1:${port}/api/v1/profiles/create`,
@@ -4992,39 +5067,33 @@ async function createGpmProfileForTiktok(id, btn) {
       } catch(e) {}
     }
   }
-
+  
   if (success && profileId) {
     item.duoplusProfileId = profileId;
     item.duoplus = profileId;
+    item.duoplusHotmail = hotmailEmail;
     
     // Save to Firebase backend
     fetch('/api/tiktok/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...item, id, duoplusProfileId: profileId, duoplus: profileId })
+      body: JSON.stringify({
+        ...item,
+        id: tiktokId,
+        duoplusProfileId: profileId,
+        duoplus: profileId,
+        duoplusHotmail: hotmailEmail
+      })
     }).catch(() => {});
-
-    // Update UI badge
-    const badgeEl = document.getElementById('gpmStatus_' + id);
-    if (badgeEl) {
-      badgeEl.innerText = profileId;
-      badgeEl.style.background = 'rgba(16, 185, 129, 0.2)';
-      badgeEl.style.color = '#34d399';
-      badgeEl.style.border = '1px solid rgba(16, 185, 129, 0.4)';
-      badgeEl.style.cursor = 'pointer';
-      badgeEl.title = `Profile ID: ${profileId} (Click để copy)`;
-    }
-    if (btn) {
-      btn.innerHTML = '🔄 Tạo lại';
-    }
+    
     toast(`✅ Đã tạo profile GPMLogin: ${profileName}! ID: ${profileId}`, 'success', 3500);
     renderTiktokTable();
   } else {
     if (btn) btn.innerHTML = origBtnText;
     const msg = errorMsg || `Không kết nối được GPMLogin (Port ${port})`;
-    toast(`⚠️ ${msg}. Nếu mở web trên VPS, hãy click đúp chạy file 'start-gpm-bridge.bat' trên máy tính!`, 'warning', 6000);
+    toast(`⚠️ ${msg}. Hãy đảm bảo GPMLogin hoặc file 'start-gpm-bridge.bat' đang chạy trên máy tính!`, 'warning', 6000);
   }
-
+  
   if (btn) btn.disabled = false;
 }
 
@@ -5245,6 +5314,7 @@ async function saveTiktok() {
     notes: existing.notes || '',
     duoplus: existing.duoplus || '',
     duoplusProfileId: existing.duoplusProfileId || '',
+    duoplusHotmail: existing.duoplusHotmail || '',
     bitcloud: existing.bitcloud || '',
     coMaTime: existing.coMaTime || '',
     subTabTime: existing.subTabTime || '',
@@ -6652,52 +6722,7 @@ function exportPhoneTableXLS() {
     `;
   }
   
-  tableHTML += `</tbody></table>
-  
-
-<!-- Modal Cấu hình GPMLogin & Bridge -->
-<div id="gpmConfigModal" class="modal-overlay">
-  <div class="modal-content" style="max-width: 520px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface2); box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
-    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px;">
-      <h3 style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
-        ⚙️ Cấu hình GPMLogin & Bridge
-      </h3>
-      <button class="btn btn-ghost" onclick="closeGpmConfigModal()" style="font-size:16px; padding:2px 8px;">✕</button>
-    </div>
-    <div class="modal-body" style="display:flex; flex-direction:column; gap:14px; padding-top:14px;">
-      <div style="background:rgba(2, 132, 199, 0.1); border:1px solid rgba(2, 132, 199, 0.25); border-radius:8px; padding:10px 12px; font-size:12px; line-height:1.5; color:#93c5fd;">
-        💡 <strong>Cách kết nối GPMLogin với Web:</strong><br>
-        • <strong>Chạy trên máy tính (localhost:3000):</strong> Tự động kết nối sẵn sàng.<br>
-        • <strong>Dùng web từ xa (VPS):</strong> Bạn chỉ cần click đúp chạy file <code>start-gpm-bridge.bat</code> trong thư mục shopee-qr trên máy tính để kết nối an toàn!
-      </div>
-
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-        <div class="form-group">
-          <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Cổng GPMLogin API</label>
-          <input type="number" id="cfg_gpm_port" class="proxy-input" value="9495" placeholder="9495" style="width:100%; height:34px; padding:4px 8px; font-size:13px;">
-        </div>
-        <div class="form-group">
-          <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Cổng GPM Bridge</label>
-          <input type="number" id="cfg_bridge_port" class="proxy-input" value="9497" placeholder="9497" style="width:100%; height:34px; padding:4px 8px; font-size:13px;">
-        </div>
-      </div>
-
-      <div id="gpmStatusBox" style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:12px;">
-        <div style="font-weight:700; margin-bottom:6px; color:var(--text);">🔍 Trạng thái kết nối:</div>
-        <div id="gpmStatusDetails" style="display:flex; flex-direction:column; gap:4px; color:var(--text-muted); font-size:12px;">
-          Đang kiểm tra...
-        </div>
-      </div>
-
-      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:6px;">
-        <button class="btn btn-secondary btn-sm" onclick="checkGpmConnectionStatus(true)" style="height:32px; padding:4px 12px; font-size:12px;">🔄 Kiểm tra kết nối</button>
-        <button class="btn btn-primary btn-sm" onclick="saveGpmConfig()" style="height:32px; padding:4px 14px; font-size:12px; background:linear-gradient(135deg, #0284c7, #0078d4); border:none;">💾 Lưu cấu hình</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-</body></html>`;
+  tableHTML += `</tbody></table></body></html>`;
   
   const blob = new Blob([tableHTML], { type: 'application/vnd.ms-excel' });
   const url = URL.createObjectURL(blob);
@@ -8289,6 +8314,92 @@ async function clearAllNotes() {
       <button class="btn btn-secondary" onclick="closeHotmailBulkModal()">Hủy</button>
       <button class="btn btn-ghost" onclick="previewHotmailBulk()" style="border:1px solid #0284c7; color:#38bdf8;">👁️ Xem trước</button>
       <button class="btn btn-primary" onclick="saveHotmailBulk()" style="background:linear-gradient(135deg, #8b5cf6, #7c3aed); border:none;">📥 Nhập tất cả</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Cấu hình GPMLogin & Bridge -->
+<div id="gpmConfigModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 520px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface2); box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px;">
+      <h3 style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+        ⚙️ Cấu hình GPMLogin & Bridge
+      </h3>
+      <button class="btn btn-ghost" onclick="closeGpmConfigModal()" style="font-size:16px; padding:2px 8px;">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:14px; padding-top:14px;">
+      <div style="background:rgba(2, 132, 199, 0.1); border:1px solid rgba(2, 132, 199, 0.25); border-radius:8px; padding:10px 12px; font-size:12px; line-height:1.5; color:#93c5fd;">
+        💡 <strong>Cách kết nối GPMLogin với Web:</strong><br>
+        • <strong>Chạy trên máy tính (localhost:3000):</strong> Tự động kết nối sẵn sàng.<br>
+        • <strong>Dùng web từ xa (VPS):</strong> Bạn chỉ cần click đúp chạy file <code>start-gpm-bridge.bat</code> trong thư mục shopee-qr trên máy tính để kết nối an toàn!
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Cổng GPMLogin API</label>
+          <input type="number" id="cfg_gpm_port" class="proxy-input" value="9495" placeholder="9495" style="width:100%; height:34px; padding:4px 8px; font-size:13px;">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block;">Cổng GPM Bridge</label>
+          <input type="number" id="cfg_bridge_port" class="proxy-input" value="9497" placeholder="9497" style="width:100%; height:34px; padding:4px 8px; font-size:13px;">
+        </div>
+      </div>
+
+      <div id="gpmStatusBox" style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:12px;">
+        <div style="font-weight:700; margin-bottom:6px; color:var(--text);">🔍 Trạng thái kết nối:</div>
+        <div id="gpmStatusDetails" style="display:flex; flex-direction:column; gap:4px; color:var(--text-muted); font-size:12px;">
+          Đang kiểm tra...
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:6px;">
+        <button class="btn btn-secondary btn-sm" onclick="checkGpmConnectionStatus(true)" style="height:32px; padding:4px 12px; font-size:12px;">🔄 Kiểm tra kết nối</button>
+        <button class="btn btn-primary btn-sm" onclick="saveGpmConfig()" style="height:32px; padding:4px 14px; font-size:12px; background:linear-gradient(135deg, #0284c7, #0078d4); border:none;">💾 Lưu cấu hình</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Chọn Hotmail liên kết Duoplus GPM -->
+<div id="selectHotmailModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 680px; width: 95%; max-height: 85vh; border-radius: 14px; border: 1px solid var(--border); background: var(--surface2); box-shadow: 0 10px 40px rgba(0,0,0,0.5); display: flex; flex-direction: column;">
+    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px;">
+      <div>
+        <h3 style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+          📬 Chọn Hotmail liên kết Duoplus GPM
+        </h3>
+        <p style="font-size:12px; color:var(--text-muted); margin-top:3px;">
+          Tài khoản TikTok: <strong id="pickerTiktokUser" style="color:#38bdf8; font-family:monospace;"></strong>
+        </p>
+      </div>
+      <button class="btn btn-ghost" onclick="closeSelectHotmailModal()" style="font-size:16px; padding:2px 8px;">✕</button>
+    </div>
+    
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:10px; padding: 14px 0; flex: 1; overflow: hidden;">
+      <div style="padding: 0 16px;">
+        <input type="text" id="pickerHotmailSearch" class="proxy-input" placeholder="🔍 Tìm kiếm nhanh Hotmail / Password / Service..." onkeyup="renderHotmailPickerList()" style="width: 100%; height: 34px; padding: 6px 12px; font-size: 13px; box-sizing: border-box;">
+      </div>
+      
+      <div style="flex: 1; overflow-y: auto; max-height: 380px; padding: 0 16px;">
+        <table class="compact-table" style="width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid var(--border);">
+          <thead>
+            <tr style="background: var(--surface); color: var(--text-muted); position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--border);">
+              <th style="padding: 8px 10px; text-align: left;">Hotmail</th>
+              <th style="padding: 8px 10px; text-align: left; width: 130px;">Password</th>
+              <th style="padding: 8px 10px; text-align: left; width: 130px;">Service</th>
+              <th style="padding: 8px 10px; text-align: center; width: 120px;">Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="pickerHotmailTbody">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:10px;">
+      <span id="pickerHotmailSummary" style="font-size:12px; color:var(--text-muted);"></span>
+      <button class="btn btn-secondary btn-sm" onclick="closeSelectHotmailModal()" style="height:32px; padding:4px 14px; font-size:12px;">Đóng</button>
     </div>
   </div>
 </div>
