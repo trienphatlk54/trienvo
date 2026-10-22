@@ -3,9 +3,9 @@
 // 1. Mở profile GPMLogin & kết nối Puppeteer
 // 2. Chờ trang https://my.duoplus.net/sign-up tải xong
 // 3. Điền email, password, tick đồng ý điều khoản
-// 4. Bấm Send Code & ghi nhận mốc thời gian
+// 4. Bấm Send Code
 // 5. Chờ người dùng giải Captcha (tự động phát hiện khi giải xong hoặc bấm bỏ qua)
-// 6. Quét hộp thư Hotmail lấy OTP mới (từ thời điểm Send Code đến hiện tại)
+// 6. Quét hộp thư Hotmail lấy OTP mới (chỉ lọc từ khóa 'duoplus', không lọc thời gian, hỗ trợ Try Again khi quá giờ)
 // 7. Điền Verification Code & bấm Create Account
 
 const puppeteer = require('puppeteer');
@@ -24,12 +24,15 @@ function startDuoplusRegistration({ profileId, gpmPort = 9495, hotmailAccount, t
     profileId,
     hotmail: hotmailAccount.hotmail,
     tiktokUsername: tiktokAccount?.username || '',
-    status: 'starting', // starting | navigating | filling_form | waiting_captcha | polling_otp | submitting | completed | error
+    status: 'starting', // starting | navigating | filling_form | waiting_captcha | polling_otp | otp_timeout | submitting | completed | error
     step: 1,
     message: 'Đang khởi động trình duyệt GPMLogin...',
     otp: null,
     error: null,
     captchaManuallyPassed: false,
+    retryRequested: false,
+    manualOtp: null,
+    otpPollStart: null,
     cancelled: false,
     startTime: Date.now(),
     sendCodeTime: null,
@@ -63,6 +66,36 @@ function markCaptchaPassed(taskId) {
   const task = activeTasks.get(taskId);
   if (task) {
     task.captchaManuallyPassed = true;
+    task.updatedAt = Date.now();
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Yêu cầu thử lại quét OTP (Try Again) khi quá thời gian
+ */
+function retryDuoplusOtp(taskId) {
+  const task = activeTasks.get(taskId);
+  if (task) {
+    task.retryRequested = true;
+    task.status = 'polling_otp';
+    task.otpPollStart = Date.now();
+    task.message = '🔄 Đang tiếp tục quét hộp thư tìm email DuoPlus...';
+    task.updatedAt = Date.now();
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Nhập mã OTP thủ công
+ */
+function submitManualOtp(taskId, otp) {
+  const task = activeTasks.get(taskId);
+  if (task && otp && /^\d{6}$/.test(otp.trim())) {
+    task.manualOtp = otp.trim();
+    task.otp = otp.trim();
     task.updatedAt = Date.now();
     return true;
   }
@@ -328,39 +361,80 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
       throw new Error('Hết thời gian chờ giải Captcha (3 phút). Vui lòng thử lại.');
     }
 
-    // BƯỚC 6: Quét mail Hotmail lấy OTP liên tục (lọc từ thời điểm Send Code)
+    // BƯỚC 6: Quét mail Hotmail lấy OTP liên tục (chỉ lọc từ khóa 'duoplus', không lọc thời gian, có Try Again)
     task.status = 'polling_otp';
     task.step = 5;
-    task.message = '✅ Captcha hoàn tất! Đang quét hộp thư Hotmail tìm mã OTP mới...';
+    task.message = '✅ Captcha hoàn tất! Đang quét hộp thư tìm email DuoPlus chứa mã OTP...';
     task.updatedAt = Date.now();
 
     let otpCode = null;
-    const otpPollStart = Date.now();
 
-    // Vòng lặp quét OTP tối đa 90 giây
-    while (Date.now() - otpPollStart < 90000) {
+    // Vòng lặp quét OTP (hỗ trợ Try Again nhiều chu kỳ mà không mất kết nối browser)
+    while (!otpCode) {
       if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
 
-      const elapsedSec = Math.round((Date.now() - otpPollStart) / 1000);
-      task.message = `Đang quét hộp thư Hotmail tìm OTP mới (${elapsedSec}s / 90s)...`;
-      task.updatedAt = Date.now();
+      const pollCycleStart = Date.now();
+      task.otpPollStart = pollCycleStart;
+      task.status = 'polling_otp';
+      task.retryRequested = false;
 
-      try {
-        const otpRes = await fetchHotmailOAuth2Otp(hotmailAccount, sendCodeTimestamp);
-        if (otpRes && otpRes.success && otpRes.otp) {
-          otpCode = otpRes.otp;
+      // Quét trong chu kỳ 90 giây
+      while (Date.now() - pollCycleStart < 90000) {
+        if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
+        if (task.manualOtp) {
+          otpCode = task.manualOtp;
           task.otp = otpCode;
           break;
         }
-      } catch(e) {
-        console.log('[DuoPlus Automation] Quét mail error:', e.message);
+
+        const elapsedSec = Math.round((Date.now() - pollCycleStart) / 1000);
+        task.message = `Đang quét hộp thư Hotmail tìm mail DuoPlus (${elapsedSec}s / 90s)...`;
+        task.updatedAt = Date.now();
+
+        try {
+          // Cơ chế mới: Quét thư mục Inbox & Junk, lọc từ khóa 'duoplus', không lọc thời gian
+          const otpRes = await fetchHotmailOAuth2Otp(hotmailAccount, { keyword: 'duoplus' });
+          if (otpRes && otpRes.success && otpRes.otp) {
+            otpCode = otpRes.otp;
+            task.otp = otpCode;
+            break;
+          } else if (otpRes && otpRes.error && !otpRes.notFoundDuoPlus) {
+            console.log('[DuoPlus Automation] Quét mail info:', otpRes.error);
+          }
+        } catch(e) {
+          console.log('[DuoPlus Automation] Quét mail error:', e.message);
+        }
+
+        // Nếu người dùng bấm "Try Again" trong lúc đang đếm, reset đếm lại từ đầu chu kỳ
+        if (task.retryRequested) {
+          task.retryRequested = false;
+          break;
+        }
+
+        await new Promise(r => setTimeout(r, 2500));
       }
 
-      await new Promise(r => setTimeout(r, 3000));
-    }
+      if (otpCode) break;
 
-    if (!otpCode) {
-      throw new Error('Không nhận được mã OTP từ Hotmail sau 90 giây. Vui lòng kiểm tra hộp thư Hotmail.');
+      // Hết 90 giây mà chưa nhận được mail: Chuyển sang trạng thái otp_timeout để hiển thị nút Try Again
+      task.status = 'otp_timeout';
+      task.step = 5;
+      task.message = '⏱️ Đã qua 90s nhưng chưa nhận được email từ DuoPlus. Bấm [Thử lại quét OTP] bên dưới để quét tiếp!';
+      task.updatedAt = Date.now();
+
+      // Giữ kết nối Puppeteer và đợi người dùng bấm Try Again hoặc Nhập tay hoặc Hủy
+      while (!task.retryRequested && !task.manualOtp && !task.cancelled) {
+        await new Promise(r => setTimeout(r, 800));
+      }
+
+      if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
+      if (task.manualOtp) {
+        otpCode = task.manualOtp;
+        task.otp = otpCode;
+        break;
+      }
+
+      task.retryRequested = false;
     }
 
     if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
@@ -442,5 +516,7 @@ module.exports = {
   startDuoplusRegistration,
   getDuoplusTaskStatus,
   markCaptchaPassed,
+  retryDuoplusOtp,
+  submitManualOtp,
   cancelDuoplusTask
 };

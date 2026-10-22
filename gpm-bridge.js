@@ -4,7 +4,14 @@
 // Tích hợp DuoPlus Automation (Mở GPM, Tự điền form, Chờ Captcha, Quét Hotmail OTP, Hoàn tất đăng ký)
 
 const http = require('http');
-const { startDuoplusRegistration, getDuoplusTaskStatus, markCaptchaPassed, cancelDuoplusTask } = require('./duoplus-automation');
+const { 
+  startDuoplusRegistration, 
+  getDuoplusTaskStatus, 
+  markCaptchaPassed, 
+  retryDuoplusOtp, 
+  submitManualOtp, 
+  cancelDuoplusTask 
+} = require('./duoplus-automation');
 
 const GPM_PORT = parseInt(process.env.GPM_PORT || '9495', 10);
 const BRIDGE_PORT = parseInt(process.env.BRIDGE_PORT || '9497', 10);
@@ -102,6 +109,36 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // DuoPlus Automation: Retry OTP (Try Again)
+  if ((req.url.startsWith('/api/v1/duoplus/retry-otp/') || req.url.startsWith('/api/duoplus/retry-otp/')) && req.method === 'POST') {
+    const parts = req.url.split('/retry-otp/');
+    const taskId = (parts[1] || '').split('?')[0];
+    const ok = retryDuoplusOtp(taskId);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: ok }));
+    return;
+  }
+
+  // DuoPlus Automation: Submit Manual OTP
+  if ((req.url.startsWith('/api/v1/duoplus/submit-otp/') || req.url.startsWith('/api/duoplus/submit-otp/')) && req.method === 'POST') {
+    const parts = req.url.split('/submit-otp/');
+    const taskId = (parts[1] || '').split('?')[0];
+    let bodyBuffer = '';
+    req.on('data', chunk => { bodyBuffer += chunk; });
+    req.on('end', () => {
+      try {
+        const body = JSON.parse(bodyBuffer);
+        const ok = submitManualOtp(taskId, body.otp);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: ok }));
+      } catch(e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
   // DuoPlus Automation: Cancel Task
   if ((req.url.startsWith('/api/v1/duoplus/cancel-task/') || req.url.startsWith('/api/duoplus/cancel-task/')) && req.method === 'POST') {
     const parts = req.url.split('/cancel-task/');
@@ -176,7 +213,7 @@ server.listen(BRIDGE_PORT, '0.0.0.0', () => {
   console.log(`   📡 Bridge Port: http://localhost:${BRIDGE_PORT}`);
   console.log(`   🔗 GPMLogin Port mục tiêu: http://localhost:${GPM_PORT}`);
   console.log('   ✨ Hỗ trợ kết nối trực tiếp từ Web VPS và Localhost.');
-  console.log('   🤖 Tích hợp tự động hóa đăng ký DuoPlus.net');
+  console.log('   🤖 Tích hợp tự động hóa đăng ký DuoPlus.net (Try Again & Manual OTP)');
   console.log('================================================================');
 });
 

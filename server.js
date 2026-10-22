@@ -2151,10 +2151,17 @@ app.post('/api/hotmail/delete', async (req, res) => {
 
 // ── Hotmail OAuth2 Get OTP Helper & Endpoint ───────────────────────────
 const { fetchHotmailOAuth2Otp } = require('./hotmail-otp-helper');
-const { startDuoplusRegistration, getDuoplusTaskStatus, markCaptchaPassed, cancelDuoplusTask } = require('./duoplus-automation');
+const { 
+  startDuoplusRegistration, 
+  getDuoplusTaskStatus, 
+  markCaptchaPassed, 
+  retryDuoplusOtp, 
+  submitManualOtp, 
+  cancelDuoplusTask 
+} = require('./duoplus-automation');
 
 app.post('/api/hotmail/get-otp', async (req, res) => {
-  const { id, hotmail, password, authCookies, sessionId, restoreMail, sinceTime } = req.body;
+  const { id, hotmail, password, authCookies, sessionId, restoreMail, service, keyword } = req.body;
   let account = { hotmail, password, authCookies, sessionId, restoreMail };
 
   // If id is provided, merge with stored DB data
@@ -2168,7 +2175,8 @@ app.post('/api/hotmail/get-otp', async (req, res) => {
     } catch(e) {}
   }
 
-  const result = await fetchHotmailOAuth2Otp(account, sinceTime);
+  const kw = keyword || (service && service !== 'Chưa chọn' ? service : '');
+  const result = await fetchHotmailOAuth2Otp(account, { keyword: kw });
 
   if (result.success && result.otp && id) {
     try {
@@ -2213,6 +2221,19 @@ app.get('/api/duoplus/task-status/:taskId', (req, res) => {
 app.post('/api/duoplus/captcha-passed/:taskId', (req, res) => {
   const { taskId } = req.params;
   const ok = markCaptchaPassed(taskId);
+  res.json({ success: ok });
+});
+
+app.post('/api/duoplus/retry-otp/:taskId', (req, res) => {
+  const { taskId } = req.params;
+  const ok = retryDuoplusOtp(taskId);
+  res.json({ success: ok });
+});
+
+app.post('/api/duoplus/submit-otp/:taskId', (req, res) => {
+  const { taskId } = req.params;
+  const { otp } = req.body;
+  const ok = submitManualOtp(taskId, otp);
   res.json({ success: ok });
 });
 
