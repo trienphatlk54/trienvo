@@ -1,8 +1,10 @@
 // 🌐 GPMLogin Bridge for Shopee Toolkit
 // Cho phép website (chạy trên VPS hoặc Local) kết nối an toàn với GPMLogin trên máy tính cá nhân
 // Tự động xử lý CORS và Chrome Private Network Access (PNA)
+// Tích hợp DuoPlus Automation (Mở GPM, Tự điền form, Chờ Captcha, Quét Hotmail OTP, Hoàn tất đăng ký)
 
 const http = require('http');
+const { startDuoplusRegistration, getDuoplusTaskStatus, markCaptchaPassed, cancelDuoplusTask } = require('./duoplus-automation');
 
 const GPM_PORT = parseInt(process.env.GPM_PORT || '9495', 10);
 const BRIDGE_PORT = parseInt(process.env.BRIDGE_PORT || '9497', 10);
@@ -49,6 +51,64 @@ const server = http.createServer(async (req, res) => {
       gpmOnline,
       message: gpmOnline ? 'GPM Bridge và GPMLogin đang hoạt động tốt!' : `GPM Bridge đang chạy nhưng GPMLogin (Port ${GPM_PORT}) chưa được bật trên máy tính.`
     }));
+    return;
+  }
+
+  // DuoPlus Automation: Start Registration
+  if ((req.url === '/api/v1/duoplus/start-registration' || req.url === '/api/duoplus/start-registration') && req.method === 'POST') {
+    let bodyBuffer = '';
+    req.on('data', chunk => { bodyBuffer += chunk; });
+    req.on('end', async () => {
+      try {
+        const body = JSON.parse(bodyBuffer);
+        const taskId = startDuoplusRegistration({
+          profileId: body.profileId,
+          gpmPort: body.gpmPort || GPM_PORT,
+          hotmailAccount: body.hotmailAccount,
+          tiktokAccount: body.tiktokAccount
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, taskId }));
+      } catch(err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // DuoPlus Automation: Task Status
+  if ((req.url.startsWith('/api/v1/duoplus/task-status/') || req.url.startsWith('/api/duoplus/task-status/')) && req.method === 'GET') {
+    const parts = req.url.split('/task-status/');
+    const taskId = (parts[1] || '').split('?')[0];
+    const task = getDuoplusTaskStatus(taskId);
+    if (!task) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Không tìm thấy tác vụ: ' + taskId }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, task }));
+    return;
+  }
+
+  // DuoPlus Automation: Mark Captcha Passed manually
+  if ((req.url.startsWith('/api/v1/duoplus/captcha-passed/') || req.url.startsWith('/api/duoplus/captcha-passed/')) && req.method === 'POST') {
+    const parts = req.url.split('/captcha-passed/');
+    const taskId = (parts[1] || '').split('?')[0];
+    const ok = markCaptchaPassed(taskId);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: ok }));
+    return;
+  }
+
+  // DuoPlus Automation: Cancel Task
+  if ((req.url.startsWith('/api/v1/duoplus/cancel-task/') || req.url.startsWith('/api/duoplus/cancel-task/')) && req.method === 'POST') {
+    const parts = req.url.split('/cancel-task/');
+    const taskId = (parts[1] || '').split('?')[0];
+    const ok = cancelDuoplusTask(taskId);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: ok }));
     return;
   }
 
@@ -116,6 +176,7 @@ server.listen(BRIDGE_PORT, '0.0.0.0', () => {
   console.log(`   📡 Bridge Port: http://localhost:${BRIDGE_PORT}`);
   console.log(`   🔗 GPMLogin Port mục tiêu: http://localhost:${GPM_PORT}`);
   console.log('   ✨ Hỗ trợ kết nối trực tiếp từ Web VPS và Localhost.');
+  console.log('   🤖 Tích hợp tự động hóa đăng ký DuoPlus.net');
   console.log('================================================================');
 });
 

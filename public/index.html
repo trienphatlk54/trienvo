@@ -4651,7 +4651,7 @@ function renderTiktokTable() {
           <span id="gpmStatus_${id}" class="gpm-profile-badge" onclick="if(this.innerText && this.innerText !== '---') copyText(this.innerText)" title="${item.duoplusProfileId ? 'Profile ID: ' + item.duoplusProfileId + ' (Click để copy)' : 'Chưa có profile'}" style="font-family:monospace; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; ${item.duoplusProfileId ? 'background:rgba(16,185,129,0.2); color:#34d399; border:1px solid rgba(16,185,129,0.4); cursor:pointer;' : 'color:var(--text-muted);'}">
             ${item.duoplusProfileId || '---'}
           </span>
-          ${item.duoplusProfileId ? `<button class="btn btn-ghost btn-sm" onclick="openGpmProfile('${item.duoplusProfileId}')" title="Mở Profile trong GPMLogin" style="padding:2px 5px; font-size:11px; height:24px; color:#38bdf8;">🚀</button>` : ''}
+          ${item.duoplusProfileId ? `<button class="btn btn-ghost btn-sm" onclick="openGpmProfile('${item.duoplusProfileId}')" title="Mở Profile trong GPMLogin" style="padding:2px 5px; font-size:11px; height:24px; color:#38bdf8;">🚀</button><button class="btn btn-ghost btn-sm" onclick="retryDuoplusRegistration('${id}')" title="Chạy tự động đăng ký DuoPlus" style="padding:2px 5px; font-size:11px; height:24px; color:#c084fc;">🤖</button>` : ''}
         </div>
         ${item.duoplusHotmail ? `
           <div style="font-size:11px; color:#38bdf8; margin-top:3px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; font-family:monospace;" onclick="copyText('${escapeHtml(item.duoplusHotmail)}')" title="Hotmail đã liên kết: ${escapeHtml(item.duoplusHotmail)} (Click để copy)">
@@ -4947,10 +4947,10 @@ async function confirmSelectHotmailForGpm(hotmailId, hotmailEmail) {
   item.duoplusHotmail = hotmailEmail;
   
   // 3. Tiến hành tạo profile GPM
-  await executeGpmProfileCreation(tiktokId, hotmailEmail);
+  await executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId);
 }
 
-async function executeGpmProfileCreation(tiktokId, hotmailEmail) {
+async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = null) {
   const item = tiktokData[tiktokId];
   if (!item) return;
   
@@ -5088,6 +5088,15 @@ async function executeGpmProfileCreation(tiktokId, hotmailEmail) {
     
     toast(`✅ Đã tạo profile GPMLogin: ${profileName}! ID: ${profileId}`, 'success', 3500);
     renderTiktokTable();
+
+    // Tự động khởi chạy luồng đăng ký tài khoản DuoPlus
+    startDuoplusAutomationFlow({
+      tiktokId,
+      hotmailId,
+      hotmailEmail,
+      profileId,
+      profileName
+    });
   } else {
     if (btn) btn.innerHTML = origBtnText;
     const msg = errorMsg || `Không kết nối được GPMLogin (Port ${port})`;
@@ -5139,6 +5148,371 @@ async function openGpmProfile(profileId) {
 
   toast(`⚠️ Không kết nối được GPMLogin (Port ${port}). Hãy chạy 'start-gpm-bridge.bat' trên máy tính!`, 'error', 4500);
 }
+
+// ─── DUOPLUS AUTOMATION FRONTEND LOGIC ────────────────────────────────
+let duoplusCurrentTaskId = null;
+let duoplusPollInterval = null;
+
+async function startDuoplusAutomationFlow({ tiktokId, hotmailId, hotmailEmail, profileId, profileName }) {
+  const modal = document.getElementById('duoplusProgressModal');
+  if (modal) modal.classList.add('active');
+
+  const tiktokItem = tiktokData[tiktokId] || {};
+  let hotmailAccount = (hotmailId && hotmailData[hotmailId]) ? hotmailData[hotmailId] : null;
+  
+  if (!hotmailAccount) {
+    // Tìm trong hotmailData theo email
+    for (const [hId, h] of Object.entries(hotmailData || {})) {
+      if (h.hotmail === hotmailEmail) {
+        hotmailAccount = h;
+        hotmailId = hId;
+        break;
+      }
+    }
+  }
+
+  if (!hotmailAccount) {
+    hotmailAccount = { hotmail: hotmailEmail, password: '' };
+  }
+
+  // Cập nhật thông tin Header
+  const userEl = document.getElementById('duoProgUser');
+  if (userEl) userEl.innerText = tiktokItem.username || tiktokItem.mail || tiktokItem.identifier || tiktokId;
+  const mailEl = document.getElementById('duoProgMail');
+  if (mailEl) mailEl.innerText = hotmailEmail;
+  const footerEl = document.getElementById('duoTaskFooterInfo');
+  if (footerEl) footerEl.innerText = `Profile ID: ${profileId}`;
+
+  resetDuoplusModalUI();
+  setDuoplusStatusMessage('⏳ Đang gửi lệnh khởi động tự động hóa DuoPlus...');
+
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+  const gpmPort = localStorage.getItem('gpm_api_port') || '9495';
+
+  const payload = {
+    profileId,
+    gpmPort: parseInt(gpmPort, 10),
+    hotmailAccount,
+    tiktokAccount: tiktokItem
+  };
+
+  let taskId = null;
+
+  // Tier 1: Thử GPM Bridge (Port 9497)
+  const bridgeUrls = [
+    `http://localhost:${bridgePort}/api/v1/duoplus/start-registration`,
+    `http://127.0.0.1:${bridgePort}/api/v1/duoplus/start-registration`
+  ];
+
+  for (const bUrl of bridgeUrls) {
+    try {
+      const res = await fetch(bUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(5000)
+      });
+      const data = await res.json();
+      if (data && data.success && data.taskId) {
+        taskId = data.taskId;
+        break;
+      }
+    } catch(e) {}
+  }
+
+  // Tier 2: Thử Server Proxy (/api/duoplus/start-registration)
+  if (!taskId) {
+    try {
+      const sRes = await fetch('/api/duoplus/start-registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(8000)
+      });
+      const sData = await sRes.json();
+      if (sData && sData.success && sData.taskId) {
+        taskId = sData.taskId;
+      }
+    } catch(e) {}
+  }
+
+  if (!taskId) {
+    setDuoplusModalError('Không thể kết nối dịch vụ DuoPlus Automation. Hãy chắc chắn file start-gpm-bridge.bat đang chạy trên máy tính!');
+    return;
+  }
+
+  duoplusCurrentTaskId = taskId;
+  startDuoplusTaskPolling(taskId, hotmailId);
+}
+
+function startDuoplusTaskPolling(taskId, hotmailId) {
+  if (duoplusPollInterval) clearInterval(duoplusPollInterval);
+
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+
+  duoplusPollInterval = setInterval(async () => {
+    let task = null;
+
+    // 1. Thử local bridge
+    try {
+      const res = await fetch(`http://localhost:${bridgePort}/api/v1/duoplus/task-status/${taskId}`, {
+        signal: AbortSignal.timeout(2500)
+      });
+      const data = await res.json();
+      if (data && data.success && data.task) {
+        task = data.task;
+      }
+    } catch(e) {}
+
+    // 2. Thử server proxy
+    if (!task) {
+      try {
+        const sRes = await fetch(`/api/duoplus/task-status/${taskId}`, {
+          signal: AbortSignal.timeout(2500)
+        });
+        const sData = await sRes.json();
+        if (sData && sData.success && sData.task) {
+          task = sData.task;
+        }
+      } catch(e) {}
+    }
+
+    if (!task) return;
+
+    renderDuoplusTaskProgress(task, hotmailId);
+
+    if (task.status === 'completed' || task.status === 'error') {
+      clearInterval(duoplusPollInterval);
+      duoplusPollInterval = null;
+    }
+  }, 1000);
+}
+
+function renderDuoplusTaskProgress(task, hotmailId) {
+  const currentStep = task.step || 1;
+
+  for (let s = 1; s <= 7; s++) {
+    const stepEl = document.getElementById('duoStep' + s);
+    if (!stepEl) continue;
+    const badge = stepEl.querySelector('.duo-step-badge');
+    const title = stepEl.querySelector('.duo-step-title');
+    const statusText = stepEl.querySelector('.duo-step-status');
+
+    if (task.status === 'error' && s === currentStep) {
+      if (badge) {
+        badge.innerText = '✕';
+        badge.style.background = '#ef4444';
+        badge.style.color = '#fff';
+      }
+      if (title) title.style.color = '#f87171';
+      if (statusText) {
+        statusText.innerText = 'Lỗi';
+        statusText.style.color = '#f87171';
+      }
+    } else if (s < currentStep || task.status === 'completed') {
+      if (badge) {
+        badge.innerText = '✓';
+        badge.style.background = '#10b981';
+        badge.style.color = '#fff';
+      }
+      if (title) title.style.color = '#34d399';
+      if (statusText) {
+        statusText.innerText = 'Xong';
+        statusText.style.color = '#34d399';
+      }
+    } else if (s === currentStep) {
+      if (badge) {
+        badge.innerText = s;
+        badge.style.background = '#0284c7';
+        badge.style.color = '#fff';
+      }
+      if (title) title.style.color = '#38bdf8';
+      if (statusText) {
+        statusText.innerText = 'Đang chạy...';
+        statusText.style.color = '#38bdf8';
+      }
+    } else {
+      if (badge) {
+        badge.innerText = s;
+        badge.style.background = 'rgba(255,255,255,0.08)';
+        badge.style.color = 'var(--text-muted)';
+      }
+      if (title) title.style.color = 'var(--text-muted)';
+      if (statusText) {
+        statusText.innerText = 'Chờ...';
+        statusText.style.color = 'var(--text-muted)';
+      }
+    }
+  }
+
+  // Bảng nhắc giải Captcha
+  const captchaAlert = document.getElementById('duoCaptchaAlert');
+  if (captchaAlert) {
+    captchaAlert.style.display = (task.status === 'waiting_captcha') ? 'block' : 'none';
+  }
+
+  // Khung hiển thị OTP
+  const otpAlert = document.getElementById('duoOtpAlert');
+  const otpDisplay = document.getElementById('duoOtpCodeDisplay');
+  if (task.otp) {
+    if (otpAlert) otpAlert.style.display = 'block';
+    if (otpDisplay) otpDisplay.innerText = task.otp;
+
+    // Tự động lưu OTP vào bảng Hotmail
+    if (hotmailId && hotmailData[hotmailId] && hotmailData[hotmailId].otpCode !== task.otp) {
+      hotmailData[hotmailId].otpCode = task.otp;
+      fetch('/api/hotmail/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...hotmailData[hotmailId], id: hotmailId, otpCode: task.otp })
+      }).catch(() => {});
+      renderHotmailTable();
+    }
+  }
+
+  // Khung trạng thái
+  const msgEl = document.getElementById('duoStatusMessage');
+  const spinner = document.getElementById('duoStatusSpinner');
+  if (msgEl) {
+    msgEl.innerText = task.message || '';
+    if (task.status === 'completed') {
+      msgEl.style.color = '#34d399';
+      if (spinner) spinner.style.display = 'none';
+      toast('🎉 Đăng ký tài khoản DuoPlus thành công!', 'success', 4000);
+    } else if (task.status === 'error') {
+      msgEl.style.color = '#f87171';
+      if (spinner) spinner.style.display = 'none';
+    } else {
+      msgEl.style.color = 'var(--text)';
+      if (spinner) spinner.style.display = 'block';
+    }
+  }
+}
+
+function resetDuoplusModalUI() {
+  for (let s = 1; s <= 7; s++) {
+    const stepEl = document.getElementById('duoStep' + s);
+    if (!stepEl) continue;
+    const badge = stepEl.querySelector('.duo-step-badge');
+    const title = stepEl.querySelector('.duo-step-title');
+    const statusText = stepEl.querySelector('.duo-step-status');
+    if (badge) {
+      badge.innerText = s;
+      badge.style.background = s === 1 ? '#0284c7' : 'rgba(255,255,255,0.08)';
+      badge.style.color = s === 1 ? '#fff' : 'var(--text-muted)';
+    }
+    if (title) title.style.color = s === 1 ? '#38bdf8' : 'var(--text-muted)';
+    if (statusText) statusText.innerText = s === 1 ? 'Đang chạy...' : 'Chờ...';
+  }
+
+  const captchaAlert = document.getElementById('duoCaptchaAlert');
+  if (captchaAlert) captchaAlert.style.display = 'none';
+  const otpAlert = document.getElementById('duoOtpAlert');
+  if (otpAlert) otpAlert.style.display = 'none';
+  const otpDisplay = document.getElementById('duoOtpCodeDisplay');
+  if (otpDisplay) otpDisplay.innerText = '------';
+
+  const spinner = document.getElementById('duoStatusSpinner');
+  if (spinner) spinner.style.display = 'block';
+  const msgEl = document.getElementById('duoStatusMessage');
+  if (msgEl) {
+    msgEl.style.color = 'var(--text)';
+    msgEl.innerText = 'Đang kết nối...';
+  }
+}
+
+function setDuoplusStatusMessage(msg) {
+  const msgEl = document.getElementById('duoStatusMessage');
+  if (msgEl) msgEl.innerText = msg;
+}
+
+function setDuoplusModalError(errMsg) {
+  const msgEl = document.getElementById('duoStatusMessage');
+  const spinner = document.getElementById('duoStatusSpinner');
+  if (msgEl) {
+    msgEl.innerText = '❌ ' + errMsg;
+    msgEl.style.color = '#f87171';
+  }
+  if (spinner) spinner.style.display = 'none';
+}
+
+async function markDuoplusCaptchaResolved() {
+  if (!duoplusCurrentTaskId) return;
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+  try {
+    await fetch(`http://localhost:${bridgePort}/api/v1/duoplus/captcha-passed/${duoplusCurrentTaskId}`, { method: 'POST' });
+  } catch(e) {
+    try {
+      await fetch(`/api/duoplus/captcha-passed/${duoplusCurrentTaskId}`, { method: 'POST' });
+    } catch(e2) {}
+  }
+  toast('Đã ghi nhận hoàn thành Captcha. Đang quét hộp thư tìm mã OTP...', 'info', 2500);
+}
+
+async function cancelCurrentDuoplusTask() {
+  if (!duoplusCurrentTaskId) {
+    closeDuoplusProgressModal();
+    return;
+  }
+  if (!confirm('Bạn có chắc muốn dừng tác vụ tự động đăng ký DuoPlus?')) return;
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+  try {
+    await fetch(`http://localhost:${bridgePort}/api/v1/duoplus/cancel-task/${duoplusCurrentTaskId}`, { method: 'POST' });
+  } catch(e) {
+    try {
+      await fetch(`/api/duoplus/cancel-task/${duoplusCurrentTaskId}`, { method: 'POST' });
+    } catch(e2) {}
+  }
+  setDuoplusStatusMessage('Tác vụ đã bị hủy bởi người dùng.');
+  if (duoplusPollInterval) clearInterval(duoplusPollInterval);
+  duoplusPollInterval = null;
+}
+
+function closeDuoplusProgressModal() {
+  const modal = document.getElementById('duoplusProgressModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function minimizeDuoplusProgressModal() {
+  closeDuoplusProgressModal();
+  toast('ℹ️ Tác vụ đăng ký DuoPlus vẫn đang chạy ngầm trên máy tính.', 'info', 3000);
+}
+
+function copyDuoplusOtp() {
+  const el = document.getElementById('duoOtpCodeDisplay');
+  if (el && el.innerText && el.innerText !== '------') {
+    copyText(el.innerText.trim());
+    toast('✅ Đã copy OTP: ' + el.innerText.trim(), 'success');
+  }
+}
+
+async function retryDuoplusRegistration(tiktokId) {
+  const item = tiktokData[tiktokId];
+  if (!item || !item.duoplusProfileId) {
+    toast('Tài khoản chưa có profile GPMLogin', 'warning');
+    return;
+  }
+  if (!item.duoplusHotmail) {
+    currentPickerTiktokId = tiktokId;
+    openSelectHotmailModal(tiktokId);
+    return;
+  }
+  let hotmailId = null;
+  for (const [hId, h] of Object.entries(hotmailData || {})) {
+    if (h.hotmail === item.duoplusHotmail) {
+      hotmailId = hId;
+      break;
+    }
+  }
+  startDuoplusAutomationFlow({
+    tiktokId,
+    hotmailId,
+    hotmailEmail: item.duoplusHotmail,
+    profileId: item.duoplusProfileId,
+    profileName: item.duoplusProfileId
+  });
+}
+
 
 let tiktokNoteSaveTimeouts = {};
 function autoSaveTiktokNote(id, val) {
@@ -8403,6 +8777,126 @@ async function clearAllNotes() {
     </div>
   </div>
 </div>
+
+<!-- Modal Tiến trình Tự động Đăng ký DuoPlus -->
+<div id="duoplusProgressModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 600px; width: 95%; max-height: 90vh; border-radius: 14px; border: 1px solid var(--border); background: var(--surface2); box-shadow: 0 10px 45px rgba(0,0,0,0.6); display: flex; flex-direction: column;">
+    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px;">
+      <div>
+        <h3 style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+          🤖 Tự động Đăng ký DuoPlus.net
+        </h3>
+        <p style="font-size:12px; color:var(--text-muted); margin-top:3px;">
+          TikTok: <strong id="duoProgUser" style="color:#38bdf8; font-family:monospace;"></strong> &nbsp;|&nbsp; 
+          Hotmail: <strong id="duoProgMail" style="color:#f472b6; font-family:monospace;"></strong>
+        </p>
+      </div>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <button class="btn btn-ghost" onclick="minimizeDuoplusProgressModal()" title="Thu nhỏ modal" style="font-size:14px; padding:2px 8px; cursor:pointer;">➖</button>
+        <button class="btn btn-ghost" onclick="closeDuoplusProgressModal()" title="Đóng" style="font-size:16px; padding:2px 8px; cursor:pointer;">✕</button>
+      </div>
+    </div>
+    
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:12px; padding: 14px 0; flex: 1; overflow-y: auto;">
+      <!-- Step tracker container -->
+      <div style="padding: 0 16px;">
+        <div style="display:flex; flex-direction:column; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px;">
+          <div id="duoStep1" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+            <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">1</span>
+            <span class="duo-step-title" style="flex:1;">Khởi động GPMLogin & Mở https://my.duoplus.net/sign-up</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+          </div>
+          <div id="duoStep2" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+            <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">2</span>
+            <span class="duo-step-title" style="flex:1;">Điền Email Hotmail, Mật khẩu & Đồng ý điều khoản</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+          </div>
+          <div id="duoStep3" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+            <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">3</span>
+            <span class="duo-step-title" style="flex:1;">Bấm nút Send Code & Ghi nhận mốc thời gian</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+          </div>
+          <div id="duoStep4" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+            <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">4</span>
+            <span class="duo-step-title" style="flex:1;">Giải Captcha trên trình duyệt GPMLogin</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+          </div>
+          <div id="duoStep5" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+            <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">5</span>
+            <span class="duo-step-title" style="flex:1;">Quét hộp thư Hotmail tìm mã OTP mới</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+          </div>
+          <div id="duoStep6" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+            <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">6</span>
+            <span class="duo-step-title" style="flex:1;">Điền Verification Code</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+          </div>
+          <div id="duoStep7" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+            <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">7</span>
+            <span class="duo-step-title" style="flex:1;">Bấm Create Account & Hoàn tất</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Captcha Action Alert (shown prominently when waiting for captcha) -->
+      <div id="duoCaptchaAlert" style="display:none; margin: 0 16px; background:linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(245, 158, 11, 0.15)); border:1px solid #f59e0b; border-radius:10px; padding:12px 14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <div style="font-size:13px; font-weight:700; color:#fbbf24; display:flex; align-items:center; gap:6px;">
+              🧩 <span style="animation: duoPulse 1.5s infinite;">Cần giải Captcha trên màn hình!</span>
+            </div>
+            <div style="font-size:12px; color:var(--text); margin-top:3px;">
+              Vui lòng xem cửa sổ Chrome GPM vừa mở trên màn hình và kéo thanh trượt giải Captcha.
+            </div>
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="markDuoplusCaptchaResolved()" style="background:#f59e0b; color:#000; font-weight:700; border:none; padding:5px 12px; font-size:12px; cursor:pointer; border-radius:4px;">
+            ⚡ Đã giải xong (Tiếp tục ngay)
+          </button>
+        </div>
+      </div>
+
+      <!-- OTP Display Box (shown when OTP is retrieved) -->
+      <div id="duoOtpAlert" style="display:none; margin: 0 16px; background:linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.15)); border:1px solid #10b981; border-radius:10px; padding:12px 14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:11px; font-weight:700; color:#34d399; text-transform:uppercase; letter-spacing:0.5px;">Mã OTP Hotmail Nhận Được:</div>
+            <div id="duoOtpCodeDisplay" style="font-size:26px; font-weight:900; letter-spacing:6px; color:#fff; font-family:monospace; margin-top:2px;">------</div>
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="copyDuoplusOtp()" style="background:#10b981; color:#fff; font-weight:700; border:none; padding:6px 14px; font-size:12px; cursor:pointer; border-radius:4px;">
+            📋 Copy OTP
+          </button>
+        </div>
+      </div>
+
+      <!-- Live message status box -->
+      <div style="padding: 0 16px;">
+        <div id="duoStatusBox" style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:12px; display:flex; align-items:center; gap:10px;">
+          <div id="duoStatusSpinner" style="width:14px; height:14px; border:2px solid rgba(255,255,255,0.2); border-top-color:#38bdf8; border-radius:50%; animation:spin 0.8s linear infinite; flex-shrink:0;"></div>
+          <div id="duoStatusMessage" style="color:var(--text); flex:1; font-family:monospace; font-size:12px; word-break:break-word;">
+            Đang chuẩn bị...
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding: 12px 16px;">
+      <span id="duoTaskFooterInfo" style="font-size:11px; color:var(--text-muted); font-family:monospace;"></span>
+      <div style="display:flex; gap:8px;">
+        <button id="btnCancelDuoTask" class="btn btn-ghost btn-sm" onclick="cancelCurrentDuoplusTask()" style="color:var(--error); font-size:12px; height:32px;">Hủy tác vụ</button>
+        <button class="btn btn-secondary btn-sm" onclick="closeDuoplusProgressModal()" style="height:32px; padding:4px 14px; font-size:12px;">Đóng</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes duoPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.98); }
+}
+</style>
+
 
 <!-- Fullscreen QR Modal -->
 <div id="qrFullscreenModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; flex-direction:column; justify-content:center; align-items:center;">
