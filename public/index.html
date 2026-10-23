@@ -3230,7 +3230,7 @@ function updateHotmailSubTabCounts() {
 
 async function loadHotmailData() {
   const tbody = document.getElementById('hotmailTableBody');
-  const urls = ['/api/hotmail/all', '/api/hm/all', '/api/mail-accounts/all'];
+  const urls = ['/api/hm/all', '/api/hotmail/all', '/api/mail-accounts/all'];
   let data = null;
   let lastErr = null;
   
@@ -3335,7 +3335,7 @@ async function syncHotmailField(event, id, field) {
   
   const payload = { ...hotmailData[id], id };
   try {
-    await fetch('/api/hotmail/save', {
+    await fetch('/api/hm/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -3480,7 +3480,7 @@ async function getHotmailOtp(id, btn) {
   toast('Đang đọc hộp thư qua OAuth2...', 'info', 2000);
   
   try {
-    const res = await fetch('/api/hotmail/get-otp', {
+    const res = await fetch('/api/hm/get-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, ...item })
@@ -3505,7 +3505,7 @@ async function getHotmailOtp(id, btn) {
       toast(`✅ Mã OTP: ${otp} (Đã tự động copy)`, 'success', 3500);
       
       // Save otpCode to backend
-      fetch('/api/hotmail/save', {
+      fetch('/api/hm/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...item, otpCode: otp })
@@ -3558,7 +3558,7 @@ async function saveHotmail() {
   if (id) data.id = id;
   
   try {
-    const res = await fetch('/api/hotmail/save', {
+    const res = await fetch('/api/hm/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -3579,7 +3579,7 @@ async function saveHotmail() {
 async function deleteHotmail(id) {
   if (!confirm('Bạn có chắc muốn xóa tài khoản Hotmail này?')) return;
   try {
-    const res = await fetch('/api/hotmail/delete', {
+    const res = await fetch('/api/hm/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id })
@@ -3742,7 +3742,7 @@ async function saveHotmailBulk() {
   toast(`Đang nhập ${accounts.length} tài khoản Hotmail...`, 'info', 2000);
   
   try {
-    const res = await fetch('/api/hotmail/bulk-save', {
+    const res = await fetch('/api/hm/bulk-save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ accounts })
@@ -4923,7 +4923,7 @@ async function clearRowDuoplus(id) {
       const [hId, hItem] = matched;
       if (hItem.service === 'Duoplus') {
         hItem.service = '';
-        fetch('/api/hotmail/save', {
+        fetch('/api/hm/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...hItem, id: hId, service: '' })
@@ -4999,7 +4999,7 @@ async function clearAllTiktokDuoplus() {
         Object.entries(hotmailData).forEach(([hId, hItem]) => {
           if (hItem.service === 'Duoplus') {
             hItem.service = '';
-            fetch('/api/hotmail/save', {
+            fetch('/api/hm/save', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ ...hItem, id: hId, service: '' })
@@ -5371,7 +5371,7 @@ async function confirmSelectHotmailForGpm(hotmailId, hotmailEmail) {
   // 1. Tự động cập nhật ô Service ở tab Hotmail Accounts là Duoplus
   if (hotmailData[hotmailId]) {
     hotmailData[hotmailId].service = 'Duoplus';
-    fetch('/api/hotmail/save', {
+    fetch('/api/hm/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...hotmailData[hotmailId], id: hotmailId, service: 'Duoplus' })
@@ -5865,7 +5865,7 @@ function renderDuoplusTaskProgress(task, hotmailId) {
     // Tự động lưu OTP vào bảng Hotmail
     if (hotmailId && hotmailData[hotmailId] && hotmailData[hotmailId].otpCode !== task.otp) {
       hotmailData[hotmailId].otpCode = task.otp;
-      fetch('/api/hotmail/save', {
+      fetch('/api/hm/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...hotmailData[hotmailId], id: hotmailId, otpCode: task.otp })

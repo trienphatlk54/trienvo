@@ -2226,6 +2226,24 @@ app.post('/api/gmail/delete', async (req, res) => {
   });
 });
 
+// 🔄 VPS SELF-UPDATE / DEPLOY API 🔄
+app.post(['/api/admin/update-server', '/api/admin/pull'], async (req, res) => {
+  const { exec } = require('child_process');
+  const isWin = process.platform === 'win32';
+  const pm2Name = isWin ? 'shopee-tool' : 'shopee-qr';
+  const cmd = 'git pull origin main && pm2 restart ' + pm2Name;
+
+  console.log('[Auto-Update] Running:', cmd);
+  exec(cmd, { cwd: __dirname }, (error, stdout, stderr) => {
+    if (error) {
+      console.error('[Auto-Update Error]:', error);
+      return res.status(500).json({ success: false, error: error.message, stderr });
+    }
+    console.log('[Auto-Update Output]:', stdout);
+    res.json({ success: true, stdout, stderr });
+  });
+});
+
 // ── Hotmail OAuth2 Get OTP Helper & Endpoint ───────────────────────────
 const { fetchHotmailOAuth2Otp } = require('./hotmail-otp-helper');
 const { 
@@ -2237,7 +2255,7 @@ const {
   cancelDuoplusTask 
 } = require('./duoplus-automation');
 
-app.post('/api/hotmail/get-otp', async (req, res) => {
+app.post(['/api/hm/get-otp', '/api/hotmail/get-otp', '/api/mail-accounts/get-otp'], async (req, res) => {
   const { id, hotmail, password, authCookies, sessionId, restoreMail, service, keyword } = req.body;
   let account = { hotmail, password, authCookies, sessionId, restoreMail };
 
