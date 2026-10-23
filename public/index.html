@@ -6131,7 +6131,7 @@ async function applyDuoplusProxyToCloudPhones(targetImageId) {
   const proxyInput = document.getElementById('duoCpProxyInput');
   const proxyStr = (proxyInput ? proxyInput.value : '').trim();
   if (!proxyStr) {
-    toast('Vui lòng nhập Proxy Socks5 (định dạng ip:port:user:pass)', 'warning');
+    toast('Vui lòng nhập Proxy Socks5 (định dạng ip:port:username:password)', 'warning');
     if (proxyInput) proxyInput.focus();
     return;
   }
@@ -6156,37 +6156,47 @@ async function applyDuoplusProxyToCloudPhones(targetImageId) {
   const btn = document.getElementById('btnApplyDuoProxy');
   if (btn) {
     btn.disabled = true;
-    btn.innerText = '⏳ Đang áp dụng...';
+    btn.innerText = '⏳ Đang kiểm tra & áp dụng...';
   }
 
-  toast(`🌐 Đang áp dụng Proxy Socks5 [${proxyObj.host}:${proxyObj.port}] cho Cloud Phone [${phone.id}] qua API...`, 'info', 3000);
+  toast(`🔍 Đang kiểm tra tính khả dụng của Proxy [${proxyObj.host}:${proxyObj.port}]...`, 'info', 3000);
 
   try {
-    let result = null;
-
-    if (phone.status === 0) {
-      // Máy chưa cấu hình -> dùng initProxy
-      result = await callDuoplusGenericApi('/cloudphone/initProxy', {
+    // BƯỚC 1: Kích hoạt kiểm tra tính khả dụng (Detect availability) qua /proxy/check
+    let checkOk = false;
+    try {
+      const c1 = await callDuoplusGenericApi('/proxy/check', {
         apiKey,
-        images: [{
-          image_id: phone.id,
-          ip_scan_channel: 'ip2location',
-          network_mode: 2,
-          brand: 'oppo',
-          model: 'PDPM00',
-          sim: { type: 2, country: 'VN' },
-          locale: { country: 'VN', timezone: 'Asia/Ho_Chi_Minh' },
-          proxy: {
-            protocol: 'socks5',
-            host: proxyObj.host,
-            port: parseInt(proxyObj.port, 10),
-            user: proxyObj.user || '',
-            password: proxyObj.password || ''
-          }
-        }]
+        protocol: 'socks5',
+        host: proxyObj.host,
+        port: parseInt(proxyObj.port, 10),
+        user: proxyObj.user || '',
+        password: proxyObj.password || '',
+        ip_scan_channel: 'ip2location'
       });
-    } else {
-      // Máy đã khởi tạo -> Thêm proxy vào DuoPlus qua /proxy/add
+      if (c1 && c1.code === 200 && c1.data && c1.data.success) checkOk = true;
+    } catch(ce1) {}
+
+    if (!checkOk) {
+      try {
+        const c2 = await callDuoplusGenericApi('/proxy/check', {
+          apiKey,
+          protocol: 'socks5',
+          host: proxyObj.host,
+          port: parseInt(proxyObj.port, 10),
+          user: proxyObj.user || '',
+          password: proxyObj.password || '',
+          ip_scan_channel: 'ipapi'
+        });
+        if (c2 && c2.code === 200 && c2.data && c2.data.success) checkOk = true;
+      } catch(ce2) {}
+    }
+
+    // BƯỚC 2: Thêm Proxy vào DuoPlus qua /proxy/add hoặc tra cứu Proxy ID có sẵn
+    toast(`📦 Đang đăng ký & đồng bộ Proxy vào hệ thống DuoPlus...`, 'info', 2500);
+
+    let proxyId = null;
+    try {
       const addRes = await callDuoplusGenericApi('/proxy/add', {
         apiKey,
         proxy_list: [{
@@ -6200,40 +6210,93 @@ async function applyDuoplusProxyToCloudPhones(targetImageId) {
         ip_scan_channel: 'ip2location'
       });
 
-      let proxyId = addRes?.data?.success?.[0]?.id;
-      if (!proxyId) {
-        const listRes = await callDuoplusGenericApi('/proxy/list', { apiKey, page: 1, pagesize: 20 });
-        const found = listRes?.data?.list?.find(p => p.host === proxyObj.host && String(p.port) === String(proxyObj.port));
-        if (found) proxyId = found.id;
+      if (addRes && addRes.data && addRes.data.success && addRes.data.success.length > 0) {
+        proxyId = addRes.data.success[0].id;
       }
+    } catch(ae) {}
 
-      if (!proxyId) {
-        throw new Error(addRes?.data?.fail?.[0]?.message || addRes?.message || 'Không thể đăng ký Proxy vào DuoPlus');
-      }
+    // Nếu proxy đã tồn tại hoặc chưa lấy được ID, tra cứu proxy list
+    if (!proxyId) {
+      const listRes = await callDuoplusGenericApi('/proxy/list', { apiKey, page: 1, pagesize: 50 });
+      const found = listRes?.data?.list?.find(item => item.host === proxyObj.host && String(item.port) === String(proxyObj.port));
+      if (found) proxyId = found.id;
+    }
 
-      // Cập nhật cài đặt proxy cho cloud phone
-      result = await callDuoplusGenericApi('/cloudphone/update', {
+    let result = null;
+
+    // BƯỚC 3: Cập nhật Proxy cho Cloud Phone
+    if (phone.status === 0) {
+      // Máy chưa cấu hình -> dùng initProxy
+      toast(`⚡ Đang khởi tạo Cloud Phone [${phone.id}] với Proxy mới...`, 'info', 3000);
+      const initPayload = {
         apiKey,
         images: [{
           image_id: phone.id,
-          proxy: { id: proxyId, dns: 1 },
-          gps: { type: 1 },
-          locale: { type: 1 }
+          ip_scan_channel: 'ip2location',
+          network_mode: 2,
+          brand: 'oppo',
+          model: 'PDPM00',
+          sim: { type: 2, country: 'VN' },
+          locale: { country: 'VN', timezone: 'Asia/Ho_Chi_Minh' }
         }]
+      };
+
+      if (proxyId) {
+        initPayload.images[0].proxy = { id: proxyId };
+      } else {
+        initPayload.images[0].proxy = {
+          protocol: 'socks5',
+          host: proxyObj.host,
+          port: parseInt(proxyObj.port, 10),
+          user: proxyObj.user || '',
+          password: proxyObj.password || ''
+        };
+      }
+
+      result = await callDuoplusGenericApi('/cloudphone/initProxy', initPayload);
+    } else {
+      // Máy đã khởi tạo -> update proxy vào máy
+      toast(`🔄 Đang cập nhật Proxy cho Cloud Phone [${phone.id}]...`, 'info', 3000);
+      const updateImage = {
+        image_id: phone.id,
+        gps: { type: 1 },
+        locale: { type: 1 }
+      };
+
+      if (proxyId) {
+        updateImage.proxy = { id: proxyId, dns: 1 };
+      } else {
+        updateImage.proxy = {
+          protocol: 'socks5',
+          host: proxyObj.host,
+          port: parseInt(proxyObj.port, 10),
+          user: proxyObj.user || '',
+          password: proxyObj.password || '',
+          dns: 1
+        };
+      }
+
+      result = await callDuoplusGenericApi('/cloudphone/update', {
+        apiKey,
+        images: [updateImage]
       });
 
-      // Bật công tắc proxy
-      await callDuoplusGenericApi('/cloudphone/proxySwitch', {
-        apiKey,
-        image_ids: [phone.id],
-        status: 1
-      });
+      // Chỉ gọi proxySwitch khi máy đang bật (status === 1)
+      if (phone.status === 1) {
+        try {
+          await callDuoplusGenericApi('/cloudphone/proxySwitch', {
+            apiKey,
+            image_ids: [phone.id],
+            status: 1
+          });
+        } catch(se) {}
+      }
     }
 
     if (result && (result.code === 200 || result.success)) {
-      toast(`✅ Đã áp dụng Proxy Socks5 thành công cho Cloud Phone [${phone.id}]!`, 'success', 3000);
+      toast(`✅ Đã áp dụng Proxy Socks5 thành công cho Cloud Phone [${phone.id}]!`, 'success', 3500);
       
-      // Lưu lại thông tin proxy vào tiktokData
+      // Lưu thông tin proxy vào tiktokData
       if (duoplusCurrentCloudPhoneTiktokId && tiktokData[duoplusCurrentCloudPhoneTiktokId]) {
         tiktokData[duoplusCurrentCloudPhoneTiktokId].duoplusProxy = proxyStr;
         fetch('/api/tiktok/save', {
@@ -6298,7 +6361,7 @@ async function duoplusTriggerInitConfig() {
     btn.innerText = '⏳ Đang khởi tạo...';
   }
 
-  toast('⚡ Đang thực hiện Cấu hình khởi tạo qua API: Oppo, Random Model, Mobile Network, SIM Vietnam...', 'info', 3500);
+  toast('⚡ Đang thực hiện Cấu hình khởi tạo: Oppo, Random Model, Mobile Network, SIM Vietnam...', 'info', 3500);
 
   // 1. Proxy Socks5: lấy từ ô input, nếu trống lấy IP thực
   const proxyInput = document.getElementById('duoCpProxyInput');
@@ -6308,7 +6371,7 @@ async function duoplusTriggerInitConfig() {
   if (proxyStr) {
     proxyObj = parseSocks5String(proxyStr);
   } else {
-    // Area proxy trống -> lấy IP thực của máy
+    // Lấy IP thực
     const realIp = await getPublicRealIp();
     proxyObj = {
       protocol: 'socks5',
@@ -6317,6 +6380,44 @@ async function duoplusTriggerInitConfig() {
       user: '',
       password: ''
     };
+  }
+
+  // BƯỚC 1b: Kiểm tra & đăng ký Proxy ID trong DuoPlus nếu có nhập proxy
+  let proxyId = null;
+  if (proxyStr && proxyObj && proxyObj.host) {
+    try {
+      await callDuoplusGenericApi('/proxy/check', {
+        apiKey,
+        protocol: 'socks5',
+        host: proxyObj.host,
+        port: parseInt(proxyObj.port, 10),
+        user: proxyObj.user || '',
+        password: proxyObj.password || '',
+        ip_scan_channel: 'ip2location'
+      });
+    } catch(ce) {}
+
+    try {
+      const addRes = await callDuoplusGenericApi('/proxy/add', {
+        apiKey,
+        proxy_list: [{
+          protocol: 'socks5',
+          host: proxyObj.host,
+          port: String(proxyObj.port),
+          user: proxyObj.user || '',
+          password: proxyObj.password || '',
+          name: 'Proxy_' + phone.id
+        }],
+        ip_scan_channel: 'ip2location'
+      });
+      if (addRes?.data?.success?.[0]?.id) proxyId = addRes.data.success[0].id;
+    } catch(ae) {}
+
+    if (!proxyId) {
+      const listRes = await callDuoplusGenericApi('/proxy/list', { apiKey, page: 1, pagesize: 50 });
+      const found = listRes?.data?.list?.find(i => i.host === proxyObj.host && String(i.port) === String(proxyObj.port));
+      if (found) proxyId = found.id;
+    }
   }
 
   // 2. Random Oppo Model
@@ -6333,35 +6434,70 @@ async function duoplusTriggerInitConfig() {
   ];
   const chosenModel = oppoModels[Math.floor(Math.random() * oppoModels.length)];
 
-  // 3. Payload đầy đủ theo chuẩn OpenAPI DuoPlus
-  const initPayload = {
-    apiKey,
-    images: [{
-      image_id: phone.id,
-      ip_scan_channel: 'ip2location',
-      network_mode: 2, // Mobile Network
-      brand: 'oppo', // Brand Oppo
-      model: chosenModel.code, // Random Model
-      sim: {
-        type: 2, // Custom region
-        country: 'VN' // SIM Region Vietnam
-      },
-      locale: {
-        country: 'VN',
-        timezone: 'Asia/Ho_Chi_Minh'
-      },
-      proxy: {
-        protocol: 'socks5',
-        host: proxyObj.host,
-        port: parseInt(proxyObj.port, 10),
-        user: proxyObj.user || '',
-        password: proxyObj.password || ''
-      }
-    }]
-  };
+  let res = null;
 
   try {
-    const res = await callDuoplusGenericApi('/cloudphone/initProxy', initPayload);
+    if (phone.status === 0) {
+      // Máy chưa cấu hình -> dùng initProxy
+      const initPayload = {
+        apiKey,
+        images: [{
+          image_id: phone.id,
+          ip_scan_channel: 'ip2location',
+          network_mode: 2, // Mobile Network
+          brand: 'oppo', // Brand Oppo
+          model: chosenModel.code, // Random Model
+          sim: {
+            type: 2, // Custom region
+            country: 'VN' // SIM Region Vietnam
+          },
+          locale: {
+            country: 'VN',
+            timezone: 'Asia/Ho_Chi_Minh'
+          }
+        }]
+      };
+
+      if (proxyId) {
+        initPayload.images[0].proxy = { id: proxyId };
+      } else {
+        initPayload.images[0].proxy = {
+          protocol: 'socks5',
+          host: proxyObj.host,
+          port: parseInt(proxyObj.port, 10),
+          user: proxyObj.user || '',
+          password: proxyObj.password || ''
+        };
+      }
+
+      res = await callDuoplusGenericApi('/cloudphone/initProxy', initPayload);
+    } else {
+      // Máy đã khởi tạo -> update thông số
+      const updateObj = {
+        image_id: phone.id,
+        gps: { type: 1 },
+        locale: { country: 'VN', timezone: 'Asia/Ho_Chi_Minh' },
+        sim: { status: 1, country: 'VN' }
+      };
+
+      if (proxyId) {
+        updateObj.proxy = { id: proxyId, dns: 1 };
+      } else if (proxyObj && proxyObj.host) {
+        updateObj.proxy = {
+          protocol: 'socks5',
+          host: proxyObj.host,
+          port: parseInt(proxyObj.port, 10),
+          user: proxyObj.user || '',
+          password: proxyObj.password || '',
+          dns: 1
+        };
+      }
+
+      res = await callDuoplusGenericApi('/cloudphone/update', {
+        apiKey,
+        images: [updateObj]
+      });
+    }
 
     if (res && (res.code === 200 || res.success)) {
       // ẨN NÚT VĨNH VIỄN KHÔNG CHO CLICK LẦN 2
@@ -6399,12 +6535,8 @@ async function duoplusTriggerInitConfig() {
       toast(`🎉 Cấu hình khởi tạo thành công! Brand: Oppo (${chosenModel.name}), Network: Mobile Network, SIM: Vietnam.`, 'success', 4000);
       setTimeout(fetchDuoplusCloudPhones, 1500);
     } else {
-      const errMsg = res?.message || 'Thất bại khi gọi API initProxy';
-      if (errMsg.includes('must detect availability') || errMsg.includes('Proxy')) {
-        toast(`⚠️ DuoPlus yêu cầu Proxy Socks5 đang hoạt động để kiểm tra kết nối mạng. Vui lòng nhập Proxy Socks5 hoạt động vào ô phía trên rồi bấm Khởi tạo lại!`, 'warning', 5000);
-      } else {
-        toast(`❌ Lỗi cấu hình khởi tạo: ${errMsg}`, 'error', 4500);
-      }
+      const errMsg = res?.message || 'Thất bại khi gọi API DuoPlus';
+      toast(`❌ Lỗi cấu hình khởi tạo: ${errMsg}`, 'error', 4500);
       if (btn) {
         btn.disabled = false;
         btn.innerText = '⚡ Cấu hình khởi tạo';
