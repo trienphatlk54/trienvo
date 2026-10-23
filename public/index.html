@@ -6358,6 +6358,10 @@ function openDuoplusApiModal(tiktokId) {
 function closeDuoplusCloudPhoneModal() {
   const modal = document.getElementById('duoplusCloudPhoneModal');
   if (modal) modal.classList.remove('active');
+  if (duoplusStatusPollInterval) {
+    clearInterval(duoplusStatusPollInterval);
+    duoplusStatusPollInterval = null;
+  }
 }
 
 async function saveDuoplusApiKeyFromModal() {
@@ -6482,6 +6486,10 @@ function renderDuoplusCloudPhonesTable(list) {
   if (emptyState) emptyState.style.display = 'none';
   if (!tableBody) return;
 
+  // Tự động kích hoạt polling theo dõi nếu có máy đang khởi động (status 10) hoặc đang cấu hình (status 11)
+  if (list && list.some(p => p.status === 10 || p.status === 11)) {
+    startDuoplusStatusPolling();
+  }
   tableBody.innerHTML = list.map((p, idx) => {
     // Trạng thái mapping
     let statusBadge = '';
@@ -6538,11 +6546,19 @@ function renderDuoplusCloudPhonesTable(list) {
               <button class="btn btn-ghost btn-xs" onclick="duoplusRestartPhone('${p.id}')" title="Khởi động lại máy qua API" style="color:#fbbf24; border:1px solid rgba(234,179,8,0.3); font-size:11px; padding:2px 7px; border-radius:4px;">
                 🔄 Reset
               </button>
+            ` : (st === 10 ? `
+              <button class="btn btn-ghost btn-xs" disabled style="color:#fbbf24; border:1px solid rgba(234,179,8,0.3); background:rgba(234,179,8,0.08); font-size:11px; padding:2px 8px; border-radius:4px; cursor:wait; display:inline-flex; align-items:center; gap:4px;">
+                <span class="spinner" style="width:10px; height:10px; border-width:2px;"></span> Đang bật...
+              </button>
+            ` : (st === 11 ? `
+              <button class="btn btn-ghost btn-xs" disabled style="color:#38bdf8; border:1px solid rgba(56,189,248,0.3); background:rgba(56,189,248,0.08); font-size:11px; padding:2px 8px; border-radius:4px; cursor:wait; display:inline-flex; align-items:center; gap:4px;">
+                <span class="spinner" style="width:10px; height:10px; border-width:2px;"></span> Đang cấu hình...
+              </button>
             ` : `
               <button class="btn btn-primary btn-xs" onclick="duoplusPowerOnPhone('${p.id}')" title="Bật nguồn máy này qua API" style="background:linear-gradient(135deg, #10b981, #059669); color:#fff; border:none; font-weight:700; font-size:11px; padding:2px 8px; border-radius:4px; box-shadow:0 2px 5px rgba(16,185,129,0.3);">
                 ▶️ Bật máy
               </button>
-            `}
+            `))}
           </div>
         </td>
         <td style="padding:8px 10px; text-align:center; white-space:nowrap;">
@@ -7103,10 +7119,61 @@ async function duoplusTriggerInitConfig() {
   }
 }
 
+let duoplusStatusPollInterval = null;
+function startDuoplusStatusPolling() {
+  if (duoplusStatusPollInterval) return;
+  duoplusStatusPollInterval = setInterval(async () => {
+    const modal = document.getElementById('duoplusCloudPhoneModal');
+    if (!modal || !modal.classList.contains('active')) {
+      clearInterval(duoplusStatusPollInterval);
+      duoplusStatusPollInterval = null;
+      return;
+    }
+    
+    const hadPending = duoplusCurrentPhonesList && duoplusCurrentPhonesList.some(p => p.status === 10 || p.status === 11);
+    if (!hadPending) {
+      clearInterval(duoplusStatusPollInterval);
+      duoplusStatusPollInterval = null;
+      return;
+    }
+
+    const keyInput = document.getElementById('duoCpApiKeyInput');
+    const apiKey = (keyInput ? keyInput.value : '').trim();
+    if (!apiKey) return;
+
+    try {
+      const resData = await callDuoplusGenericApi('/cloudphone/list', { apiKey, page: 1, pagesize: 50 });
+      if (resData && resData.code === 200 && resData.data && Array.isArray(resData.data.list)) {
+        duoplusCurrentPhonesList = resData.data.list;
+        renderDuoplusCloudPhonesTable(duoplusCurrentPhonesList);
+        
+        const nowPending = duoplusCurrentPhonesList.some(p => p.status === 10 || p.status === 11);
+        if (!nowPending) {
+          clearInterval(duoplusStatusPollInterval);
+          duoplusStatusPollInterval = null;
+          const running = duoplusCurrentPhonesList.find(p => p.id && p.status === 1);
+          if (running) toast(`🎉 Cloud Phone [${running.id}] đã bật nguồn thành công!`, 'success', 3500);
+        }
+      }
+    } catch(e) {}
+  }, 4000);
+}
+
 async function duoplusPowerOnPhone(imageId) {
   const keyInput = document.getElementById('duoCpApiKeyInput');
   const apiKey = (keyInput ? keyInput.value : '').trim();
   if (!apiKey) return;
+
+  const curPhone = duoplusCurrentPhonesList ? duoplusCurrentPhonesList.find(p => p.id === imageId) : null;
+  if (curPhone && (curPhone.status === 1 || curPhone.status === 10)) {
+    if (curPhone.status === 1) {
+      toast(`🟢 Cloud Phone [${imageId}] đã được bật sẵn rồi!`, 'info', 2500);
+    } else {
+      toast(`⏳ Cloud Phone [${imageId}] đang trong tiến trình khởi động (Powering on). Vui lòng đợi trong giây lát...`, 'info', 4000);
+      startDuoplusStatusPolling();
+    }
+    return;
+  }
 
   toast(`⚡ Đang gửi lệnh Bật nguồn Cloud Phone [${imageId}] qua API...`, 'info', 2500);
 
@@ -7115,10 +7182,17 @@ async function duoplusPowerOnPhone(imageId) {
   if (resData && (resData.code === 200 || resData.success)) {
     if (resData.data && resData.data.fail && resData.data.fail.includes(imageId)) {
       const reason = resData.data.fail_reason?.[imageId] || 'Không thể bật máy';
-      toast('❌ Lỗi bật máy: ' + reason, 'error', 4000);
+      if (reason.includes('cannot be opened') || reason.includes('opening')) {
+        toast(`⏳ Cloud Phone [${imageId}] đang trong tiến trình khởi động. Hệ thống đang tự động theo dõi trạng thái...`, 'info', 4000);
+        startDuoplusStatusPolling();
+        setTimeout(fetchDuoplusCloudPhones, 1500);
+      } else {
+        toast('❌ Lỗi bật máy: ' + reason, 'error', 4000);
+      }
     } else {
       toast('✅ Đã gửi lệnh Bật Cloud Phone thành công! Đang khởi động...', 'success', 3000);
-      setTimeout(fetchDuoplusCloudPhones, 3000);
+      startDuoplusStatusPolling();
+      setTimeout(fetchDuoplusCloudPhones, 1500);
     }
   } else {
     toast('❌ Lỗi gọi API Bật nguồn: ' + (resData?.message || 'Thất bại'), 'error', 3500);
