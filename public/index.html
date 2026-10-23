@@ -4703,8 +4703,8 @@ function renderTiktokTable() {
         <div style="margin-bottom: 5px; max-width: 230px; margin-left: auto; margin-right: auto;">
           <div style="display: flex; gap: 3px; align-items: center;">
             <input type="text" id="gpmProxy_${id}" class="proxy-input"
-              value="${escapeHtml(item.gpmProxy || item.duoplusProxy || item.proxy || '')}"
-              placeholder="Proxy: ip:port:user:pass..."
+              value="${escapeHtml(item.gpmProxy || '')}"
+              placeholder="Proxy GPM: ip:port..."
               list="gpmProxyDatalist"
               oninput="autoSaveTiktokGpmProxy('${id}', this.value)"
               onfocus="prepareGpmProxySuggestions()"
@@ -4713,10 +4713,10 @@ function renderTiktokTable() {
               style="flex: 1; min-width: 135px; font-size: 11px; font-family: monospace; padding: 2px 6px; height: 24px; border-radius: 4px; box-sizing: border-box; background: var(--surface); color: var(--text);">
             <select class="proxy-quick-select" onchange="applyQuickProxyToRow('${id}', this.value); this.value='';" title="Chọn nhanh Proxy từ danh sách" style="width: 26px; height: 24px; padding: 0; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; text-align: center;">
               <option value="" disabled selected>🎯</option>
-              ${renderQuickProxySelectOptions(item.gpmProxy || item.duoplusProxy || item.proxy || '')}
+              ${renderQuickProxySelectOptions(item.gpmProxy || '')}
             </select>
-            ${(item.gpmProxy || item.duoplusProxy || item.proxy) ? `
-              <button type="button" class="btn btn-ghost" onclick="copyText('${escapeHtml(item.gpmProxy || item.duoplusProxy || item.proxy)}')" title="Copy Proxy" style="padding: 1px 4px; height: 24px; font-size: 11px; color: var(--text-muted);">📋</button>
+            ${item.gpmProxy ? `
+              <button type="button" class="btn btn-ghost" onclick="copyText('${escapeHtml(item.gpmProxy)}')" title="Copy Proxy GPM" style="padding: 1px 4px; height: 24px; font-size: 11px; color: var(--text-muted);">📋</button>
             ` : ''}
           </div>
         </div>
@@ -4741,6 +4741,11 @@ function renderTiktokTable() {
           <button class="btn btn-xs btn-duoplus-api" onclick="openDuoplusApiModal('${id}')" title="Mở danh sách Cloud Phone và điều khiển qua DuoPlus API" style="font-size:11px; font-weight:700; padding:2px 8px; height:24px; border-radius:4px; background:linear-gradient(135deg, #0284c7, #0369a1); color:#fff; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 5px rgba(2,132,199,0.35);">
             ⚡ API Duoplus
           </button>
+          ${item.duoplusProxy ? `
+            <div style="font-size:10px; color:#38bdf8; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; font-family:monospace; background:rgba(56,189,248,0.1); padding:1px 5px; border-radius:3px; border:1px solid rgba(56,189,248,0.25);" onclick="copyText('${escapeHtml(item.duoplusProxy)}')" title="Proxy Cloud Phone: ${escapeHtml(item.duoplusProxy)} (Click để copy)">
+              ☁️ CP: ${escapeHtml(item.duoplusProxy)}
+            </div>
+          ` : ''}
           ${item.duoplusApiKey ? `
             <div style="font-size:11px; color:#10b981; max-width:115px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; font-family:monospace; background:rgba(16,185,129,0.12); padding:1px 5px; border-radius:4px; border:1px solid rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:3px;" onclick="copyText('${escapeHtml(item.duoplusApiKey)}')" title="DuoPlus API Key: ${escapeHtml(item.duoplusApiKey)} (Click để copy)">
               <span>🔑</span> <span style="font-weight:700;">${escapeHtml(item.duoplusApiKey.slice(0, 4) + '...' + item.duoplusApiKey.slice(-4))}</span>
@@ -5252,7 +5257,7 @@ function openSelectHotmailModal(tiktokId) {
   if (userEl) userEl.innerText = item.username || item.mail || item.identifier || tiktokId;
   
   const rowInput = document.getElementById('gpmProxy_' + tiktokId);
-  const pStr = ((rowInput ? rowInput.value : '') || item.gpmProxy || item.duoplusProxy || item.proxy || '').trim();
+  const pStr = ((rowInput ? rowInput.value : '') || item.gpmProxy || '').trim();
   const proxyEl = document.getElementById('pickerTiktokProxy');
   if (proxyEl) {
     if (pStr) {
@@ -5400,7 +5405,7 @@ async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = nul
 
   // Lấy Proxy cấu hình từ ô của dòng này
   const rowInput = document.getElementById('gpmProxy_' + tiktokId);
-  const rawProxyStr = ((rowInput ? rowInput.value : '') || item.gpmProxy || item.duoplusProxy || item.proxy || '').trim();
+  const rawProxyStr = ((rowInput ? rowInput.value : '') || item.gpmProxy || '').trim();
   const formattedProxy = rawProxyStr ? formatProxyForGpm(rawProxyStr) : '';
   
   const btn = document.getElementById('btnGpm_' + tiktokId);
@@ -6315,10 +6320,13 @@ function openDuoplusApiModal(tiktokId) {
   const apiKey = (item.duoplusApiKey || '').trim();
   if (keyInput) keyInput.value = apiKey;
 
-  // Điền proxy nếu có sẵn
+  // TÁCH BIỆT: Điền proxy cho Cloud Phone CHỈ lấy từ item.duoplusProxy
   const proxyInput = document.getElementById('duoCpProxyInput');
-  const currentProxy = item.duoplusProxy || item.proxy || '';
+  const currentProxy = item.duoplusProxy || '';
   if (proxyInput) proxyInput.value = currentProxy;
+  
+  // Tải danh sách proxy từ PandaProxy API vào dropdown
+  loadDuoCpPandaProxies();
 
   const errAlert = document.getElementById('duoCpErrorAlert');
   if (errAlert) errAlert.style.display = 'none';
@@ -6552,6 +6560,125 @@ function renderDuoplusCloudPhonesTable(list) {
   }).join('');
 }
 
+// 📱 Helper xác định OS & Model hợp lệ cho DuoPlus Cloud Phone tránh lỗi "Model not found."
+function getDuoPlusOsCode(osString) {
+  if (!osString) return 4;
+  const s = String(osString).toLowerCase();
+  if (s.includes('15')) return 4;
+  if (s.includes('12')) return 2;
+  if (s.includes('10')) return 1;
+  return 4;
+}
+
+const DUOPLUS_BRAND_MODELS = {
+  4: { // Android 15 (Pro) - verified từ /api/v1/mobile/modelList
+    oppo: ['PJW110', 'PHU110', 'PGU110', 'PGFM10', 'PHZ110'],
+    samsung: ['SM-S9280', 'SM-S9260', 'SM-S9210'],
+    vivo: ['V2324A', 'V2307A', 'V2309A'],
+    xiaomi: ['23116PN5BC', '23127PN0CC'],
+    oneplus: ['PJA110', 'PJF110'],
+    google: ['Pixel 8', 'Pixel 8 Pro', 'Pixel 9']
+  },
+  2: { // Android 12
+    oppo: ['PDPM00', 'PDST00'],
+    samsung: ['SM-G9980', 'SM-G9960'],
+    vivo: ['V2049A', 'V2055A'],
+    xiaomi: ['M2011K2C', 'M2012K11C'],
+    realme: ['RMX2202'],
+    google: ['Pixel 6', 'Pixel 6 Pro']
+  },
+  1: { // Android 10
+    oppo: ['PDPM00', 'PCEM00', 'CPH1937', 'CPH1819', 'PBCM10'],
+    samsung: ['SM-G9750', 'SM-G9730'],
+    vivo: ['V1955A', 'V1981A'],
+    xiaomi: ['Mi 9', 'Redmi K20 Pro'],
+    google: ['Pixel 4', 'Pixel 4 XL']
+  }
+};
+
+function getValidDuoPlusModel(phoneOs, brand) {
+  const osCode = getDuoPlusOsCode(phoneOs);
+  const b = (brand || 'oppo').toLowerCase();
+  const brandList = (DUOPLUS_BRAND_MODELS[osCode] && DUOPLUS_BRAND_MODELS[osCode][b]) || (DUOPLUS_BRAND_MODELS[4][b]) || ['PJW110'];
+  return brandList[Math.floor(Math.random() * brandList.length)];
+}
+
+// 🐼 Tải và quản lý danh sách Proxy từ PandaProxy API cho Cloud Phone
+async function loadDuoCpPandaProxies(showToast = false) {
+  const sel = document.getElementById('duoCpPandaSelect');
+  if (!sel) return;
+  if (showToast) toast('Đang tải danh sách proxy từ PandaProxy...', 'info', 1500);
+  try {
+    const res = await fetch('/api/panda/proxies');
+    const json = await res.json();
+    const list = (json && Array.isArray(json.data)) ? json.data : [];
+    
+    sel.innerHTML = '<option value="" disabled selected>🐼 Chọn PandaProxy (' + list.length + ')...</option>';
+    
+    if (list.length === 0) {
+      sel.innerHTML += '<option value="" disabled>-- Không có proxy nào trên PandaProxy --</option>';
+      if (showToast) toast('PandaProxy không có proxy nào khả dụng', 'warning');
+      return;
+    }
+    
+    list.forEach((p, idx) => {
+      const code = p.code || ('PANDA-' + (idx + 1));
+      const ip = p.proxy?.ipaddress?.ip || '';
+      const port = p.proxy?.port || '';
+      const u = p.proxy?.username || '';
+      const pass = p.proxy?.password || '';
+      if (ip && port) {
+        const proxyStr = `${ip}:${port}:${u}:${pass}`;
+        sel.innerHTML += `<option value="${escapeHtml(proxyStr)}">🐼 ${escapeHtml(code)}: ${escapeHtml(ip)}:${escapeHtml(port)}</option>`;
+      }
+    });
+    if (showToast) toast(`Đã tải ${list.length} proxy từ PandaProxy`, 'success', 2000);
+  } catch(e) {
+    console.error('Lỗi tải PandaProxy:', e);
+    if (showToast) toast('Lỗi kết nối PandaProxy: ' + e.message, 'error');
+  }
+}
+
+function applyPandaProxyToDuoCp(proxyStr) {
+  if (!proxyStr) return;
+  proxyStr = proxyStr.trim();
+  const proxyInput = document.getElementById('duoCpProxyInput');
+  if (proxyInput) proxyInput.value = proxyStr;
+  
+  // Lưu riêng vào duoplusProxy (tách biệt hoàn toàn với gpmProxy)
+  if (duoplusCurrentCloudPhoneTiktokId && tiktokData[duoplusCurrentCloudPhoneTiktokId]) {
+    tiktokData[duoplusCurrentCloudPhoneTiktokId].duoplusProxy = proxyStr;
+    fetch('/api/tiktok/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...tiktokData[duoplusCurrentCloudPhoneTiktokId],
+        id: duoplusCurrentCloudPhoneTiktokId,
+        duoplusProxy: proxyStr
+      })
+    }).then(() => renderTiktokTable()).catch(() => {});
+  }
+  toast(`✅ Đã chọn Proxy từ PandaProxy: ${proxyStr}`, 'success', 2500);
+}
+
+function autoSaveDuoCpProxy(val) {
+  val = (val || '').trim();
+  if (!duoplusCurrentCloudPhoneTiktokId || !tiktokData[duoplusCurrentCloudPhoneTiktokId]) return;
+  tiktokData[duoplusCurrentCloudPhoneTiktokId].duoplusProxy = val;
+  if (window._duoCpProxySaveTimeout) clearTimeout(window._duoCpProxySaveTimeout);
+  window._duoCpProxySaveTimeout = setTimeout(() => {
+    fetch('/api/tiktok/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...tiktokData[duoplusCurrentCloudPhoneTiktokId],
+        id: duoplusCurrentCloudPhoneTiktokId,
+        duoplusProxy: val
+      })
+    }).then(() => renderTiktokTable()).catch(() => {});
+  }, 500);
+}
+
 // 🌐 1/ Áp dụng Proxy Socks5 cho Cloud Phone qua API
 async function applyDuoplusProxyToCloudPhones(targetImageId) {
   const keyInput = document.getElementById('duoCpApiKeyInput');
@@ -6659,8 +6786,9 @@ async function applyDuoplusProxyToCloudPhones(targetImageId) {
 
     // BƯỚC 3: Cập nhật Proxy cho Cloud Phone
     if (phone.status === 0) {
-      // Máy chưa cấu hình -> dùng initProxy
-      toast(`⚡ Đang khởi tạo Cloud Phone [${phone.id}] với Proxy mới...`, 'info', 3000);
+      // Máy chưa cấu hình -> dùng initProxy với model chuẩn xác theo OS của máy (tránh Model not found)
+      const chosenModel = getValidDuoPlusModel(phone.os, 'oppo');
+      toast(`⚡ Đang khởi tạo Cloud Phone [${phone.id}] (${phone.os || 'Android 15'}) với model [${chosenModel}]...`, 'info', 3000);
       const initPayload = {
         apiKey,
         images: [{
@@ -6668,9 +6796,10 @@ async function applyDuoplusProxyToCloudPhones(targetImageId) {
           ip_scan_channel: 'ip2location',
           network_mode: 2,
           brand: 'oppo',
-          model: 'PDPM00',
+          model: chosenModel,
           sim: { type: 2, country: 'VN' },
-          locale: { country: 'VN', timezone: 'Asia/Ho_Chi_Minh' }
+          locale: { country: 'VN', timezone: 'Asia/Ho_Chi_Minh' },
+          location: { type: 1 }
         }]
       };
 
@@ -6853,19 +6982,9 @@ async function duoplusTriggerInitConfig() {
     }
   }
 
-  // 2. Random Oppo Model
-  const oppoModels = [
-    { code: 'PDPM00', name: 'OPPO Reno4 5G' },
-    { code: 'PDST00', name: 'Oppo Reno5 Pro 5G' },
-    { code: 'PJW110', name: 'Oppo reno12 Pro' },
-    { code: 'PHU110', name: 'Oppo reno10 Pro Plus' },
-    { code: 'PGU110', name: 'Oppo FIND N2' },
-    { code: 'PGFM10', name: 'Oppo FIND X6' },
-    { code: 'PHZ110', name: 'Oppo FIND X7' },
-    { code: 'CPH2121', name: 'Oppo A93' },
-    { code: 'PEGM00', name: 'Oppo Reno5 5G' }
-  ];
-  const chosenModel = oppoModels[Math.floor(Math.random() * oppoModels.length)];
+  // 2. Random Oppo Model theo đúng phiên bản OS của thiết bị (tránh Model not found)
+  const chosenModelCode = getValidDuoPlusModel(phone.os, 'oppo');
+  const chosenModel = { code: chosenModelCode, name: 'OPPO ' + chosenModelCode };
 
   let res = null;
 
@@ -7066,8 +7185,11 @@ function openEditDuoplusPhoneModal(imageId, currentName, currentRemark, currentB
   if (idInp) idInp.value = imageId;
   if (nameInp) nameInp.value = currentName || '';
   if (remInp) remInp.value = currentRemark || '';
-  if (brandSel) brandSel.value = (currentBrand || 'oppo').toLowerCase();
-  if (modelInp) modelInp.value = currentModel || 'PDPM00';
+  const targetPhone = duoplusCurrentPhonesList ? duoplusCurrentPhonesList.find(p => p.id === imageId) : null;
+  const brandKey = (currentBrand || 'oppo').toLowerCase();
+  const defaultModel = currentModel || getValidDuoPlusModel(targetPhone ? targetPhone.os : '', brandKey);
+  if (brandSel) brandSel.value = brandKey;
+  if (modelInp) modelInp.value = defaultModel;
   if (netSel) netSel.value = currentNetMode || '2';
   if (simSel) simSel.value = currentSimCountry || 'VN';
   if (proxyInp) proxyInp.value = currentProxy || '';
@@ -7131,6 +7253,9 @@ async function submitDuoplusPhoneParams() {
       sim: { status: 1, country: newSim },
       locale: { country: newSim }
     };
+    if (newModel) updateImageObj.model = newModel;
+    if (newBrand) updateImageObj.brand = newBrand;
+    if (newNetMode) updateImageObj.network_mode = parseInt(newNetMode, 10);
 
     // Nếu có nhập proxy mới trong modal
     if (newProxy) {
@@ -10709,12 +10834,21 @@ async function clearAllNotes() {
 
     <!-- Proxy & Initial Configuration Toolbar -->
     <div style="background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border); padding:10px 18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-      <!-- SOCKS5 Input & Apply -->
-      <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:320px;">
+      <!-- SOCKS5 Input & Apply with PandaProxy selection -->
+      <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:340px; flex-wrap:wrap;">
         <span style="font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; display:flex; align-items:center; gap:5px;">
           🌐 Nhập Proxy Socks5:
         </span>
-        <input type="text" id="duoCpProxyInput" placeholder="ip:port:username:password (hoặc user:pass@ip:port)..." style="flex:1; max-width:440px; font-size:11px; font-family:monospace; padding:5px 10px; height:28px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:#38bdf8; font-weight:600;">
+        <input type="text" id="duoCpProxyInput" placeholder="ip:port:username:password..." oninput="autoSaveDuoCpProxy(this.value)" style="flex:1; min-width:240px; font-size:11px; font-family:monospace; padding:5px 8px; height:28px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:#38bdf8; font-weight:600;">
+        
+        <!-- Dropdown chọn nhanh từ PandaProxy API -->
+        <select id="duoCpPandaSelect" onchange="applyPandaProxyToDuoCp(this.value); this.value='';" title="Chọn nhanh Proxy từ PandaProxy API cho Cloud Phone" style="height:28px; font-size:11px; padding:0 8px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:#f59e0b; font-weight:700; cursor:pointer; max-width:200px;">
+          <option value="" disabled selected>🐼 Chọn PandaProxy...</option>
+        </select>
+        <button class="btn btn-sm btn-ghost" onclick="loadDuoCpPandaProxies(true)" title="Tải lại danh sách từ PandaProxy API" style="height:28px; padding:0 6px; font-size:12px; color:#f59e0b;">
+          🔄
+        </button>
+        
         <button class="btn btn-sm btn-primary" onclick="applyDuoplusProxyToCloudPhones()" id="btnApplyDuoProxy" title="Áp dụng Proxy SOCKS5 cho Cloud Phone qua API" style="height:28px; font-size:11px; padding:0 12px; background:linear-gradient(135deg, #0284c7, #0369a1); border:none; color:#fff; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;">
           🚀 Áp dụng
         </button>

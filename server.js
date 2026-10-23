@@ -1930,7 +1930,7 @@ app.post('/api/tiktok/save', async (req, res) => {
       await ref.child(id).update(updateData);
     } else {
       const time = getFormattedTime();
-      await ref.push().set({ identifier, mail, username, password, session, status, result, notes: notes || '', time, coMaTime: coMaTime || '', subTabTime: subTabTime || new Date().toISOString(), ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '', duoplus: duoplus || '', duoplusProfileId: duoplusProfileId || '', bitcloud: bitcloud || '', duoplusHotmail: duoplusHotmail || '', duoplusApiKey: duoplusApiKey || '', gpmProxy: gpmProxy || duoplusProxy || '', duoplusProxy: duoplusProxy || gpmProxy || '' });
+      await ref.push().set({ identifier, mail, username, password, session, status, result, notes: notes || '', time, coMaTime: coMaTime || '', subTabTime: subTabTime || new Date().toISOString(), ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '', duoplus: duoplus || '', duoplusProfileId: duoplusProfileId || '', bitcloud: bitcloud || '', duoplusHotmail: duoplusHotmail || '', duoplusApiKey: duoplusApiKey || '', gpmProxy: gpmProxy || '', duoplusProxy: duoplusProxy || '' });
     }
     res.json({ success: true });
   } catch(e) {
