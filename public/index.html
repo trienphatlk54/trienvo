@@ -5747,6 +5747,123 @@ async function retryDuoplusRegistration(tiktokId) {
 let duoplusCurrentCloudPhoneTiktokId = null;
 let duoplusCurrentPhonesList = [];
 
+function parseSocks5String(str) {
+  if (!str) return null;
+  str = str.trim();
+  str = str.replace(/^(socks5:\/\/|socks:\/\/|http:\/\/|https:\/\/)/i, '');
+  
+  let host = '', port = 1080, user = '', password = '';
+  if (str.includes('@')) {
+    const atParts = str.split('@');
+    const auth = atParts[0];
+    const endpoint = atParts[1];
+    if (auth.includes(':')) {
+      const authParts = auth.split(':');
+      user = authParts[0];
+      password = authParts.slice(1).join(':');
+    } else {
+      user = auth;
+    }
+    const epParts = endpoint.split(':');
+    host = epParts[0];
+    port = parseInt(epParts[1], 10) || 1080;
+  } else {
+    const parts = str.split(':');
+    if (parts.length >= 4) {
+      host = parts[0];
+      port = parseInt(parts[1], 10) || 1080;
+      user = parts[2];
+      password = parts.slice(3).join(':');
+    } else if (parts.length === 2) {
+      host = parts[0];
+      port = parseInt(parts[1], 10) || 1080;
+    } else if (parts.length === 3) {
+      host = parts[0];
+      port = parseInt(parts[1], 10) || 1080;
+      user = parts[2];
+    } else {
+      host = parts[0];
+    }
+  }
+  return { host, port, user, password, protocol: 'socks5' };
+}
+
+async function getPublicRealIp() {
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+  try {
+    const r1 = await fetch(`http://localhost:${bridgePort}/api/duoplus/my-ip`, { signal: AbortSignal.timeout(2500) });
+    const d1 = await r1.json();
+    if (d1 && d1.ip) return d1.ip;
+  } catch(e) {}
+  try {
+    const r2 = await fetch('/api/duoplus/my-ip', { signal: AbortSignal.timeout(2500) });
+    const d2 = await r2.json();
+    if (d2 && d2.ip) return d2.ip;
+  } catch(e) {}
+  try {
+    const r3 = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(2500) });
+    const d3 = await r3.json();
+    if (d3 && d3.ip) return d3.ip;
+  } catch(e) {}
+  return '42.116.75.94';
+}
+
+async function callDuoplusGenericApi(subPath, payload) {
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+  let resData = null;
+
+  // 1. Thử local server
+  try {
+    const sUrl = '/api/duoplus' + subPath;
+    const res = await fetch(sUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(12000)
+    });
+    const d = await res.json();
+    if (d && (d.code === 200 || d.success)) return d;
+    resData = d;
+  } catch(e) {}
+
+  // 2. Thử GPM Bridge
+  try {
+    const bUrl = `http://localhost:${bridgePort}/api/v1/duoplus` + subPath;
+    const bRes = await fetch(bUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(12000)
+    });
+    const bd = await bRes.json();
+    if (bd && (bd.code === 200 || bd.success)) return bd;
+    if (!resData) resData = bd;
+  } catch(e) {}
+
+  // 3. Fallback trực tiếp OpenAPI DuoPlus
+  try {
+    const openSub = subPath.startsWith('/cloudphone/') ? '/api/v1/cloudPhone/' + subPath.replace('/cloudphone/', '')
+                  : subPath.startsWith('/proxy/') ? '/api/v1/proxy/' + subPath.replace('/proxy/', '')
+                  : subPath.startsWith('/mobile/') ? '/api/v1/mobile/' + subPath.replace('/mobile/', '')
+                  : '/api/v1' + subPath;
+    const openRes = await fetch('https://openapi.duoplus.net' + openSub, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'DuoPlus-API-Key': payload.apiKey || '',
+        'Lang': 'en'
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000)
+    });
+    const od = await openRes.json();
+    if (od && (od.code === 200 || od.success)) return od;
+    if (!resData) resData = od;
+  } catch(e) {}
+
+  return resData;
+}
+
 function openDuoplusApiModal(tiktokId) {
   duoplusCurrentCloudPhoneTiktokId = tiktokId;
   const item = tiktokData[tiktokId] || {};
@@ -5765,8 +5882,23 @@ function openDuoplusApiModal(tiktokId) {
   const apiKey = (item.duoplusApiKey || '').trim();
   if (keyInput) keyInput.value = apiKey;
 
+  // Điền proxy nếu có sẵn
+  const proxyInput = document.getElementById('duoCpProxyInput');
+  const currentProxy = item.duoplusProxy || item.proxy || '';
+  if (proxyInput) proxyInput.value = currentProxy;
+
   const errAlert = document.getElementById('duoCpErrorAlert');
   if (errAlert) errAlert.style.display = 'none';
+
+  // Kiểm tra trạng thái nút Cấu hình khởi tạo
+  const btnInit = document.getElementById('btnDuoInitConfig');
+  if (btnInit) {
+    if (item.duoplus_initialized) {
+      btnInit.style.display = 'none';
+    } else {
+      btnInit.style.display = 'inline-flex';
+    }
+  }
 
   if (apiKey) {
     fetchDuoplusCloudPhones();
@@ -5843,52 +5975,7 @@ async function fetchDuoplusCloudPhones() {
   if (emptyState) emptyState.style.display = 'none';
   if (errAlert) errAlert.style.display = 'none';
 
-  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
-  let resData = null;
-
-  // 1. Thử local server endpoint
-  try {
-    const res = await fetch('/api/duoplus/cloudphone/list', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey, page: 1, pagesize: 50 }),
-      signal: AbortSignal.timeout(10000)
-    });
-    const d = await res.json();
-    if (d && (d.code === 200 || d.success)) resData = d;
-  } catch(e) {}
-
-  // 2. Thử GPM Bridge (Port 9497)
-  if (!resData) {
-    try {
-      const bRes = await fetch(`http://localhost:${bridgePort}/api/v1/duoplus/cloudphone/list`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, page: 1, pagesize: 50 }),
-        signal: AbortSignal.timeout(10000)
-      });
-      const bData = await bRes.json();
-      if (bData && (bData.code === 200 || bData.success)) resData = bData;
-    } catch(e) {}
-  }
-
-  // 3. Fallback trực tiếp OpenAPI DuoPlus
-  if (!resData) {
-    try {
-      const dRes = await fetch('https://openapi.duoplus.net/api/v1/cloudPhone/list', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'DuoPlus-API-Key': apiKey,
-          'Lang': 'en'
-        },
-        body: JSON.stringify({ page: 1, pagesize: 50 }),
-        signal: AbortSignal.timeout(12000)
-      });
-      const dData = await dRes.json();
-      if (dData && dData.code === 200) resData = dData;
-    } catch(e) {}
-  }
+  const resData = await callDuoplusGenericApi('/cloudphone/list', { apiKey, page: 1, pagesize: 50 });
 
   if (spinner) spinner.style.display = 'none';
 
@@ -5928,6 +6015,22 @@ function renderDuoplusCloudPhonesTable(list) {
   if (statRunning) statRunning.innerText = runningCount;
   if (statStopped) statStopped.innerText = stoppedCount;
 
+  // Quản lý hiển thị nút Cấu hình khởi tạo:
+  // Nếu máy đã khởi tạo (status !== 0) hoặc cờ duoplus_initialized = true -> ẩn nút vĩnh viễn
+  const btnInit = document.getElementById('btnDuoInitConfig');
+  const tiktokId = duoplusCurrentCloudPhoneTiktokId;
+  const item = (tiktokId && tiktokData[tiktokId]) ? tiktokData[tiktokId] : {};
+  const hasUnconfiguredPhone = list.some(p => p.status === 0);
+  const isAlreadyInitialized = item.duoplus_initialized || (list.length > 0 && !hasUnconfiguredPhone);
+
+  if (btnInit) {
+    if (!isAlreadyInitialized && hasUnconfiguredPhone) {
+      btnInit.style.display = 'inline-flex';
+    } else {
+      btnInit.style.display = 'none';
+    }
+  }
+
   if (list.length === 0) {
     if (tableCont) tableCont.style.display = 'none';
     if (emptyState) emptyState.style.display = 'block';
@@ -5965,6 +6068,9 @@ function renderDuoplusCloudPhonesTable(list) {
       expStr = expDate.toLocaleDateString('vi-VN') + ' ' + expDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     }
 
+    // Proxy info
+    const proxyDisplay = p.ip ? `<span style="font-family:monospace; color:#38bdf8; font-weight:600;">${escapeHtml(p.ip)}</span>` : '<span style="color:var(--text-muted); font-style:italic;">Chưa gán</span>';
+
     return `
       <tr style="border-bottom:1px solid var(--border); transition:background 0.2s;" onmouseenter="this.style.background='var(--surface)'" onmouseleave="this.style.background=''">
         <td style="padding:8px 10px; text-align:center; color:var(--text-muted); font-size:11px;">${idx + 1}</td>
@@ -5975,6 +6081,7 @@ function renderDuoplusCloudPhonesTable(list) {
         </td>
         <td style="padding:8px 10px;">
           <div style="font-weight:600; color:var(--text);">${escapeHtml(p.name || '---')}</div>
+          <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">IP: ${proxyDisplay}</div>
         </td>
         <td style="padding:8px 10px; text-align:center;">${statusBadge}</td>
         <td style="padding:8px 10px; color:var(--text); font-size:11px;">${escapeHtml(p.os || '---')}</td>
@@ -5999,7 +6106,7 @@ function renderDuoplusCloudPhonesTable(list) {
         </td>
         <td style="padding:8px 10px; text-align:center; white-space:nowrap;">
           <div style="display:inline-flex; gap:5px;">
-            <button class="btn btn-ghost btn-xs" onclick="openEditDuoplusPhoneModal('${p.id}', '${escapeHtml(p.name || '')}', '${escapeHtml(p.remark || '')}')" title="Chỉnh sửa Tên máy & Ghi chú qua API" style="font-size:11px; padding:2px 8px; border:1px solid var(--border); border-radius:4px; color:var(--text);">
+            <button class="btn btn-ghost btn-xs" onclick="openEditDuoplusPhoneModal('${p.id}', '${escapeHtml(p.name || '')}', '${escapeHtml(p.remark || '')}', '${escapeHtml(p.brand || 'oppo')}', '${escapeHtml(p.model || '')}', '${escapeHtml(p.network_mode || '2')}', '${escapeHtml(p.sim_country || 'VN')}', '${escapeHtml(p.ip || '')}', '${escapeHtml(p.dpi_name || '1080x1920(480dpi)')}')" title="Chỉnh sửa thông số máy qua API" style="font-size:11px; padding:2px 8px; border:1px solid var(--border); border-radius:4px; color:var(--text);">
               ✏️ Sửa
             </button>
             <button class="btn btn-primary btn-xs" onclick="openDuoplusPhoneScreen('${p.id}', ${st})" title="Mở trình điều khiển Cloud Phone trực tiếp trên Web" style="font-size:11px; padding:2px 8px; border-radius:4px; background:linear-gradient(135deg, #0284c7, #0369a1); color:#fff; border:none; font-weight:600; display:inline-flex; align-items:center; gap:3px;">
@@ -6012,6 +6119,306 @@ function renderDuoplusCloudPhonesTable(list) {
   }).join('');
 }
 
+// 🌐 1/ Áp dụng Proxy Socks5 cho Cloud Phone qua API
+async function applyDuoplusProxyToCloudPhones(targetImageId) {
+  const keyInput = document.getElementById('duoCpApiKeyInput');
+  const apiKey = (keyInput ? keyInput.value : '').trim();
+  if (!apiKey) {
+    toast('Vui lòng điền API Key trước khi áp dụng Proxy', 'warning');
+    return;
+  }
+
+  const proxyInput = document.getElementById('duoCpProxyInput');
+  const proxyStr = (proxyInput ? proxyInput.value : '').trim();
+  if (!proxyStr) {
+    toast('Vui lòng nhập Proxy Socks5 (định dạng ip:port:user:pass)', 'warning');
+    if (proxyInput) proxyInput.focus();
+    return;
+  }
+
+  const proxyObj = parseSocks5String(proxyStr);
+  if (!proxyObj || !proxyObj.host || !proxyObj.port) {
+    toast('Định dạng Proxy Socks5 không hợp lệ. Vui lòng nhập: ip:port:username:password', 'error');
+    return;
+  }
+
+  if (!duoplusCurrentPhonesList || duoplusCurrentPhonesList.length === 0) {
+    toast('Chưa có thiết bị Cloud Phone nào để áp dụng', 'warning');
+    return;
+  }
+
+  const phone = targetImageId ? duoplusCurrentPhonesList.find(p => p.id === targetImageId) : duoplusCurrentPhonesList[0];
+  if (!phone) {
+    toast('Không tìm thấy thiết bị Cloud Phone cần áp dụng', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btnApplyDuoProxy');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = '⏳ Đang áp dụng...';
+  }
+
+  toast(`🌐 Đang áp dụng Proxy Socks5 [${proxyObj.host}:${proxyObj.port}] cho Cloud Phone [${phone.id}] qua API...`, 'info', 3000);
+
+  try {
+    let result = null;
+
+    if (phone.status === 0) {
+      // Máy chưa cấu hình -> dùng initProxy
+      result = await callDuoplusGenericApi('/cloudphone/initProxy', {
+        apiKey,
+        images: [{
+          image_id: phone.id,
+          ip_scan_channel: 'ip2location',
+          network_mode: 2,
+          brand: 'oppo',
+          model: 'PDPM00',
+          sim: { type: 2, country: 'VN' },
+          locale: { country: 'VN', timezone: 'Asia/Ho_Chi_Minh' },
+          proxy: {
+            protocol: 'socks5',
+            host: proxyObj.host,
+            port: parseInt(proxyObj.port, 10),
+            user: proxyObj.user || '',
+            password: proxyObj.password || ''
+          }
+        }]
+      });
+    } else {
+      // Máy đã khởi tạo -> Thêm proxy vào DuoPlus qua /proxy/add
+      const addRes = await callDuoplusGenericApi('/proxy/add', {
+        apiKey,
+        proxy_list: [{
+          protocol: 'socks5',
+          host: proxyObj.host,
+          port: String(proxyObj.port),
+          user: proxyObj.user || '',
+          password: proxyObj.password || '',
+          name: 'Proxy_' + phone.id
+        }],
+        ip_scan_channel: 'ip2location'
+      });
+
+      let proxyId = addRes?.data?.success?.[0]?.id;
+      if (!proxyId) {
+        const listRes = await callDuoplusGenericApi('/proxy/list', { apiKey, page: 1, pagesize: 20 });
+        const found = listRes?.data?.list?.find(p => p.host === proxyObj.host && String(p.port) === String(proxyObj.port));
+        if (found) proxyId = found.id;
+      }
+
+      if (!proxyId) {
+        throw new Error(addRes?.data?.fail?.[0]?.message || addRes?.message || 'Không thể đăng ký Proxy vào DuoPlus');
+      }
+
+      // Cập nhật cài đặt proxy cho cloud phone
+      result = await callDuoplusGenericApi('/cloudphone/update', {
+        apiKey,
+        images: [{
+          image_id: phone.id,
+          proxy: { id: proxyId, dns: 1 },
+          gps: { type: 1 },
+          locale: { type: 1 }
+        }]
+      });
+
+      // Bật công tắc proxy
+      await callDuoplusGenericApi('/cloudphone/proxySwitch', {
+        apiKey,
+        image_ids: [phone.id],
+        status: 1
+      });
+    }
+
+    if (result && (result.code === 200 || result.success)) {
+      toast(`✅ Đã áp dụng Proxy Socks5 thành công cho Cloud Phone [${phone.id}]!`, 'success', 3000);
+      
+      // Lưu lại thông tin proxy vào tiktokData
+      if (duoplusCurrentCloudPhoneTiktokId && tiktokData[duoplusCurrentCloudPhoneTiktokId]) {
+        tiktokData[duoplusCurrentCloudPhoneTiktokId].duoplusProxy = proxyStr;
+        fetch('/api/tiktok/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...tiktokData[duoplusCurrentCloudPhoneTiktokId],
+            id: duoplusCurrentCloudPhoneTiktokId,
+            duoplusProxy: proxyStr
+          })
+        }).catch(() => {});
+      }
+
+      setTimeout(fetchDuoplusCloudPhones, 1500);
+    } else {
+      throw new Error(result?.message || 'Lỗi khi gọi API DuoPlus');
+    }
+  } catch(err) {
+    toast(`❌ Lỗi áp dụng Proxy: ${err.message}`, 'error', 4500);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = '🚀 Áp dụng';
+    }
+  }
+}
+
+// ⚡ 2/ Cấu hình khởi tạo mặc định cho Cloud Phone qua API
+// (Proxy: Socks5, Network Mode: Mobile Network, Brand: Oppo, Model: Random, SIM: Vietnam)
+// (Sau khi click thành công sẽ biến mất vĩnh viễn không cho click lần 2)
+async function duoplusTriggerInitConfig() {
+  const keyInput = document.getElementById('duoCpApiKeyInput');
+  const apiKey = (keyInput ? keyInput.value : '').trim();
+  if (!apiKey) {
+    toast('Vui lòng điền DuoPlus API Key trước khi cấu hình', 'warning');
+    return;
+  }
+
+  const tiktokId = duoplusCurrentCloudPhoneTiktokId;
+  const item = (tiktokId && tiktokData[tiktokId]) ? tiktokData[tiktokId] : {};
+  if (item.duoplus_initialized) {
+    toast('Thiết bị đã hoàn tất Cấu hình khởi tạo trước đó!', 'info');
+    const btn = document.getElementById('btnDuoInitConfig');
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+
+  if (!duoplusCurrentPhonesList || duoplusCurrentPhonesList.length === 0) {
+    toast('Chưa có thiết bị Cloud Phone nào để cấu hình', 'warning');
+    return;
+  }
+
+  const phone = duoplusCurrentPhonesList.find(p => p.status === 0) || duoplusCurrentPhonesList[0];
+  if (!phone) {
+    toast('Không tìm thấy thiết bị cần cấu hình', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('btnDuoInitConfig');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = '⏳ Đang khởi tạo...';
+  }
+
+  toast('⚡ Đang thực hiện Cấu hình khởi tạo qua API: Oppo, Random Model, Mobile Network, SIM Vietnam...', 'info', 3500);
+
+  // 1. Proxy Socks5: lấy từ ô input, nếu trống lấy IP thực
+  const proxyInput = document.getElementById('duoCpProxyInput');
+  let proxyStr = (proxyInput ? proxyInput.value : '').trim();
+  let proxyObj = null;
+
+  if (proxyStr) {
+    proxyObj = parseSocks5String(proxyStr);
+  } else {
+    // Area proxy trống -> lấy IP thực của máy
+    const realIp = await getPublicRealIp();
+    proxyObj = {
+      protocol: 'socks5',
+      host: realIp,
+      port: 1080,
+      user: '',
+      password: ''
+    };
+  }
+
+  // 2. Random Oppo Model
+  const oppoModels = [
+    { code: 'PDPM00', name: 'OPPO Reno4 5G' },
+    { code: 'PDST00', name: 'Oppo Reno5 Pro 5G' },
+    { code: 'PJW110', name: 'Oppo reno12 Pro' },
+    { code: 'PHU110', name: 'Oppo reno10 Pro Plus' },
+    { code: 'PGU110', name: 'Oppo FIND N2' },
+    { code: 'PGFM10', name: 'Oppo FIND X6' },
+    { code: 'PHZ110', name: 'Oppo FIND X7' },
+    { code: 'CPH2121', name: 'Oppo A93' },
+    { code: 'PEGM00', name: 'Oppo Reno5 5G' }
+  ];
+  const chosenModel = oppoModels[Math.floor(Math.random() * oppoModels.length)];
+
+  // 3. Payload đầy đủ theo chuẩn OpenAPI DuoPlus
+  const initPayload = {
+    apiKey,
+    images: [{
+      image_id: phone.id,
+      ip_scan_channel: 'ip2location',
+      network_mode: 2, // Mobile Network
+      brand: 'oppo', // Brand Oppo
+      model: chosenModel.code, // Random Model
+      sim: {
+        type: 2, // Custom region
+        country: 'VN' // SIM Region Vietnam
+      },
+      locale: {
+        country: 'VN',
+        timezone: 'Asia/Ho_Chi_Minh'
+      },
+      proxy: {
+        protocol: 'socks5',
+        host: proxyObj.host,
+        port: parseInt(proxyObj.port, 10),
+        user: proxyObj.user || '',
+        password: proxyObj.password || ''
+      }
+    }]
+  };
+
+  try {
+    const res = await callDuoplusGenericApi('/cloudphone/initProxy', initPayload);
+
+    if (res && (res.code === 200 || res.success)) {
+      // ẨN NÚT VĨNH VIỄN KHÔNG CHO CLICK LẦN 2
+      if (btn) btn.style.display = 'none';
+
+      // Lưu trạng thái đã khởi tạo vào tiktokData và localStorage
+      if (tiktokId && tiktokData[tiktokId]) {
+        tiktokData[tiktokId].duoplus_initialized = true;
+        tiktokData[tiktokId].duoplus_initialized_time = new Date().toISOString();
+        tiktokData[tiktokId].duoplus_brand = 'Oppo';
+        tiktokData[tiktokId].duoplus_model = chosenModel.name;
+        tiktokData[tiktokId].duoplus_network_mode = 'Mobile Network';
+        tiktokData[tiktokId].duoplus_sim = 'Vietnam (VN)';
+        if (proxyStr) tiktokData[tiktokId].duoplusProxy = proxyStr;
+
+        fetch('/api/tiktok/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...tiktokData[tiktokId],
+            id: tiktokId,
+            duoplus_initialized: true,
+            duoplus_initialized_time: tiktokData[tiktokId].duoplus_initialized_time,
+            duoplus_brand: 'Oppo',
+            duoplus_model: chosenModel.name,
+            duoplus_network_mode: 'Mobile Network',
+            duoplus_sim: 'Vietnam (VN)',
+            duoplusProxy: proxyStr || ''
+          })
+        }).catch(() => {});
+      }
+
+      localStorage.setItem('duoplus_init_' + phone.id, 'true');
+
+      toast(`🎉 Cấu hình khởi tạo thành công! Brand: Oppo (${chosenModel.name}), Network: Mobile Network, SIM: Vietnam.`, 'success', 4000);
+      setTimeout(fetchDuoplusCloudPhones, 1500);
+    } else {
+      const errMsg = res?.message || 'Thất bại khi gọi API initProxy';
+      if (errMsg.includes('must detect availability') || errMsg.includes('Proxy')) {
+        toast(`⚠️ DuoPlus yêu cầu Proxy Socks5 đang hoạt động để kiểm tra kết nối mạng. Vui lòng nhập Proxy Socks5 hoạt động vào ô phía trên rồi bấm Khởi tạo lại!`, 'warning', 5000);
+      } else {
+        toast(`❌ Lỗi cấu hình khởi tạo: ${errMsg}`, 'error', 4500);
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = '⚡ Cấu hình khởi tạo';
+      }
+    }
+  } catch(err) {
+    toast(`❌ Lỗi: ${err.message}`, 'error', 4000);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = '⚡ Cấu hình khởi tạo';
+    }
+  }
+}
+
 async function duoplusPowerOnPhone(imageId) {
   const keyInput = document.getElementById('duoCpApiKeyInput');
   const apiKey = (keyInput ? keyInput.value : '').trim();
@@ -6019,26 +6426,7 @@ async function duoplusPowerOnPhone(imageId) {
 
   toast(`⚡ Đang gửi lệnh Bật nguồn Cloud Phone [${imageId}] qua API...`, 'info', 2500);
 
-  let resData = null;
-  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
-
-  try {
-    const res = await fetch('/api/duoplus/cloudphone/powerOn', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey, image_ids: [imageId] })
-    });
-    resData = await res.json();
-  } catch(e) {
-    try {
-      const bRes = await fetch(`http://localhost:${bridgePort}/api/v1/duoplus/cloudphone/powerOn`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, image_ids: [imageId] })
-      });
-      resData = await bRes.json();
-    } catch(e2) {}
-  }
+  const resData = await callDuoplusGenericApi('/cloudphone/powerOn', { apiKey, image_ids: [imageId] });
 
   if (resData && (resData.code === 200 || resData.success)) {
     if (resData.data && resData.data.fail && resData.data.fail.includes(imageId)) {
@@ -6062,26 +6450,7 @@ async function duoplusPowerOffPhone(imageId) {
 
   toast(`⚡ Đang gửi lệnh Tắt nguồn Cloud Phone [${imageId}]...`, 'info', 2500);
 
-  let resData = null;
-  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
-
-  try {
-    const res = await fetch('/api/duoplus/cloudphone/powerOff', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey, image_ids: [imageId] })
-    });
-    resData = await res.json();
-  } catch(e) {
-    try {
-      const bRes = await fetch(`http://localhost:${bridgePort}/api/v1/duoplus/cloudphone/powerOff`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, image_ids: [imageId] })
-      });
-      resData = await bRes.json();
-    } catch(e2) {}
-  }
+  const resData = await callDuoplusGenericApi('/cloudphone/powerOff', { apiKey, image_ids: [imageId] });
 
   if (resData && (resData.code === 200 || resData.success)) {
     if (resData.data && resData.data.fail && resData.data.fail.includes(imageId)) {
@@ -6105,26 +6474,7 @@ async function duoplusRestartPhone(imageId) {
 
   toast(`🔄 Đang gửi lệnh Restart Cloud Phone [${imageId}]...`, 'info', 2500);
 
-  let resData = null;
-  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
-
-  try {
-    const res = await fetch('/api/duoplus/cloudphone/restart', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey, image_ids: [imageId] })
-    });
-    resData = await res.json();
-  } catch(e) {
-    try {
-      const bRes = await fetch(`http://localhost:${bridgePort}/api/v1/duoplus/cloudphone/restart`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, image_ids: [imageId] })
-      });
-      resData = await bRes.json();
-    } catch(e2) {}
-  }
+  const resData = await callDuoplusGenericApi('/cloudphone/restart', { apiKey, image_ids: [imageId] });
 
   if (resData && (resData.code === 200 || resData.success)) {
     toast('✅ Đã gửi lệnh Khởi động lại thành công!', 'success', 2500);
@@ -6134,16 +6484,29 @@ async function duoplusRestartPhone(imageId) {
   }
 }
 
-function openEditDuoplusPhoneModal(imageId, currentName, currentRemark) {
+// ✏️ Mở Modal chỉnh sửa tất cả thông số: Name, Remark, Brand, Model, Network Mode, SIM, Proxy, DPI
+function openEditDuoplusPhoneModal(imageId, currentName, currentRemark, currentBrand, currentModel, currentNetMode, currentSimCountry, currentProxy, currentDpi) {
   const modal = document.getElementById('duoplusEditPhoneModal');
   if (!modal) return;
   const idInp = document.getElementById('editCpId');
   const nameInp = document.getElementById('editCpName');
   const remInp = document.getElementById('editCpRemark');
+  const brandSel = document.getElementById('editCpBrand');
+  const modelInp = document.getElementById('editCpModel');
+  const netSel = document.getElementById('editCpNetworkMode');
+  const simSel = document.getElementById('editCpSimCountry');
+  const proxyInp = document.getElementById('editCpProxy');
+  const dpiSel = document.getElementById('editCpDpi');
 
   if (idInp) idInp.value = imageId;
   if (nameInp) nameInp.value = currentName || '';
   if (remInp) remInp.value = currentRemark || '';
+  if (brandSel) brandSel.value = (currentBrand || 'oppo').toLowerCase();
+  if (modelInp) modelInp.value = currentModel || 'PDPM00';
+  if (netSel) netSel.value = currentNetMode || '2';
+  if (simSel) simSel.value = currentSimCountry || 'VN';
+  if (proxyInp) proxyInp.value = currentProxy || '';
+  if (dpiSel) dpiSel.value = currentDpi || '1080x1920(480dpi)';
 
   modal.classList.add('active');
   if (nameInp) nameInp.focus();
@@ -6154,6 +6517,7 @@ function closeEditDuoplusPhoneModal() {
   if (modal) modal.classList.remove('active');
 }
 
+// 💾 Lưu thay đổi thông số Cloud Phone qua API
 async function submitDuoplusPhoneParams() {
   const keyInput = document.getElementById('duoCpApiKeyInput');
   const apiKey = (keyInput ? keyInput.value : '').trim();
@@ -6165,10 +6529,22 @@ async function submitDuoplusPhoneParams() {
   const idInp = document.getElementById('editCpId');
   const nameInp = document.getElementById('editCpName');
   const remInp = document.getElementById('editCpRemark');
+  const brandSel = document.getElementById('editCpBrand');
+  const modelInp = document.getElementById('editCpModel');
+  const netSel = document.getElementById('editCpNetworkMode');
+  const simSel = document.getElementById('editCpSimCountry');
+  const proxyInp = document.getElementById('editCpProxy');
+  const dpiSel = document.getElementById('editCpDpi');
 
   const imageId = (idInp ? idInp.value : '').trim();
   const newName = (nameInp ? nameInp.value : '').trim();
   const newRemark = (remInp ? remInp.value : '').trim();
+  const newBrand = brandSel ? brandSel.value : 'oppo';
+  const newModel = modelInp ? modelInp.value.trim() : '';
+  const newNetMode = netSel ? netSel.value : '2';
+  const newSim = simSel ? simSel.value : 'VN';
+  const newProxy = proxyInp ? proxyInp.value.trim() : '';
+  const newDpi = dpiSel ? dpiSel.value : '1080x1920(480dpi)';
 
   if (!imageId || !newName) {
     toast('Vui lòng nhập Tên Cloud Phone', 'warning');
@@ -6181,42 +6557,69 @@ async function submitDuoplusPhoneParams() {
     btnSave.innerText = '⏳ Đang lưu qua API...';
   }
 
-  let resData = null;
-  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
-  const payload = {
-    apiKey,
-    images: [{ image_id: imageId, name: newName, remark: newRemark }]
-  };
-
   try {
-    const res = await fetch('/api/duoplus/cloudphone/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    resData = await res.json();
-  } catch(e) {
-    try {
-      const bRes = await fetch(`http://localhost:${bridgePort}/api/v1/duoplus/cloudphone/update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      resData = await bRes.json();
-    } catch(e2) {}
-  }
+    const updateImageObj = {
+      image_id: imageId,
+      name: newName,
+      remark: newRemark,
+      dpi_name: newDpi,
+      sim: { status: 1, country: newSim },
+      locale: { country: newSim }
+    };
 
-  if (btnSave) {
-    btnSave.disabled = false;
-    btnSave.innerText = '💾 Lưu thay đổi qua API';
-  }
+    // Nếu có nhập proxy mới trong modal
+    if (newProxy) {
+      const pObj = parseSocks5String(newProxy);
+      if (pObj && pObj.host && pObj.port) {
+        const addRes = await callDuoplusGenericApi('/proxy/add', {
+          apiKey,
+          proxy_list: [{
+            protocol: 'socks5',
+            host: pObj.host,
+            port: String(pObj.port),
+            user: pObj.user || '',
+            password: pObj.password || '',
+            name: 'Proxy_' + imageId
+          }],
+          ip_scan_channel: 'ip2location'
+        });
 
-  if (resData && (resData.code === 200 || resData.success)) {
-    toast('🎉 Đã cập nhật thông số Cloud Phone thành công!', 'success', 2500);
-    closeEditDuoplusPhoneModal();
-    fetchDuoplusCloudPhones();
-  } else {
-    toast('❌ Lỗi cập nhật: ' + (resData?.message || 'Thất bại'), 'error', 3500);
+        let proxyId = addRes?.data?.success?.[0]?.id;
+        if (!proxyId) {
+          const listRes = await callDuoplusGenericApi('/proxy/list', { apiKey, page: 1, pagesize: 20 });
+          const found = listRes?.data?.list?.find(p => p.host === pObj.host && String(p.port) === String(pObj.port));
+          if (found) proxyId = found.id;
+        }
+
+        if (proxyId) {
+          updateImageObj.proxy = { id: proxyId, dns: 1 };
+          updateImageObj.gps = { type: 1 };
+          updateImageObj.locale = { type: 1 };
+        }
+      }
+    }
+
+    const payload = {
+      apiKey,
+      images: [updateImageObj]
+    };
+
+    const resData = await callDuoplusGenericApi('/cloudphone/update', payload);
+
+    if (resData && (resData.code === 200 || resData.success)) {
+      toast('🎉 Đã cập nhật thông số Cloud Phone thành công!', 'success', 2500);
+      closeEditDuoplusPhoneModal();
+      fetchDuoplusCloudPhones();
+    } else {
+      toast('❌ Lỗi cập nhật: ' + (resData?.message || 'Thất bại'), 'error', 3500);
+    }
+  } catch(err) {
+    toast('❌ Lỗi cập nhật: ' + err.message, 'error', 3500);
+  } finally {
+    if (btnSave) {
+      btnSave.disabled = false;
+      btnSave.innerText = '💾 Lưu thay đổi qua API';
+    }
   }
 }
 
@@ -6229,7 +6632,7 @@ function openDuoplusWebConsole() {
       return;
     }
   }
-  window.open('https://my.duoplus.net/cloudphone', '_blank');
+  window.open('https://my.duoplus.net/images', '_blank');
 }
 
 function openDuoplusPhoneScreen(imageId, status) {
@@ -6242,8 +6645,6 @@ function openDuoplusPhoneScreen(imageId, status) {
 
   openDuoplusWebConsole();
 }
-
-
 
 let tiktokNoteSaveTimeouts = {};
 function autoSaveTiktokNote(id, val) {
@@ -9737,6 +10138,27 @@ async function clearAllNotes() {
       </div>
     </div>
 
+    <!-- Proxy & Initial Configuration Toolbar -->
+    <div style="background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border); padding:10px 18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <!-- SOCKS5 Input & Apply -->
+      <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:320px;">
+        <span style="font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; display:flex; align-items:center; gap:5px;">
+          🌐 Nhập Proxy Socks5:
+        </span>
+        <input type="text" id="duoCpProxyInput" placeholder="ip:port:username:password (hoặc user:pass@ip:port)..." style="flex:1; max-width:440px; font-size:11px; font-family:monospace; padding:5px 10px; height:28px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:#38bdf8; font-weight:600;">
+        <button class="btn btn-sm btn-primary" onclick="applyDuoplusProxyToCloudPhones()" id="btnApplyDuoProxy" title="Áp dụng Proxy SOCKS5 cho Cloud Phone qua API" style="height:28px; font-size:11px; padding:0 12px; background:linear-gradient(135deg, #0284c7, #0369a1); border:none; color:#fff; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;">
+          🚀 Áp dụng
+        </button>
+      </div>
+
+      <!-- Action Buttons Right: Cấu hình khởi tạo -->
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="btn btn-sm" id="btnDuoInitConfig" onclick="duoplusTriggerInitConfig()" title="Cấu hình mặc định qua API: Mobile Network, Oppo (Random Model), SIM Vietnam, Proxy Socks5 (nếu trống lấy IP thực)" style="display:none; height:28px; font-size:11px; padding:0 14px; background:linear-gradient(135deg, #10b981, #059669); border:none; color:#fff; font-weight:700; border-radius:4px; box-shadow:0 2px 8px rgba(16,185,129,0.35); white-space:nowrap; align-items:center; gap:6px;">
+          ⚡ Cấu hình khởi tạo
+        </button>
+      </div>
+    </div>
+
     <!-- Modal Body / Table container -->
     <div class="modal-body" style="padding:14px 18px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
       <!-- Loading Spinner -->
@@ -9790,23 +10212,82 @@ async function clearAllNotes() {
 
 <!-- Sub-modal Chỉnh sửa thông số Cloud Phone -->
 <div id="duoplusEditPhoneModal" class="modal-overlay" style="z-index: 10002;">
-  <div class="modal-content" style="max-width: 480px; width: 90%; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); box-shadow: 0 10px 40px rgba(0,0,0,0.7); display:flex; flex-direction:column;">
+  <div class="modal-content" style="max-width: 540px; width: 92%; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); box-shadow: 0 10px 40px rgba(0,0,0,0.7); display:flex; flex-direction:column;">
     <div class="modal-header" style="padding:14px 18px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
       <h4 style="margin:0; font-size:15px; font-weight:700;">✏️ Sửa thông số Cloud Phone (API)</h4>
       <button class="btn btn-ghost" onclick="closeEditDuoplusPhoneModal()" style="font-size:16px; padding:2px 6px;">✕</button>
     </div>
-    <div class="modal-body" style="padding:16px 18px; display:flex; flex-direction:column; gap:12px;">
-      <div>
-        <label style="font-size:11px; color:var(--text-muted); font-weight:600;">ID Thiết bị (image_id):</label>
-        <input type="text" id="editCpId" readonly style="width:100%; font-size:12px; font-family:monospace; padding:6px 8px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text-muted); margin-top:4px;">
+    <div class="modal-body" style="padding:16px 18px; display:flex; flex-direction:column; gap:12px; max-height:75vh; overflow-y:auto;">
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+        <div>
+          <label style="font-size:11px; color:var(--text-muted); font-weight:600;">ID Thiết bị (image_id):</label>
+          <input type="text" id="editCpId" readonly style="width:100%; font-size:12px; font-family:monospace; padding:6px 8px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text-muted); margin-top:4px;">
+        </div>
+        <div>
+          <label style="font-size:11px; color:var(--text-muted); font-weight:600;">Tên Cloud Phone (name):</label>
+          <input type="text" id="editCpName" placeholder="Nhập tên máy..." style="width:100%; font-size:12px; padding:6px 8px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--text); margin-top:4px;">
+        </div>
       </div>
-      <div>
-        <label style="font-size:11px; color:var(--text-muted); font-weight:600;">Tên Cloud Phone (name):</label>
-        <input type="text" id="editCpName" placeholder="Nhập tên mới..." style="width:100%; font-size:12px; padding:6px 8px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--text); margin-top:4px;">
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+        <div>
+          <label style="font-size:11px; color:var(--text-muted); font-weight:600;">Thương hiệu (Brand):</label>
+          <select id="editCpBrand" style="width:100%; font-size:12px; padding:6px 8px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--text); margin-top:4px;">
+            <option value="oppo">OPPO</option>
+            <option value="samsung">Samsung</option>
+            <option value="xiaomi">Xiaomi</option>
+            <option value="vivo">Vivo</option>
+            <option value="oneplus">OnePlus</option>
+            <option value="google">Google</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px; color:var(--text-muted); font-weight:600;">Dòng máy (Model):</label>
+          <input type="text" id="editCpModel" placeholder="PDPM00 hoặc Random..." style="width:100%; font-size:12px; padding:6px 8px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--text); margin-top:4px;">
+        </div>
       </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+        <div>
+          <label style="font-size:11px; color:var(--text-muted); font-weight:600;">Network Mode (Chế độ mạng):</label>
+          <select id="editCpNetworkMode" style="width:100%; font-size:12px; padding:6px 8px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--text); margin-top:4px;">
+            <option value="2">Mobile Network (Mạng di động 4G/5G)</option>
+            <option value="1">Wi-Fi (Mạng không dây)</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px; color:var(--text-muted); font-weight:600;">SIM Region (Quốc gia SIM):</label>
+          <select id="editCpSimCountry" style="width:100%; font-size:12px; padding:6px 8px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--text); margin-top:4px;">
+            <option value="VN">Vietnam (VN)</option>
+            <option value="US">United States (US)</option>
+            <option value="GB">United Kingdom (GB)</option>
+            <option value="SG">Singapore (SG)</option>
+            <option value="JP">Japan (JP)</option>
+            <option value="TH">Thailand (TH)</option>
+            <option value="PH">Philippines (PH)</option>
+          </select>
+        </div>
+      </div>
+
       <div>
-        <label style="font-size:11px; color:var(--text-muted); font-weight:600;">Ghi chú (remark):</label>
-        <input type="text" id="editCpRemark" placeholder="Nhập ghi chú..." style="width:100%; font-size:12px; padding:6px 8px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--text); margin-top:4px;">
+        <label style="font-size:11px; color:var(--text-muted); font-weight:600;">Proxy Socks5 riêng (host:port:user:pass):</label>
+        <input type="text" id="editCpProxy" placeholder="Để trống nếu không đổi proxy..." style="width:100%; font-size:12px; font-family:monospace; padding:6px 8px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:#38bdf8; margin-top:4px;">
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+        <div>
+          <label style="font-size:11px; color:var(--text-muted); font-weight:600;">Độ phân giải (Resolution):</label>
+          <select id="editCpDpi" style="width:100%; font-size:12px; padding:6px 8px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--text); margin-top:4px;">
+            <option value="1080x1920(480dpi)">1080x1920 (480dpi) [Chuẩn]</option>
+            <option value="720x1600(320dpi)">720x1600 (320dpi)</option>
+            <option value="1080x2040(480dpi)">1080x2040 (480dpi)</option>
+            <option value="1080x2340(480dpi)">1080x2340 (480dpi)</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px; color:var(--text-muted); font-weight:600;">Ghi chú (remark):</label>
+          <input type="text" id="editCpRemark" placeholder="Nhập ghi chú..." style="width:100%; font-size:12px; padding:6px 8px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--text); margin-top:4px;">
+        </div>
       </div>
     </div>
     <div class="modal-footer" style="padding:12px 18px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px;">

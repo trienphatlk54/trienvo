@@ -150,8 +150,22 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // DuoPlus Cloud Phone OpenAPI Proxy handlers
-  if (req.url.includes('/duoplus/cloudphone/')) {
+  // DuoPlus OpenAPI: IP Check
+  if (req.url.includes('/duoplus/my-ip')) {
+    try {
+      const ipRes = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(3000) });
+      const ipData = await ipRes.json();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, ip: ipData.ip }));
+    } catch(e) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, ip: '127.0.0.1' }));
+    }
+    return;
+  }
+
+  // DuoPlus Cloud Phone & Proxy OpenAPI Proxy handlers
+  if (req.url.includes('/duoplus/cloudphone/') || req.url.includes('/duoplus/proxy/') || req.url.includes('/duoplus/mobile/')) {
     let bodyBuffer = '';
     req.on('data', chunk => { bodyBuffer += chunk; });
     req.on('end', async () => {
@@ -166,6 +180,14 @@ const server = http.createServer(async (req, res) => {
         else if (req.url.includes('/cloudphone/restart')) subPath = '/api/v1/cloudPhone/restart';
         else if (req.url.includes('/cloudphone/update')) subPath = '/api/v1/cloudPhone/update';
         else if (req.url.includes('/cloudphone/info')) subPath = '/api/v1/cloudPhone/info';
+        else if (req.url.includes('/cloudphone/initProxy')) subPath = '/api/v1/cloudPhone/initProxy';
+        else if (req.url.includes('/cloudphone/proxySwitch')) subPath = '/api/v1/cloudPhone/proxySwitch';
+        else if (req.url.includes('/cloudphone/newPhone')) subPath = '/api/v1/cloudPhone/newPhone';
+        else if (req.url.includes('/proxy/add')) subPath = '/api/v1/proxy/add';
+        else if (req.url.includes('/proxy/check')) subPath = '/api/v1/proxy/check';
+        else if (req.url.includes('/proxy/list')) subPath = '/api/v1/proxy/list';
+        else if (req.url.includes('/proxy/update')) subPath = '/api/v1/proxy/update';
+        else if (req.url.includes('/mobile/modelList')) subPath = '/api/v1/mobile/modelList';
 
         if (!subPath) {
           res.writeHead(404, { 'Content-Type': 'application/json' });

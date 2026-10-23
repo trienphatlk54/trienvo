@@ -2330,6 +2330,82 @@ app.post('/api/duoplus/cloudphone/info', async (req, res) => {
   }
 });
 
+app.get('/api/duoplus/my-ip', async (req, res) => {
+  try {
+    const ipRes = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(3000) });
+    const ipData = await ipRes.json();
+    res.json({ success: true, ip: ipData.ip });
+  } catch(e) {
+    res.json({ success: true, ip: req.ip || '127.0.0.1' });
+  }
+});
+
+app.post('/api/duoplus/cloudphone/initProxy', async (req, res) => {
+  const { apiKey, images } = req.body;
+  if (!apiKey || !images) return res.status(400).json({ success: false, error: 'Thiếu API Key hoặc images' });
+  try {
+    const data = await callDuoPlusOpenApi('/api/v1/cloudPhone/initProxy', apiKey, { images });
+    res.json({ success: data.code === 200, ...data });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/duoplus/cloudphone/proxySwitch', async (req, res) => {
+  const { apiKey, image_ids, status } = req.body;
+  if (!apiKey || !image_ids) return res.status(400).json({ success: false, error: 'Thiếu API Key hoặc image_ids' });
+  try {
+    const data = await callDuoPlusOpenApi('/api/v1/cloudPhone/proxySwitch', apiKey, { image_ids, status: status !== undefined ? status : 1 });
+    res.json({ success: data.code === 200, ...data });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/duoplus/proxy/add', async (req, res) => {
+  const { apiKey, proxy_list, ip_scan_channel } = req.body;
+  if (!apiKey || !proxy_list) return res.status(400).json({ success: false, error: 'Thiếu API Key hoặc proxy_list' });
+  try {
+    const data = await callDuoPlusOpenApi('/api/v1/proxy/add', apiKey, { proxy_list, ip_scan_channel: ip_scan_channel || 'ip2location' });
+    res.json({ success: data.code === 200, ...data });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/duoplus/proxy/check', async (req, res) => {
+  const { apiKey, ...params } = req.body;
+  if (!apiKey) return res.status(400).json({ success: false, error: 'Thiếu API Key' });
+  try {
+    const data = await callDuoPlusOpenApi('/api/v1/proxy/check', apiKey, params);
+    res.json({ success: data.code === 200, ...data });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/duoplus/proxy/list', async (req, res) => {
+  const { apiKey, page = 1, pagesize = 50 } = req.body;
+  if (!apiKey) return res.status(400).json({ success: false, error: 'Thiếu API Key' });
+  try {
+    const data = await callDuoPlusOpenApi('/api/v1/proxy/list', apiKey, { page, pagesize });
+    res.json({ success: data.code === 200, ...data });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/duoplus/mobile/modelList', async (req, res) => {
+  const { apiKey, os = 4 } = req.body;
+  if (!apiKey) return res.status(400).json({ success: false, error: 'Thiếu API Key' });
+  try {
+    const data = await callDuoPlusOpenApi('/api/v1/mobile/modelList', apiKey, { os });
+    res.json({ success: data.code === 200, ...data });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // ─── FLOPPYDATA PROXY API ──────────────────────────────────────────
 
 const FLOPPY_BASE_URL = 'https://api.floppydata.net';
