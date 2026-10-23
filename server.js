@@ -2229,9 +2229,7 @@ app.post('/api/gmail/delete', async (req, res) => {
 // 🔄 VPS SELF-UPDATE / DEPLOY API 🔄
 app.post(['/api/admin/update-server', '/api/admin/pull'], async (req, res) => {
   const { exec } = require('child_process');
-  const isWin = process.platform === 'win32';
-  const pm2Name = isWin ? 'shopee-tool' : 'shopee-qr';
-  const cmd = 'git pull origin main && pm2 restart ' + pm2Name;
+  const cmd = 'git pull origin main && (pm2 restart shopee-qr || pm2 restart shopee-tool || pm2 restart all)';
 
   console.log('[Auto-Update] Running:', cmd);
   exec(cmd, { cwd: __dirname }, (error, stdout, stderr) => {
