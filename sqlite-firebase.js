@@ -1,9 +1,10 @@
 ﻿const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
 const crypto = require('crypto');
+const path = require('path');
 
 let dbPromise = open({
-  filename: './database.sqlite',
+  filename: path.join(__dirname, 'database.sqlite'),
   driver: sqlite3.Database
 }).then(async db => {
   await db.exec(`

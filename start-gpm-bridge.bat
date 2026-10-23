@@ -2,6 +2,7 @@
 title GPMLogin Bridge - Shopee Toolkit
 chcp 65001 >nul
 cls
+cd /d "%~dp0"
 echo ======================================================================
 echo    🚀 GPMLOGIN BRIDGE CHO SHOPEE TOOLKIT (TIKTOK / DUOPLUS)
 echo ======================================================================

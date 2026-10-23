@@ -1925,6 +1925,32 @@ app.post('/api/tiktok/save', async (req, res) => {
   }
 });
 
+app.post('/api/tiktok/clear-all-duoplus', async (req, res) => {
+  try {
+    const ref = db.ref('tiktok_accounts');
+    const snap = await ref.once('value');
+    const data = snap.val() || {};
+    let count = 0;
+    for (const [id, item] of Object.entries(data)) {
+      if (item && (item.duoplusProfileId || item.duoplusHotmail || item.duoplusApiKey || item.gpmProxy || item.duoplusProxy || item.duoplus || item.duoplus_initialized)) {
+        await ref.child(id).update({
+          duoplus: '',
+          duoplusProfileId: '',
+          duoplusHotmail: '',
+          duoplusApiKey: '',
+          gpmProxy: '',
+          duoplusProxy: '',
+          duoplus_initialized: false
+        });
+        count++;
+      }
+    }
+    res.json({ success: true, count });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 app.post('/api/tiktok/delete', async (req, res) => {
   const { id } = req.body;
   try {

@@ -1677,6 +1677,7 @@
           <button class="btn btn-ghost btn-sm" onclick="configureGpmPort()" style="height: 32px; padding: 6px 10px; font-size: 11px; border: 1px solid var(--border);" title="Cấu hình Port GPMLogin Local API (Mặc định: 9495)">⚙️ GPM Port: <span id="gpmPortBadge">9495</span></button>
           <button class="btn btn-primary" onclick="openTiktokModal()" style="height: 32px; padding: 6px 12px; font-size: 12px;">➕ Thêm Mới</button>
           <button class="btn btn-primary" onclick="openTiktokBulkModal()" style="height: 32px; padding: 6px 12px; font-size: 12px; background: linear-gradient(135deg, #10b981, #059669); border:none;">📋 Thêm hàng loạt</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearAllTiktokDuoplus()" style="height: 32px; padding: 6px 12px; font-size: 11px; border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444; background: rgba(239, 68, 68, 0.08); font-weight: 600;" title="Xóa toàn bộ dữ liệu ô Duoplus (Profile ID, Hotmail, API Key, Proxy) của tất cả tài khoản TikTok">🗑️ Xóa toàn bộ Duoplus</button>
         </div>
       </div>
       <!-- Sub-tabs for TikTok filtering -->
@@ -1900,7 +1901,10 @@
                 <th style="padding: 6px;">Result</th>
                 <th style="padding: 6px;">Time Ngâm</th>
                 <th style="padding: 6px;">Notes</th>
-                <th style="padding: 6px; min-width: 220px; width: 230px; text-align: center;">Duoplus</th>
+                <th style="padding: 6px; min-width: 220px; width: 230px; text-align: center;">
+                  <span>Duoplus</span>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="clearAllTiktokDuoplus()" title="Xóa toàn bộ dữ liệu cột Duoplus của tất cả tài khoản" style="padding: 1px 5px; font-size: 10px; color: #ef4444; margin-left: 5px; border: 1px solid rgba(239,68,68,0.4); border-radius: 4px; background: rgba(239,68,68,0.1); cursor: pointer;">🗑️ Xóa tất cả</button>
+                </th>
                 <th style="padding: 6px; width: 130px; text-align: center;">BitCloud</th>
                 <th style="padding: 6px; width: 80px; text-align: center;">Hành động</th>
               </tr>
@@ -3212,13 +3216,22 @@ function updateHotmailSubTabCounts() {
 }
 
 async function loadHotmailData() {
+  const tbody = document.getElementById('hotmailTableBody');
   try {
     const res = await fetch('/api/hotmail/all');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    hotmailData = data || {};
+    hotmailData = (data && typeof data === 'object' && !data.error) ? data : {};
     renderHotmailTable();
   } catch (e) {
     console.error('Lỗi tải dữ liệu Hotmail:', e);
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:var(--error);">
+        ⚠️ Không thể tải dữ liệu Hotmail (${escapeHtml(e.message)}).<br>
+        <span style="font-size:12px; color:var(--text-muted); display:block; margin:6px 0;">Hãy đảm bảo máy chủ node server.js đang hoạt động.</span>
+        <button class="btn btn-primary btn-sm" onclick="loadHotmailData()" style="margin-top:6px; font-size:12px;">🔄 Thử lại ngay</button>
+      </td></tr>`;
+    }
   }
 }
 
@@ -3301,13 +3314,13 @@ async function syncHotmailField(event, id, field) {
 }
 
 function renderHotmailTable() {
-  const tbody = $('hotmailTableBody');
+  const tbody = document.getElementById('hotmailTableBody');
   if (!tbody) return;
-  const searchInput = $('hotmailSearch');
+  const searchInput = document.getElementById('hotmailSearch');
   const search = (searchInput ? searchInput.value : '').toLowerCase().trim();
   
   let htmlText = '';
-  const allEntries = Object.entries(hotmailData);
+  const allEntries = Object.entries(hotmailData || {}).filter(([id, item]) => item && typeof item === 'object');
   
   const searchFiltered = allEntries.filter(([id, item]) => {
     if (!search) return true;
@@ -3356,7 +3369,15 @@ function renderHotmailTable() {
   });
   
   if (pageEntries.length === 0) {
-    htmlText = `<tr><td colspan="9" style="text-align:center; padding:12px; color:var(--text-muted);">Không có dữ liệu Hotmail</td></tr>`;
+    htmlText = `<tr><td colspan="9" style="text-align:center; padding:24px; color:var(--text-muted);">
+      <div style="font-size:28px; margin-bottom:8px;">📬</div>
+      <div style="font-size:14px; font-weight:600; color:var(--text);">Chưa có tài khoản Hotmail nào</div>
+      <div style="font-size:12px; color:var(--text-muted); margin:4px 0 12px;">Thêm tài khoản để liên kết tự động với Duoplus GPM</div>
+      <div style="display:flex; gap:8px; justify-content:center;">
+        <button class="btn btn-primary btn-sm" onclick="openHotmailModal()" style="font-size:12px;">➕ Thêm Mới</button>
+        <button class="btn btn-primary btn-sm" onclick="openHotmailBulkModal()" style="font-size:12px; background:linear-gradient(135deg, #8b5cf6, #7c3aed); border:none;">📋 Thêm hàng loạt</button>
+      </div>
+    </td></tr>`;
   }
   
   tbody.innerHTML = htmlText;
@@ -4673,6 +4694,9 @@ function renderTiktokTable() {
             ${item.duoplusProfileId || '---'}
           </span>
           ${item.duoplusProfileId ? `<button class="btn btn-ghost btn-sm" onclick="openGpmProfile('${item.duoplusProfileId}')" title="Mở Profile trong GPMLogin" style="padding:2px 5px; font-size:11px; height:24px; color:#38bdf8;">🚀</button><button class="btn btn-ghost btn-sm" onclick="retryDuoplusRegistration('${id}')" title="Chạy tự động đăng ký DuoPlus" style="padding:2px 5px; font-size:11px; height:24px; color:#c084fc;">🤖</button>` : ''}
+          ${(item.duoplusProfileId || item.duoplusHotmail || item.duoplusApiKey || item.gpmProxy || item.duoplusProxy) ? `
+            <button class="btn btn-ghost btn-sm" onclick="clearRowDuoplus('${id}')" title="Xóa toàn bộ dữ liệu ô Duoplus của dòng này (Profile, Mail, Key, Proxy)" style="padding:2px 5px; font-size:11px; height:24px; color:#ef4444; opacity:0.8;" onmouseenter="this.style.opacity='1'; this.style.color='#dc2626';" onmouseleave="this.style.opacity='0.8'; this.style.color='#ef4444';">🗑️</button>
+          ` : ''}
         </div>
         ${item.duoplusHotmail ? `
           <div style="font-size:11px; color:#38bdf8; margin-top:3px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; font-family:monospace;" onclick="copyText('${escapeHtml(item.duoplusHotmail)}')" title="Hotmail đã liên kết: ${escapeHtml(item.duoplusHotmail)} (Click để copy)">
@@ -4831,6 +4855,158 @@ function autoSaveTiktokBitCloud(id, val) {
       toast('Lỗi lưu BitCloud', 'error');
     }
   }, 400);
+}
+
+// 🗑️ Clear Duoplus Data Functions 🗑️
+async function clearRowDuoplus(id) {
+  const item = tiktokData[id];
+  if (!item) return;
+  
+  const hasData = item.duoplusProfileId || item.duoplusHotmail || item.duoplusApiKey || item.gpmProxy || item.duoplusProxy || item.duoplus;
+  if (!hasData) {
+    toast('Dòng này chưa có dữ liệu Duoplus để xóa', 'info', 2000);
+    return;
+  }
+  
+  const accName = item.username || item.mail || item.identifier || id;
+  if (!confirm(`Bạn có chắc chắn muốn xóa toàn bộ dữ liệu ô Duoplus của tài khoản [${accName}]?\n\nThao tác này sẽ xóa:\n- Profile GPM ID\n- Hotmail đã liên kết\n- DuoPlus API Key\n- Proxy SOCKS5/HTTP đã cấu hình`)) {
+    return;
+  }
+  
+  const linkedMail = item.duoplusHotmail;
+  item.duoplusProfileId = '';
+  item.duoplusHotmail = '';
+  item.duoplusApiKey = '';
+  item.gpmProxy = '';
+  item.duoplusProxy = '';
+  item.duoplus = '';
+  item.duoplus_initialized = false;
+  
+  // Giải phóng Hotmail nếu đang được liên kết
+  if (linkedMail && hotmailData) {
+    const matched = Object.entries(hotmailData).find(([hId, h]) => h.hotmail === linkedMail);
+    if (matched) {
+      const [hId, hItem] = matched;
+      if (hItem.service === 'Duoplus') {
+        hItem.service = '';
+        fetch('/api/hotmail/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...hItem, id: hId, service: '' })
+        }).catch(() => {});
+        renderHotmailTable();
+      }
+    }
+  }
+  
+  try {
+    await fetch('/api/tiktok/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...item,
+        id,
+        duoplusProfileId: '',
+        duoplusHotmail: '',
+        duoplusApiKey: '',
+        gpmProxy: '',
+        duoplusProxy: '',
+        duoplus: '',
+        duoplus_initialized: false
+      })
+    });
+    toast(`✅ Đã xóa toàn bộ dữ liệu ô Duoplus của tài khoản [${accName}]!`, 'success', 2500);
+    renderTiktokTable();
+  } catch(e) {
+    toast('❌ Lỗi khi xóa dữ liệu: ' + e.message, 'error');
+  }
+}
+
+async function clearAllTiktokDuoplus() {
+  const entries = Object.entries(tiktokData || {});
+  if (entries.length === 0) {
+    toast('Chưa có tài khoản TikTok nào trong bảng', 'info');
+    return;
+  }
+  
+  const affected = entries.filter(([id, item]) => 
+    item.duoplusProfileId || item.duoplusHotmail || item.duoplusApiKey || item.gpmProxy || item.duoplusProxy || item.duoplus
+  );
+  
+  if (affected.length === 0) {
+    toast('Tất cả các ô Duoplus đều đang trống!', 'info', 2500);
+    return;
+  }
+  
+  if (!confirm(`⚠️ CẢNH BÁO XÓA DỮ LIỆU:\nBạn có chắc chắn muốn xóa toàn bộ dữ liệu ô Duoplus của TẤT CẢ ${affected.length} tài khoản TikTok?\n\nThao tác này sẽ xóa sạch:\n- Profile ID GPMLogin đã liên kết\n- Hotmail đã gán cho Duoplus\n- DuoPlus API Key\n- Proxy SOCKS5/HTTP đã lưu\n\nHành động này không thể hoàn tác!`)) {
+    return;
+  }
+  
+  toast(`Đang xóa dữ liệu Duoplus của ${affected.length} tài khoản...`, 'info', 3000);
+  
+  try {
+    const res = await fetch('/api/tiktok/clear-all-duoplus', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    if (data.success) {
+      entries.forEach(([id, item]) => {
+        item.duoplusProfileId = '';
+        item.duoplusHotmail = '';
+        item.duoplusApiKey = '';
+        item.gpmProxy = '';
+        item.duoplusProxy = '';
+        item.duoplus = '';
+        item.duoplus_initialized = false;
+      });
+      // Giải phóng tất cả hotmail gắn mác Duoplus
+      if (hotmailData) {
+        Object.entries(hotmailData).forEach(([hId, hItem]) => {
+          if (hItem.service === 'Duoplus') {
+            hItem.service = '';
+            fetch('/api/hotmail/save', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...hItem, id: hId, service: '' })
+            }).catch(() => {});
+          }
+        });
+        renderHotmailTable();
+      }
+      toast(`🎉 Đã xóa thành công toàn bộ dữ liệu ô Duoplus của ${data.count || affected.length} tài khoản!`, 'success', 3500);
+      renderTiktokTable();
+      return;
+    }
+  } catch(e) {}
+  
+  // Fallback nếu API gặp lỗi
+  for (const [id, item] of affected) {
+    item.duoplusProfileId = '';
+    item.duoplusHotmail = '';
+    item.duoplusApiKey = '';
+    item.gpmProxy = '';
+    item.duoplusProxy = '';
+    item.duoplus = '';
+    item.duoplus_initialized = false;
+    fetch('/api/tiktok/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...item,
+        id,
+        duoplusProfileId: '',
+        duoplusHotmail: '',
+        duoplusApiKey: '',
+        gpmProxy: '',
+        duoplusProxy: '',
+        duoplus: '',
+        duoplus_initialized: false
+      })
+    }).catch(() => {});
+  }
+  toast(`🎉 Đã xóa dữ liệu ô Duoplus của ${affected.length} tài khoản!`, 'success', 3500);
+  renderTiktokTable();
 }
 
 // 🌐 TikTok GPM Proxy Helpers & Auto-Save 🌐
