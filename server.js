@@ -2245,6 +2245,91 @@ app.post('/api/duoplus/cancel-task/:taskId', (req, res) => {
   res.json({ success: ok });
 });
 
+// 📱 DUOPLUS CLOUD PHONE OPENAPI PROXY 📱
+const DUOPLUS_OPENAPI_BASE = 'https://openapi.duoplus.net';
+
+async function callDuoPlusOpenApi(endpoint, apiKey, payload = {}) {
+  const res = await fetch(`${DUOPLUS_OPENAPI_BASE}${endpoint}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'DuoPlus-API-Key': apiKey,
+      'Lang': 'en'
+    },
+    body: JSON.stringify(payload)
+  });
+  return await res.json();
+}
+
+app.post('/api/duoplus/cloudphone/list', async (req, res) => {
+  const { apiKey, page = 1, pagesize = 50, link_status, name } = req.body;
+  if (!apiKey) return res.status(400).json({ success: false, error: 'Thiếu DuoPlus API Key' });
+  try {
+    const payload = { page: parseInt(page, 10) || 1, pagesize: parseInt(pagesize, 10) || 50 };
+    if (link_status !== undefined) payload.link_status = link_status;
+    if (name) payload.name = name;
+    const data = await callDuoPlusOpenApi('/api/v1/cloudPhone/list', apiKey, payload);
+    res.json({ success: data.code === 200, ...data });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/duoplus/cloudphone/powerOn', async (req, res) => {
+  const { apiKey, image_ids } = req.body;
+  if (!apiKey || !image_ids) return res.status(400).json({ success: false, error: 'Thiếu API Key hoặc image_ids' });
+  try {
+    const data = await callDuoPlusOpenApi('/api/v1/cloudPhone/powerOn', apiKey, { image_ids });
+    res.json({ success: data.code === 200, ...data });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/duoplus/cloudphone/powerOff', async (req, res) => {
+  const { apiKey, image_ids } = req.body;
+  if (!apiKey || !image_ids) return res.status(400).json({ success: false, error: 'Thiếu API Key hoặc image_ids' });
+  try {
+    const data = await callDuoPlusOpenApi('/api/v1/cloudPhone/powerOff', apiKey, { image_ids });
+    res.json({ success: data.code === 200, ...data });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/duoplus/cloudphone/restart', async (req, res) => {
+  const { apiKey, image_ids } = req.body;
+  if (!apiKey || !image_ids) return res.status(400).json({ success: false, error: 'Thiếu API Key hoặc image_ids' });
+  try {
+    const data = await callDuoPlusOpenApi('/api/v1/cloudPhone/restart', apiKey, { image_ids });
+    res.json({ success: data.code === 200, ...data });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/duoplus/cloudphone/update', async (req, res) => {
+  const { apiKey, images } = req.body;
+  if (!apiKey || !images) return res.status(400).json({ success: false, error: 'Thiếu API Key hoặc images' });
+  try {
+    const data = await callDuoPlusOpenApi('/api/v1/cloudPhone/update', apiKey, { images });
+    res.json({ success: data.code === 200, ...data });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/duoplus/cloudphone/info', async (req, res) => {
+  const { apiKey, image_id } = req.body;
+  if (!apiKey || !image_id) return res.status(400).json({ success: false, error: 'Thiếu API Key hoặc image_id' });
+  try {
+    const data = await callDuoPlusOpenApi('/api/v1/cloudPhone/info', apiKey, { image_id });
+    res.json({ success: data.code === 200, ...data });
+  } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // ─── FLOPPYDATA PROXY API ──────────────────────────────────────────
 
 const FLOPPY_BASE_URL = 'https://api.floppydata.net';

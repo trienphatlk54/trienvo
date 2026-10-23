@@ -150,6 +150,49 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // DuoPlus Cloud Phone OpenAPI Proxy handlers
+  if (req.url.includes('/duoplus/cloudphone/')) {
+    let bodyBuffer = '';
+    req.on('data', chunk => { bodyBuffer += chunk; });
+    req.on('end', async () => {
+      try {
+        const body = bodyBuffer ? JSON.parse(bodyBuffer) : {};
+        const apiKey = body.apiKey || req.headers['duoplus-api-key'] || '';
+        
+        let subPath = '';
+        if (req.url.includes('/cloudphone/list')) subPath = '/api/v1/cloudPhone/list';
+        else if (req.url.includes('/cloudphone/powerOn')) subPath = '/api/v1/cloudPhone/powerOn';
+        else if (req.url.includes('/cloudphone/powerOff')) subPath = '/api/v1/cloudPhone/powerOff';
+        else if (req.url.includes('/cloudphone/restart')) subPath = '/api/v1/cloudPhone/restart';
+        else if (req.url.includes('/cloudphone/update')) subPath = '/api/v1/cloudPhone/update';
+        else if (req.url.includes('/cloudphone/info')) subPath = '/api/v1/cloudPhone/info';
+
+        if (!subPath) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Endpoint không tồn tại' }));
+          return;
+        }
+
+        const openApiRes = await fetch('https://openapi.duoplus.net' + subPath, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'DuoPlus-API-Key': apiKey,
+            'Lang': 'en'
+          },
+          body: JSON.stringify(body)
+        });
+        const openApiData = await openApiRes.json();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: openApiData.code === 200, ...openApiData }));
+      } catch(err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
   // Forward request to GPMLogin
   let bodyBuffer = '';
   req.on('data', chunk => { bodyBuffer += chunk; });

@@ -4658,11 +4658,16 @@ function renderTiktokTable() {
             ✉️ ${escapeHtml(item.duoplusHotmail)}
           </div>
         ` : ''}
-        ${item.duoplusApiKey ? `
-          <div style="font-size:11px; color:#10b981; margin-top:3px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; font-family:monospace; background:rgba(16,185,129,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:4px;" onclick="copyText('${escapeHtml(item.duoplusApiKey)}')" title="DuoPlus API Key: ${escapeHtml(item.duoplusApiKey)} (Click để copy)">
-            <span>🔑</span> <span style="font-weight:700;">${escapeHtml(item.duoplusApiKey)}</span>
-          </div>
-        ` : ''}
+        <div style="margin-top:4px; display:flex; align-items:center; justify-content:center; gap:4px; flex-wrap:wrap;">
+          <button class="btn btn-xs btn-duoplus-api" onclick="openDuoplusApiModal('${id}')" title="Mở danh sách Cloud Phone và điều khiển qua DuoPlus API" style="font-size:11px; font-weight:700; padding:2px 8px; height:24px; border-radius:4px; background:linear-gradient(135deg, #0284c7, #0369a1); color:#fff; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 5px rgba(2,132,199,0.35);">
+            ⚡ API Duoplus
+          </button>
+          ${item.duoplusApiKey ? `
+            <div style="font-size:11px; color:#10b981; max-width:115px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; font-family:monospace; background:rgba(16,185,129,0.12); padding:1px 5px; border-radius:4px; border:1px solid rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:3px;" onclick="copyText('${escapeHtml(item.duoplusApiKey)}')" title="DuoPlus API Key: ${escapeHtml(item.duoplusApiKey)} (Click để copy)">
+              <span>🔑</span> <span style="font-weight:700;">${escapeHtml(item.duoplusApiKey.slice(0, 4) + '...' + item.duoplusApiKey.slice(-4))}</span>
+            </div>
+          ` : ''}
+        </div>
       </td>
       <td style="padding:6px; text-align:center;">
         <input type="text" class="proxy-input" value="${escapeHtml(item.bitcloud || '')}" placeholder="BitCloud ID/Acc..." oninput="autoSaveTiktokBitCloud('${id}', this.value)" onclick="event.stopPropagation()" style="width:100%; min-width:110px; padding:4px 6px; font-size:11px; height:26px; box-sizing:border-box;">
@@ -5737,6 +5742,507 @@ async function retryDuoplusRegistration(tiktokId) {
     startFromStep: 1
   });
 }
+
+// ─── DUOPLUS CLOUD PHONE API CONTROLLER ─────────────────────────────
+let duoplusCurrentCloudPhoneTiktokId = null;
+let duoplusCurrentPhonesList = [];
+
+function openDuoplusApiModal(tiktokId) {
+  duoplusCurrentCloudPhoneTiktokId = tiktokId;
+  const item = tiktokData[tiktokId] || {};
+  
+  const modal = document.getElementById('duoplusCloudPhoneModal');
+  if (!modal) return;
+  modal.classList.add('active');
+
+  const userEl = document.getElementById('duoCpUserDisplay');
+  if (userEl) userEl.innerText = item.username || item.mail || item.identifier || tiktokId;
+  
+  const mailEl = document.getElementById('duoCpMailDisplay');
+  if (mailEl) mailEl.innerText = item.duoplusHotmail || 'Chưa liên kết Hotmail';
+
+  const keyInput = document.getElementById('duoCpApiKeyInput');
+  const apiKey = (item.duoplusApiKey || '').trim();
+  if (keyInput) keyInput.value = apiKey;
+
+  const errAlert = document.getElementById('duoCpErrorAlert');
+  if (errAlert) errAlert.style.display = 'none';
+
+  if (apiKey) {
+    fetchDuoplusCloudPhones();
+  } else {
+    const tableBody = document.getElementById('duoCpTableBody');
+    if (tableBody) tableBody.innerHTML = '';
+    const emptyState = document.getElementById('duoCpEmptyState');
+    if (emptyState) emptyState.style.display = 'none';
+    if (errAlert) {
+      errAlert.style.display = 'block';
+      errAlert.innerHTML = '⚠️ <strong>Tài khoản chưa có API Key DuoPlus.</strong> Vui lòng nhập API Key vào ô bên trên rồi bấm [Lưu Key], hoặc dùng tính năng tự động đăng ký DuoPlus để hệ thống tự tạo và lấy key.';
+    }
+  }
+}
+
+function closeDuoplusCloudPhoneModal() {
+  const modal = document.getElementById('duoplusCloudPhoneModal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function saveDuoplusApiKeyFromModal() {
+  if (!duoplusCurrentCloudPhoneTiktokId) return;
+  const keyInput = document.getElementById('duoCpApiKeyInput');
+  const keyVal = (keyInput ? keyInput.value : '').trim();
+  if (!keyVal) {
+    toast('Vui lòng nhập API Key hợp lệ', 'warning');
+    return;
+  }
+  
+  if (tiktokData[duoplusCurrentCloudPhoneTiktokId]) {
+    tiktokData[duoplusCurrentCloudPhoneTiktokId].duoplusApiKey = keyVal;
+    try {
+      await fetch('/api/tiktok/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...tiktokData[duoplusCurrentCloudPhoneTiktokId],
+          id: duoplusCurrentCloudPhoneTiktokId,
+          duoplusApiKey: keyVal
+        })
+      });
+      toast('✅ Đã lưu API Key DuoPlus!', 'success', 2000);
+      renderTiktokTable();
+      fetchDuoplusCloudPhones();
+    } catch(e) {
+      toast('Lỗi lưu API Key vào hệ thống', 'error');
+    }
+  }
+}
+
+function copyDuoplusModalApiKey() {
+  const keyInput = document.getElementById('duoCpApiKeyInput');
+  if (keyInput && keyInput.value) {
+    copyText(keyInput.value);
+    toast('Đã copy API Key: ' + keyInput.value, 'success', 1500);
+  }
+}
+
+async function fetchDuoplusCloudPhones() {
+  const keyInput = document.getElementById('duoCpApiKeyInput');
+  const apiKey = (keyInput ? keyInput.value : '').trim();
+  if (!apiKey) {
+    toast('Vui lòng điền DuoPlus API Key để tra cứu danh sách Cloud Phone', 'warning');
+    return;
+  }
+
+  const spinner = document.getElementById('duoCpLoading');
+  const tableCont = document.getElementById('duoCpTableContainer');
+  const emptyState = document.getElementById('duoCpEmptyState');
+  const errAlert = document.getElementById('duoCpErrorAlert');
+
+  if (spinner) spinner.style.display = 'block';
+  if (tableCont) tableCont.style.display = 'none';
+  if (emptyState) emptyState.style.display = 'none';
+  if (errAlert) errAlert.style.display = 'none';
+
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+  let resData = null;
+
+  // 1. Thử local server endpoint
+  try {
+    const res = await fetch('/api/duoplus/cloudphone/list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey, page: 1, pagesize: 50 }),
+      signal: AbortSignal.timeout(10000)
+    });
+    const d = await res.json();
+    if (d && (d.code === 200 || d.success)) resData = d;
+  } catch(e) {}
+
+  // 2. Thử GPM Bridge (Port 9497)
+  if (!resData) {
+    try {
+      const bRes = await fetch(`http://localhost:${bridgePort}/api/v1/duoplus/cloudphone/list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, page: 1, pagesize: 50 }),
+        signal: AbortSignal.timeout(10000)
+      });
+      const bData = await bRes.json();
+      if (bData && (bData.code === 200 || bData.success)) resData = bData;
+    } catch(e) {}
+  }
+
+  // 3. Fallback trực tiếp OpenAPI DuoPlus
+  if (!resData) {
+    try {
+      const dRes = await fetch('https://openapi.duoplus.net/api/v1/cloudPhone/list', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'DuoPlus-API-Key': apiKey,
+          'Lang': 'en'
+        },
+        body: JSON.stringify({ page: 1, pagesize: 50 }),
+        signal: AbortSignal.timeout(12000)
+      });
+      const dData = await dRes.json();
+      if (dData && dData.code === 200) resData = dData;
+    } catch(e) {}
+  }
+
+  if (spinner) spinner.style.display = 'none';
+
+  if (!resData || (resData.code !== 200 && !resData.success)) {
+    const errMsg = (resData && resData.message) ? resData.message : 'Không thể kết nối đến DuoPlus API. Kiểm tra lại API Key hoặc mạng.';
+    if (errAlert) {
+      errAlert.style.display = 'block';
+      errAlert.innerText = '❌ Lỗi API: ' + errMsg;
+    }
+    return;
+  }
+
+  const list = (resData.data && resData.data.list) ? resData.data.list : [];
+  duoplusCurrentPhonesList = list;
+  renderDuoplusCloudPhonesTable(list);
+}
+
+function renderDuoplusCloudPhonesTable(list) {
+  const tableCont = document.getElementById('duoCpTableContainer');
+  const emptyState = document.getElementById('duoCpEmptyState');
+  const tableBody = document.getElementById('duoCpTableBody');
+
+  const statTotal = document.getElementById('duoStatTotal');
+  const statRunning = document.getElementById('duoStatRunning');
+  const statStopped = document.getElementById('duoStatStopped');
+
+  const total = list.length;
+  let runningCount = 0;
+  let stoppedCount = 0;
+
+  list.forEach(p => {
+    if (p.status === 1) runningCount++;
+    else if (p.status === 2) stoppedCount++;
+  });
+
+  if (statTotal) statTotal.innerText = total;
+  if (statRunning) statRunning.innerText = runningCount;
+  if (statStopped) statStopped.innerText = stoppedCount;
+
+  if (list.length === 0) {
+    if (tableCont) tableCont.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'block';
+    return;
+  }
+
+  if (tableCont) tableCont.style.display = 'block';
+  if (emptyState) emptyState.style.display = 'none';
+  if (!tableBody) return;
+
+  tableBody.innerHTML = list.map((p, idx) => {
+    // Trạng thái mapping
+    let statusBadge = '';
+    const st = p.status;
+    if (st === 1) {
+      statusBadge = '<span style="background:rgba(16,185,129,0.2); color:#34d399; border:1px solid rgba(16,185,129,0.4); padding:3px 8px; border-radius:12px; font-weight:700; font-size:11px;">🟢 Đang bật</span>';
+    } else if (st === 2) {
+      statusBadge = '<span style="background:rgba(255,255,255,0.08); color:var(--text-muted); border:1px solid rgba(255,255,255,0.12); padding:3px 8px; border-radius:12px; font-size:11px;">⚫ Đang tắt</span>';
+    } else if (st === 10) {
+      statusBadge = '<span style="background:rgba(234,179,8,0.2); color:#fbbf24; border:1px solid rgba(234,179,8,0.4); padding:3px 8px; border-radius:12px; font-size:11px;">🟡 Đang khởi động...</span>';
+    } else if (st === 11) {
+      statusBadge = '<span style="background:rgba(56,189,248,0.2); color:#38bdf8; border:1px solid rgba(56,189,248,0.4); padding:3px 8px; border-radius:12px; font-size:11px;">🔵 Đang cấu hình...</span>';
+    } else if (st === 0) {
+      statusBadge = '<span style="background:rgba(249,115,22,0.2); color:#fb923c; border:1px solid rgba(249,115,22,0.4); padding:3px 8px; border-radius:12px; font-size:11px;">🟠 Chưa cấu hình</span>';
+    } else if (st === 3) {
+      statusBadge = '<span style="background:rgba(239,68,68,0.2); color:#f87171; border:1px solid rgba(239,68,68,0.4); padding:3px 8px; border-radius:12px; font-size:11px;">🔴 Đã hết hạn</span>';
+    } else {
+      statusBadge = `<span style="background:rgba(255,255,255,0.08); color:var(--text-muted); padding:3px 8px; border-radius:12px; font-size:11px;">Status ${st}</span>`;
+    }
+
+    // Format expired date
+    let expStr = '---';
+    if (p.expired_at) {
+      const expDate = new Date(parseInt(p.expired_at, 10) * 1000);
+      expStr = expDate.toLocaleDateString('vi-VN') + ' ' + expDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    return `
+      <tr style="border-bottom:1px solid var(--border); transition:background 0.2s;" onmouseenter="this.style.background='var(--surface)'" onmouseleave="this.style.background=''">
+        <td style="padding:8px 10px; text-align:center; color:var(--text-muted); font-size:11px;">${idx + 1}</td>
+        <td style="padding:8px 10px;">
+          <span style="font-family:monospace; font-weight:700; color:#38bdf8; cursor:pointer; background:rgba(56,189,248,0.1); padding:2px 6px; border-radius:4px;" onclick="copyText('${escapeHtml(p.id)}')" title="Click để copy ID: ${escapeHtml(p.id)}">
+            ${escapeHtml(p.id)}
+          </span>
+        </td>
+        <td style="padding:8px 10px;">
+          <div style="font-weight:600; color:var(--text);">${escapeHtml(p.name || '---')}</div>
+        </td>
+        <td style="padding:8px 10px; text-align:center;">${statusBadge}</td>
+        <td style="padding:8px 10px; color:var(--text); font-size:11px;">${escapeHtml(p.os || '---')}</td>
+        <td style="padding:8px 10px; color:var(--text-muted); font-size:11px;">${escapeHtml(p.region || p.area || '---')}</td>
+        <td style="padding:8px 10px; color:var(--text-muted); font-size:11px; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.remark || '---')}</td>
+        <td style="padding:8px 10px; color:var(--text-muted); font-size:11px;">${expStr}</td>
+        <td style="padding:8px 10px; text-align:center; white-space:nowrap;">
+          <div style="display:inline-flex; gap:5px;">
+            ${st === 1 ? `
+              <button class="btn btn-ghost btn-xs" onclick="duoplusPowerOffPhone('${p.id}')" title="Tắt nguồn máy này qua API" style="color:#f87171; border:1px solid rgba(239,68,68,0.3); font-size:11px; padding:2px 7px; border-radius:4px;">
+                ⏹️ Tắt
+              </button>
+              <button class="btn btn-ghost btn-xs" onclick="duoplusRestartPhone('${p.id}')" title="Khởi động lại máy qua API" style="color:#fbbf24; border:1px solid rgba(234,179,8,0.3); font-size:11px; padding:2px 7px; border-radius:4px;">
+                🔄 Reset
+              </button>
+            ` : `
+              <button class="btn btn-primary btn-xs" onclick="duoplusPowerOnPhone('${p.id}')" title="Bật nguồn máy này qua API" style="background:linear-gradient(135deg, #10b981, #059669); color:#fff; border:none; font-weight:700; font-size:11px; padding:2px 8px; border-radius:4px; box-shadow:0 2px 5px rgba(16,185,129,0.3);">
+                ▶️ Bật máy
+              </button>
+            `}
+          </div>
+        </td>
+        <td style="padding:8px 10px; text-align:center; white-space:nowrap;">
+          <div style="display:inline-flex; gap:5px;">
+            <button class="btn btn-ghost btn-xs" onclick="openEditDuoplusPhoneModal('${p.id}', '${escapeHtml(p.name || '')}', '${escapeHtml(p.remark || '')}')" title="Chỉnh sửa Tên máy & Ghi chú qua API" style="font-size:11px; padding:2px 8px; border:1px solid var(--border); border-radius:4px; color:var(--text);">
+              ✏️ Sửa
+            </button>
+            <button class="btn btn-primary btn-xs" onclick="openDuoplusPhoneScreen('${p.id}', ${st})" title="Mở trình điều khiển Cloud Phone trực tiếp trên Web" style="font-size:11px; padding:2px 8px; border-radius:4px; background:linear-gradient(135deg, #0284c7, #0369a1); color:#fff; border:none; font-weight:600; display:inline-flex; align-items:center; gap:3px;">
+              📱 Mở Cloud Phone
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function duoplusPowerOnPhone(imageId) {
+  const keyInput = document.getElementById('duoCpApiKeyInput');
+  const apiKey = (keyInput ? keyInput.value : '').trim();
+  if (!apiKey) return;
+
+  toast(`⚡ Đang gửi lệnh Bật nguồn Cloud Phone [${imageId}] qua API...`, 'info', 2500);
+
+  let resData = null;
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+
+  try {
+    const res = await fetch('/api/duoplus/cloudphone/powerOn', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey, image_ids: [imageId] })
+    });
+    resData = await res.json();
+  } catch(e) {
+    try {
+      const bRes = await fetch(`http://localhost:${bridgePort}/api/v1/duoplus/cloudphone/powerOn`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, image_ids: [imageId] })
+      });
+      resData = await bRes.json();
+    } catch(e2) {}
+  }
+
+  if (resData && (resData.code === 200 || resData.success)) {
+    if (resData.data && resData.data.fail && resData.data.fail.includes(imageId)) {
+      const reason = resData.data.fail_reason?.[imageId] || 'Không thể bật máy';
+      toast('❌ Lỗi bật máy: ' + reason, 'error', 4000);
+    } else {
+      toast('✅ Đã gửi lệnh Bật Cloud Phone thành công! Đang khởi động...', 'success', 3000);
+      setTimeout(fetchDuoplusCloudPhones, 3000);
+    }
+  } else {
+    toast('❌ Lỗi gọi API Bật nguồn: ' + (resData?.message || 'Thất bại'), 'error', 3500);
+  }
+}
+
+async function duoplusPowerOffPhone(imageId) {
+  if (!confirm(`Bạn có chắc chắn muốn Tắt nguồn Cloud Phone [${imageId}]?`)) return;
+
+  const keyInput = document.getElementById('duoCpApiKeyInput');
+  const apiKey = (keyInput ? keyInput.value : '').trim();
+  if (!apiKey) return;
+
+  toast(`⚡ Đang gửi lệnh Tắt nguồn Cloud Phone [${imageId}]...`, 'info', 2500);
+
+  let resData = null;
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+
+  try {
+    const res = await fetch('/api/duoplus/cloudphone/powerOff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey, image_ids: [imageId] })
+    });
+    resData = await res.json();
+  } catch(e) {
+    try {
+      const bRes = await fetch(`http://localhost:${bridgePort}/api/v1/duoplus/cloudphone/powerOff`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, image_ids: [imageId] })
+      });
+      resData = await bRes.json();
+    } catch(e2) {}
+  }
+
+  if (resData && (resData.code === 200 || resData.success)) {
+    if (resData.data && resData.data.fail && resData.data.fail.includes(imageId)) {
+      const reason = resData.data.fail_reason?.[imageId] || 'Không thể tắt máy';
+      toast('❌ Lỗi tắt máy: ' + reason, 'error', 4000);
+    } else {
+      toast('✅ Đã gửi lệnh Tắt nguồn thành công!', 'success', 2500);
+      setTimeout(fetchDuoplusCloudPhones, 2000);
+    }
+  } else {
+    toast('❌ Lỗi gọi API Tắt nguồn: ' + (resData?.message || 'Thất bại'), 'error', 3500);
+  }
+}
+
+async function duoplusRestartPhone(imageId) {
+  if (!confirm(`Khởi động lại Cloud Phone [${imageId}]?`)) return;
+
+  const keyInput = document.getElementById('duoCpApiKeyInput');
+  const apiKey = (keyInput ? keyInput.value : '').trim();
+  if (!apiKey) return;
+
+  toast(`🔄 Đang gửi lệnh Restart Cloud Phone [${imageId}]...`, 'info', 2500);
+
+  let resData = null;
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+
+  try {
+    const res = await fetch('/api/duoplus/cloudphone/restart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey, image_ids: [imageId] })
+    });
+    resData = await res.json();
+  } catch(e) {
+    try {
+      const bRes = await fetch(`http://localhost:${bridgePort}/api/v1/duoplus/cloudphone/restart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, image_ids: [imageId] })
+      });
+      resData = await bRes.json();
+    } catch(e2) {}
+  }
+
+  if (resData && (resData.code === 200 || resData.success)) {
+    toast('✅ Đã gửi lệnh Khởi động lại thành công!', 'success', 2500);
+    setTimeout(fetchDuoplusCloudPhones, 3000);
+  } else {
+    toast('❌ Lỗi gọi API Restart: ' + (resData?.message || 'Thất bại'), 'error', 3500);
+  }
+}
+
+function openEditDuoplusPhoneModal(imageId, currentName, currentRemark) {
+  const modal = document.getElementById('duoplusEditPhoneModal');
+  if (!modal) return;
+  const idInp = document.getElementById('editCpId');
+  const nameInp = document.getElementById('editCpName');
+  const remInp = document.getElementById('editCpRemark');
+
+  if (idInp) idInp.value = imageId;
+  if (nameInp) nameInp.value = currentName || '';
+  if (remInp) remInp.value = currentRemark || '';
+
+  modal.classList.add('active');
+  if (nameInp) nameInp.focus();
+}
+
+function closeEditDuoplusPhoneModal() {
+  const modal = document.getElementById('duoplusEditPhoneModal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function submitDuoplusPhoneParams() {
+  const keyInput = document.getElementById('duoCpApiKeyInput');
+  const apiKey = (keyInput ? keyInput.value : '').trim();
+  if (!apiKey) {
+    toast('Thiếu API Key', 'warning');
+    return;
+  }
+
+  const idInp = document.getElementById('editCpId');
+  const nameInp = document.getElementById('editCpName');
+  const remInp = document.getElementById('editCpRemark');
+
+  const imageId = (idInp ? idInp.value : '').trim();
+  const newName = (nameInp ? nameInp.value : '').trim();
+  const newRemark = (remInp ? remInp.value : '').trim();
+
+  if (!imageId || !newName) {
+    toast('Vui lòng nhập Tên Cloud Phone', 'warning');
+    return;
+  }
+
+  const btnSave = document.getElementById('btnSaveCpParams');
+  if (btnSave) {
+    btnSave.disabled = true;
+    btnSave.innerText = '⏳ Đang lưu qua API...';
+  }
+
+  let resData = null;
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+  const payload = {
+    apiKey,
+    images: [{ image_id: imageId, name: newName, remark: newRemark }]
+  };
+
+  try {
+    const res = await fetch('/api/duoplus/cloudphone/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    resData = await res.json();
+  } catch(e) {
+    try {
+      const bRes = await fetch(`http://localhost:${bridgePort}/api/v1/duoplus/cloudphone/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      resData = await bRes.json();
+    } catch(e2) {}
+  }
+
+  if (btnSave) {
+    btnSave.disabled = false;
+    btnSave.innerText = '💾 Lưu thay đổi qua API';
+  }
+
+  if (resData && (resData.code === 200 || resData.success)) {
+    toast('🎉 Đã cập nhật thông số Cloud Phone thành công!', 'success', 2500);
+    closeEditDuoplusPhoneModal();
+    fetchDuoplusCloudPhones();
+  } else {
+    toast('❌ Lỗi cập nhật: ' + (resData?.message || 'Thất bại'), 'error', 3500);
+  }
+}
+
+function openDuoplusWebConsole() {
+  const item = duoplusCurrentCloudPhoneTiktokId ? (tiktokData[duoplusCurrentCloudPhoneTiktokId] || {}) : {};
+  if (item.duoplusProfileId) {
+    const useGpm = confirm('Tài khoản này có sẵn GPMLogin profile [' + item.duoplusProfileId + '].\n\nBạn có muốn mở trang Cloud Phone trực tiếp trên cửa sổ GPMLogin để tự động đăng nhập không?');
+    if (useGpm) {
+      openGpmProfile(item.duoplusProfileId);
+      return;
+    }
+  }
+  window.open('https://my.duoplus.net/cloudphone', '_blank');
+}
+
+function openDuoplusPhoneScreen(imageId, status) {
+  if (status !== 1 && status !== 10) {
+    const doPowerOn = confirm(`Cloud Phone [${imageId}] đang tắt hoặc chưa bật.\n\nBạn có muốn gửi lệnh Bật nguồn qua API và mở màn hình điều khiển trên DuoPlus không?`);
+    if (doPowerOn) {
+      duoplusPowerOnPhone(imageId);
+    }
+  }
+
+  openDuoplusWebConsole();
+}
+
 
 
 let tiktokNoteSaveTimeouts = {};
@@ -9180,7 +9686,135 @@ async function clearAllNotes() {
   border-color: #38bdf8 !important;
   color: #38bdf8 !important;
 }
+.btn-duoplus-api:hover {
+  background: linear-gradient(135deg, #0369a1, #075985) !important;
+  box-shadow: 0 4px 10px rgba(2,132,199,0.5) !important;
+}
 </style>
+
+<!-- Modal Quản lý Cloud Phone qua DuoPlus API -->
+<div id="duoplusCloudPhoneModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 1050px; width: 96%; max-height: 90vh; border-radius: 14px; border: 1px solid var(--border); background: var(--surface2); box-shadow: 0 10px 45px rgba(0,0,0,0.6); display: flex; flex-direction: column;">
+    <!-- Modal Header -->
+    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding: 14px 18px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:24px;">📱</span>
+        <div>
+          <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:8px;">
+            <span>DuoPlus Cloud Phone Management</span>
+            <span style="font-size:10px; padding:2px 7px; border-radius:10px; background:rgba(2,132,199,0.18); color:#38bdf8; border:1px solid rgba(2,132,199,0.4); font-weight:600;">OpenAPI v1</span>
+          </h3>
+          <div style="font-size:12px; color:var(--text-muted); margin-top:3px; display:flex; gap:12px; flex-wrap:wrap;">
+            <span>Tài khoản: <strong id="duoCpUserDisplay" style="color:var(--text);">---</strong></span>
+            <span>Email: <strong id="duoCpMailDisplay" style="color:#38bdf8;">---</strong></span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="btn btn-sm btn-ghost" onclick="fetchDuoplusCloudPhones()" title="Tải lại danh sách máy" style="font-size:12px; height:32px; padding:4px 10px; display:flex; align-items:center; gap:5px; border:1px solid var(--border);">
+          🔄 Làm mới
+        </button>
+        <button class="btn btn-sm btn-primary" onclick="openDuoplusWebConsole()" title="Mở trang quản trị Cloud Phone trên DuoPlus Web" style="font-size:12px; height:32px; padding:4px 12px; background:linear-gradient(135deg, #0284c7, #0369a1); border:none; color:#fff; display:flex; align-items:center; gap:5px; font-weight:600;">
+          🌐 Mở Web DuoPlus
+        </button>
+        <button class="btn btn-ghost" onclick="closeDuoplusCloudPhoneModal()" style="font-size:18px; padding:2px 8px; cursor:pointer;">✕</button>
+      </div>
+    </div>
+
+    <!-- API Key Control Bar -->
+    <div style="background:var(--surface); border-bottom:1px solid var(--border); padding:10px 18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:280px;">
+        <span style="font-size:12px; font-weight:700; color:var(--text); white-space:nowrap;">🔑 DuoPlus API Key:</span>
+        <input type="text" id="duoCpApiKeyInput" placeholder="Nhập mã API Key (ddcc6280-1fbe-40c1-834f-7f7fc9b28251)..." style="flex:1; max-width:420px; font-size:11px; font-family:monospace; padding:5px 8px; height:28px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:#10b981; font-weight:600;">
+        <button class="btn btn-sm btn-secondary" onclick="saveDuoplusApiKeyFromModal()" style="height:28px; font-size:11px; padding:0 10px;">💾 Lưu Key</button>
+        <button class="btn btn-sm btn-ghost" onclick="copyDuoplusModalApiKey()" style="height:28px; font-size:11px; padding:0 8px;" title="Copy API Key">📋</button>
+      </div>
+      <!-- Stats Summary Badges -->
+      <div id="duoCpStatsBar" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+        <span style="color:var(--text-muted);">Tổng số: <strong id="duoStatTotal" style="color:var(--text);">0</strong></span>
+        <span style="color:#10b981;">Đang bật: <strong id="duoStatRunning">0</strong></span>
+        <span style="color:var(--text-muted);">Đang tắt: <strong id="duoStatStopped">0</strong></span>
+      </div>
+    </div>
+
+    <!-- Modal Body / Table container -->
+    <div class="modal-body" style="padding:14px 18px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
+      <!-- Loading Spinner -->
+      <div id="duoCpLoading" style="display:none; text-align:center; padding:30px 0;">
+        <div class="spinner" style="margin:0 auto 10px auto; width:30px; height:30px; border-width:3px;"></div>
+        <div style="font-size:13px; color:var(--text-muted);">Đang kết nối DuoPlus API & tải danh sách Cloud Phone...</div>
+      </div>
+
+      <!-- Error Alert -->
+      <div id="duoCpErrorAlert" style="display:none; background:rgba(239, 68, 68, 0.15); border:1px solid #ef4444; border-radius:8px; padding:10px 14px; color:#fca5a5; font-size:12px;"></div>
+
+      <!-- Cloud Phone Table Container -->
+      <div id="duoCpTableContainer" style="overflow-x:auto;">
+        <table class="data-table" style="width:100%; font-size:12px; border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--surface); border-bottom:1px solid var(--border); text-align:left;">
+              <th style="padding:8px 10px; width:40px; text-align:center;">#</th>
+              <th style="padding:8px 10px; width:110px;">ID Thiết bị</th>
+              <th style="padding:8px 10px; min-width:140px;">Tên Cloud Phone</th>
+              <th style="padding:8px 10px; width:130px; text-align:center;">Trạng thái</th>
+              <th style="padding:8px 10px; width:120px;">Hệ điều hành</th>
+              <th style="padding:8px 10px; width:90px;">Khu vực</th>
+              <th style="padding:8px 10px; min-width:120px;">Ghi chú</th>
+              <th style="padding:8px 10px; width:130px;">Hạn dùng</th>
+              <th style="padding:8px 10px; width:140px; text-align:center;">Nguồn (Power)</th>
+              <th style="padding:8px 10px; width:160px; text-align:center;">Thao tác API</th>
+            </tr>
+          </thead>
+          <tbody id="duoCpTableBody">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State -->
+      <div id="duoCpEmptyState" style="display:none; text-align:center; padding:40px 20px; color:var(--text-muted);">
+        <div style="font-size:42px; margin-bottom:10px;">📱</div>
+        <div style="font-size:14px; font-weight:600; color:var(--text);">Chưa có Cloud Phone nào trên tài khoản này</div>
+        <div style="font-size:12px; margin-top:4px;">Bạn có thể mở trang Web DuoPlus để nhận dùng thử (Claim Free) hoặc tạo Cloud Phone mới.</div>
+        <button class="btn btn-sm btn-primary" onclick="openDuoplusWebConsole()" style="margin-top:14px; font-size:12px; padding:6px 16px;">🌐 Mở Web Console DuoPlus</button>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding:10px 18px;">
+      <span style="font-size:11px; color:var(--text-muted);">💡 Mẹo: Bấm <strong>Mở Cloud Phone</strong> để xem và điều khiển màn hình điện thoại trực tiếp trên trình duyệt.</span>
+      <button class="btn btn-secondary btn-sm" onclick="closeDuoplusCloudPhoneModal()" style="height:32px; padding:4px 14px; font-size:12px;">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sub-modal Chỉnh sửa thông số Cloud Phone -->
+<div id="duoplusEditPhoneModal" class="modal-overlay" style="z-index: 10002;">
+  <div class="modal-content" style="max-width: 480px; width: 90%; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); box-shadow: 0 10px 40px rgba(0,0,0,0.7); display:flex; flex-direction:column;">
+    <div class="modal-header" style="padding:14px 18px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+      <h4 style="margin:0; font-size:15px; font-weight:700;">✏️ Sửa thông số Cloud Phone (API)</h4>
+      <button class="btn btn-ghost" onclick="closeEditDuoplusPhoneModal()" style="font-size:16px; padding:2px 6px;">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px 18px; display:flex; flex-direction:column; gap:12px;">
+      <div>
+        <label style="font-size:11px; color:var(--text-muted); font-weight:600;">ID Thiết bị (image_id):</label>
+        <input type="text" id="editCpId" readonly style="width:100%; font-size:12px; font-family:monospace; padding:6px 8px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text-muted); margin-top:4px;">
+      </div>
+      <div>
+        <label style="font-size:11px; color:var(--text-muted); font-weight:600;">Tên Cloud Phone (name):</label>
+        <input type="text" id="editCpName" placeholder="Nhập tên mới..." style="width:100%; font-size:12px; padding:6px 8px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--text); margin-top:4px;">
+      </div>
+      <div>
+        <label style="font-size:11px; color:var(--text-muted); font-weight:600;">Ghi chú (remark):</label>
+        <input type="text" id="editCpRemark" placeholder="Nhập ghi chú..." style="width:100%; font-size:12px; padding:6px 8px; background:var(--surface); border:1px solid var(--border); border-radius:4px; color:var(--text); margin-top:4px;">
+      </div>
+    </div>
+    <div class="modal-footer" style="padding:12px 18px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="closeEditDuoplusPhoneModal()">Hủy</button>
+      <button class="btn btn-primary btn-sm" id="btnSaveCpParams" onclick="submitDuoplusPhoneParams()" style="background:linear-gradient(135deg, #0284c7, #0369a1); border:none; font-weight:700;">💾 Lưu thay đổi qua API</button>
+    </div>
+  </div>
+</div>
 
 
 <!-- Fullscreen QR Modal -->
