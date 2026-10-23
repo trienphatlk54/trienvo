@@ -809,303 +809,323 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
       await new Promise(r => setTimeout(r, 1800));
     }
 
-    // BƯỚC 8: Truy cập trực tiếp đường link https://my.duoplus.net/api
+    // BƯỚC 8: Truy cập trực tiếp đường link https://my.duoplus.net/api (tải 1 lần + thêm 3 lần nữa = tổng 4 lần)
     if (fromStep <= 8) {
       task.step = 8;
-    task.status = 'navigating_api';
-    task.message = 'Đang truy cập trực tiếp vào https://my.duoplus.net/api...';
-    task.updatedAt = Date.now();
-
-    try {
-      await page.goto('https://my.duoplus.net/api', { waitUntil: 'networkidle2', timeout: 35000 });
-    } catch(e) {
-      try {
-        await page.goto('https://my.duoplus.net/api', { waitUntil: 'domcontentloaded', timeout: 20000 });
-      } catch(e2) {}
-    }
-
-    // Chờ trang API tải xong hoàn toàn
-    try {
-      await page.waitForFunction(() => document.readyState === 'complete', { timeout: 15000 });
-    } catch(e) {}
-
-    // (Từ bước này trở đi sau khi quét tải xong trang chờ 1-2 giây trước khi thao tác tiếp)
-      task.message = 'Đã vào trang API DuoPlus! Đang chuẩn bị tạo API Key...';
+      task.status = 'navigating_api';
       task.updatedAt = Date.now();
-      await new Promise(r => setTimeout(r, 1800));
+
+      const totalNavigations = 4;
+      for (let navCount = 1; navCount <= totalNavigations; navCount++) {
+        if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
+
+        if (navCount === 1) {
+          task.message = `Đang truy cập https://my.duoplus.net/api (lần 1/${totalNavigations})...`;
+        } else {
+          task.message = `Đang tải lại https://my.duoplus.net/api (lần ${navCount}/${totalNavigations} - thêm ${navCount - 1}/3 lần)...`;
+        }
+        task.updatedAt = Date.now();
+
+        try {
+          await page.goto('https://my.duoplus.net/api', { waitUntil: 'networkidle2', timeout: 35000 });
+        } catch(e) {
+          try {
+            await page.goto('https://my.duoplus.net/api', { waitUntil: 'domcontentloaded', timeout: 20000 });
+          } catch(e2) {}
+        }
+
+        // Chờ trang API tải xong hoàn toàn
+        try {
+          await page.waitForFunction(() => document.readyState === 'complete', { timeout: 15000 });
+        } catch(e) {}
+
+        // Chờ 2 giây sau mỗi lần tải trang
+        await new Promise(r => setTimeout(r, 2000));
+      }
+
+      task.message = '✅ Đã tải xong trang API 4 lần! Đang chuẩn bị quét API Key...';
+      task.updatedAt = Date.now();
+      await new Promise(r => setTimeout(r, 1500));
     }
 
     // BƯỚC 9: Tạo và Sao chép API Key trên trang https://my.duoplus.net/api
     if (fromStep <= 9) {
       task.step = 9;
-    task.status = 'generating_api_key';
-    task.message = 'Đang quét tìm nút Generate Key...';
-    task.updatedAt = Date.now();
+      task.status = 'generating_api_key';
+      task.message = 'Đang kiểm tra và trích xuất API Key DuoPlus...';
+      task.updatedAt = Date.now();
 
-    let extractedApiKey = null;
+      // Cấp quyền clipboard cho trang web
+      try {
+        const context = page.browserContext();
+        await context.overridePermissions('https://my.duoplus.net', ['clipboard-read', 'clipboard-write']);
+      } catch(e) {}
 
-    // 1. Kiểm tra xem trên trang đã có sẵn API Key chưa (nếu đã từng bấm Generate trước đó)
-    let generateKeyClicked = false;
-    const genWaitStart = Date.now();
-
-    while (Date.now() - genWaitStart < 25000) {
-      if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
-
-      // Kiểm tra xem đã có API Key hiển thị trên trang chưa
-      const existingKey = await page.evaluate(() => {
-        const candidates = Array.from(document.querySelectorAll('input, span, code, div'));
-        for (const el of candidates) {
-          const val = (el.value || el.innerText || '').trim();
-          if (val.length >= 20 && val.length <= 80 && !val.includes(' ') && !val.includes('\n') && !val.includes('http') && /[a-zA-Z0-9]/.test(val)) {
-            const parent = el.closest('tr, div, li') || el.parentElement;
-            if (parent && /copy|sao chép/i.test(parent.innerText)) {
-              return val;
-            }
-          }
+      // Hàm kiểm tra định dạng API Key hợp lệ
+      function isValidDuoApiKey(str, maskedPrefix, maskedSuffix) {
+        if (!str || typeof str !== 'string') return false;
+        const s = str.trim();
+        if (s.startsWith('/') || s.startsWith('\\') || s.includes('.txt') || s.includes('.png') || s.includes('http') || s.includes(' ') || s.includes('\n')) {
+          return false;
         }
-        return null;
-      });
-
-      if (existingKey) {
-        extractedApiKey = existingKey;
-        generateKeyClicked = true;
-        break;
+        if (s.length < 20 || s.length > 80) return false;
+        if (maskedPrefix && !s.toLowerCase().startsWith(maskedPrefix.toLowerCase())) return false;
+        if (maskedSuffix && !s.toLowerCase().endsWith(maskedSuffix.toLowerCase())) return false;
+        
+        const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s);
+        const isAlphanumeric = /^[0-9a-zA-Z_-]{20,80}$/.test(s);
+        return isUuid || isAlphanumeric;
       }
 
-      // Quét tìm nút Generate Key
-      const genTarget = await page.evaluate(() => {
-        const normalize = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        const keywords = ['generate key', 'generate-key', 'generate api key', 'generate', 'tạo key', '生成 key'];
-        const all = Array.from(document.querySelectorAll('button, a, div[role="button"], span'));
+      // Đặt hook lắng nghe navigator.clipboard.writeText ngay trên trang
+      await page.evaluate(() => {
+        window.__capturedDuoApiKey = null;
+        if (navigator.clipboard) {
+          const origWrite = navigator.clipboard.writeText;
+          navigator.clipboard.writeText = function(text) {
+            window.__capturedDuoApiKey = text;
+            return origWrite ? origWrite.apply(this, arguments) : Promise.resolve();
+          };
+        }
+        document.addEventListener('copy', (e) => {
+          try {
+            const t = window.getSelection().toString() || (e.clipboardData && e.clipboardData.getData('text'));
+            if (t) window.__capturedDuoApiKey = t;
+          } catch(err) {}
+        });
+      });
 
-        for (const el of all) {
-          const txt = normalize(el.innerText);
-          if (keywords.some(k => txt === k || (txt.includes(k) && txt.length < 35))) {
-            const btn = el.closest('button, [role="button"], a') || el;
-            const rect = btn.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) {
-              return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, text: btn.innerText.trim() };
-            }
-          }
+      // 1. Kiểm tra xem đã có API Key (dạng masked ddcc****8251) hiển thị trên trang chưa
+      let maskedKeyInfo = await page.evaluate(() => {
+        const allSpans = Array.from(document.querySelectorAll('span, div, p, td'));
+        const span = allSpans.find(s => {
+          const t = (s.innerText || '').trim();
+          return /\b[a-zA-Z0-9]{2,8}\*{2,8}[a-zA-Z0-9]{2,8}\b/.test(t) && t.length <= 30;
+        });
+        if (span) {
+          const m = span.innerText.trim().match(/([a-zA-Z0-9]{2,8})\*+([a-zA-Z0-9]{2,8})/);
+          return {
+            maskedText: span.innerText.trim(),
+            prefix: m ? m[1] : '',
+            suffix: m ? m[2] : ''
+          };
         }
         return null;
       });
 
-      if (genTarget) {
-        task.message = `Đã tìm thấy nút [${genTarget.text}], đang click để tạo API Key...`;
+      // Nếu chưa có masked key, quét tìm nút "Generate Key" và click
+      if (!maskedKeyInfo) {
+        task.message = 'Đang tìm nút Generate Key...';
         task.updatedAt = Date.now();
 
-        // Click chuột thật
-        try {
-          await page.mouse.move(genTarget.x, genTarget.y);
-          await new Promise(r => setTimeout(r, 60));
-          await page.mouse.click(genTarget.x, genTarget.y, { delay: 40 });
-        } catch(e) {}
+        const genWaitStart = Date.now();
+        while (Date.now() - genWaitStart < 25000) {
+          if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
 
-        // Dispatch sự kiện DOM
-        await page.evaluate((coords) => {
-          const el = document.elementFromPoint(coords.x, coords.y);
-          if (el) {
-            const btn = el.closest('button, [role="button"], a') || el;
-            ['pointerdown', 'mousedown', 'focus', 'pointerup', 'mouseup', 'click'].forEach(evt => {
-              try { btn.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window })); } catch(e) {}
+          // Kiểm tra lại xem masked key đã xuất hiện chưa
+          maskedKeyInfo = await page.evaluate(() => {
+            const allSpans = Array.from(document.querySelectorAll('span, div, p, td'));
+            const span = allSpans.find(s => {
+              const t = (s.innerText || '').trim();
+              return /\b[a-zA-Z0-9]{2,8}\*{2,8}[a-zA-Z0-9]{2,8}\b/.test(t) && t.length <= 30;
             });
-            try { btn.click(); } catch(e) {}
-          }
-        }, genTarget);
+            if (span) {
+              const m = span.innerText.trim().match(/([a-zA-Z0-9]{2,8})\*+([a-zA-Z0-9]{2,8})/);
+              return {
+                maskedText: span.innerText.trim(),
+                prefix: m ? m[1] : '',
+                suffix: m ? m[2] : ''
+              };
+            }
+            return null;
+          });
+          if (maskedKeyInfo) break;
 
-        generateKeyClicked = true;
-        break;
-      }
-
-      await new Promise(r => setTimeout(r, 800));
-    }
-
-    // 2. Chờ dòng chữ "Generate Key" biến mất và thay thế bằng chuỗi ký tự API Key
-    task.message = 'Đang đợi hệ thống sinh mã API Key...';
-    task.updatedAt = Date.now();
-
-    const keyWaitStart = Date.now();
-    while (Date.now() - keyWaitStart < 25000) {
-      if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
-
-      const keyStatus = await page.evaluate(() => {
-        const normalize = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        const all = Array.from(document.querySelectorAll('button, a, div[role="button"], span, div, tr, p'));
-        
-        // Kiểm tra xem nút Generate Key còn hiển thị không
-        const hasGenKey = all.some(el => {
-          const txt = normalize(el.innerText);
-          return (txt === 'generate key' || txt === 'generate-key') && el.offsetParent !== null;
-        });
-
-        // Tìm nút Copy trên hàng
-        const copyBtns = Array.from(document.querySelectorAll('button, a, div[role="button"], span')).filter(el => {
-          const t = (el.innerText || '').trim().toLowerCase();
-          const title = (el.getAttribute('title') || '').toLowerCase();
-          const aria = (el.getAttribute('aria-label') || '').toLowerCase();
-          return t === 'copy' || t === 'sao chép' || title === 'copy' || aria === 'copy' || (t.includes('copy') && t.length < 15);
-        });
-
-        let foundKey = null;
-        let copyCoords = null;
-
-        for (const btn of copyBtns) {
-          const clickable = btn.closest('button, [role="button"], a') || btn;
-          const rect = clickable.getBoundingClientRect();
-          if (rect.width > 0 && rect.height > 0) {
-            copyCoords = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-            
-            const container = clickable.closest('tr, div, li, p') || clickable.parentElement;
-            if (container) {
-              const inputs = Array.from(container.querySelectorAll('input, span, code, div'));
-              for (const inp of inputs) {
-                const val = (inp.value || inp.innerText || '').trim();
-                if (val.length >= 16 && val.length <= 80 && !val.includes(' ') && !val.includes('\n')) {
-                  foundKey = val;
-                  break;
-                }
+          const genClicked = await page.evaluate(() => {
+            const normalize = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+            const keywords = ['generate key', 'generate-key', 'generate api key', 'generate', 'tạo key'];
+            const all = Array.from(document.querySelectorAll('button, a, div[role="button"], span'));
+            for (const el of all) {
+              const txt = normalize(el.innerText);
+              if (keywords.some(k => txt === k || (txt.includes(k) && txt.length < 35))) {
+                const btn = el.closest('button, [role="button"], a') || el;
+                btn.click();
+                return true;
               }
             }
+            return false;
+          });
+
+          if (genClicked) {
+            task.message = 'Đã click nút Generate Key, đang chờ hệ thống sinh mã...';
+            task.updatedAt = Date.now();
+            await new Promise(r => setTimeout(r, 2000));
             break;
           }
+
+          await new Promise(r => setTimeout(r, 800));
         }
-
-        return {
-          hasGenKey,
-          foundKey,
-          copyCoords
-        };
-      });
-
-      if (keyStatus.foundKey) {
-        extractedApiKey = keyStatus.foundKey;
       }
 
-      if (!keyStatus.hasGenKey || keyStatus.copyCoords || keyStatus.foundKey) {
-        break;
-      }
+      // 2. Chờ dòng chứa API Key (ddcc****8251 + nút Copy) hiển thị
+      task.message = 'Đang định vị nút Copy tại dòng API Key...';
+      task.updatedAt = Date.now();
 
-      await new Promise(r => setTimeout(r, 800));
-    }
+      const findKeyStart = Date.now();
+      while (Date.now() - findKeyStart < 25000) {
+        if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
 
-    // 3. Tìm nút tên "Copy" tại dòng API Key và click vào
-    task.message = 'Đang tìm và click nút Copy API Key...';
-    task.updatedAt = Date.now();
-
-    let copyClicked = false;
-    const copyWaitStart = Date.now();
-
-    while (Date.now() - copyWaitStart < 20000) {
-      if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
-
-      const copyBtnInfo = await page.evaluate(() => {
-        const all = Array.from(document.querySelectorAll('button, a, div[role="button"], span, svg'));
-        for (const el of all) {
-          const t = (el.innerText || '').trim().toLowerCase();
-          const title = (el.getAttribute('title') || '').toLowerCase();
-          const aria = (el.getAttribute('aria-label') || '').toLowerCase();
-          if (t === 'copy' || t === 'sao chép' || title === 'copy' || aria === 'copy' || (t.includes('copy') && t.length < 15)) {
-            const btn = el.closest('button, [role="button"], a') || el;
-            const rect = btn.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) {
-              return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, text: btn.innerText.trim() };
-            }
+        maskedKeyInfo = await page.evaluate(() => {
+          const allSpans = Array.from(document.querySelectorAll('span, div, p, td'));
+          const span = allSpans.find(s => {
+            const t = (s.innerText || '').trim();
+            return /\b[a-zA-Z0-9]{2,8}\*{2,8}[a-zA-Z0-9]{2,8}\b/.test(t) && t.length <= 30;
+          });
+          if (span) {
+            const m = span.innerText.trim().match(/([a-zA-Z0-9]{2,8})\*+([a-zA-Z0-9]{2,8})/);
+            return {
+              maskedText: span.innerText.trim(),
+              prefix: m ? m[1] : '',
+              suffix: m ? m[2] : ''
+            };
           }
-        }
-        return null;
-      });
-
-      if (copyBtnInfo) {
-        task.message = `Đang click nút [${copyBtnInfo.text}]...`;
-        task.updatedAt = Date.now();
-
-        // Click chuột thật
-        try {
-          await page.mouse.move(copyBtnInfo.x, copyBtnInfo.y);
-          await new Promise(r => setTimeout(r, 60));
-          await page.mouse.click(copyBtnInfo.x, copyBtnInfo.y, { delay: 40 });
-        } catch(e) {}
-
-        // Dispatch sự kiện click
-        await page.evaluate((coords) => {
-          const el = document.elementFromPoint(coords.x, coords.y);
-          if (el) {
-            const btn = el.closest('button, [role="button"], a') || el;
-            ['pointerdown', 'mousedown', 'focus', 'pointerup', 'mouseup', 'click'].forEach(evt => {
-              try { btn.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window })); } catch(e) {}
-            });
-            try { btn.click(); } catch(e) {}
-          }
-        }, copyBtnInfo);
-
-        copyClicked = true;
-        break;
-      }
-
-      await new Promise(r => setTimeout(r, 600));
-    }
-
-    // 4. Quét hộp thoại thông báo "Copied" và đọc mã API Key từ Clipboard hoặc DOM
-    task.message = 'Đang xác nhận thông báo Copied và đọc mã API Key...';
-    task.updatedAt = Date.now();
-
-    let copiedToastDetected = false;
-    const toastWaitStart = Date.now();
-
-    while (Date.now() - toastWaitStart < 8000) {
-      const checkRes = await page.evaluate(async () => {
-        // Kiểm tra toast / tooltip có chữ Copied
-        const allEls = Array.from(document.querySelectorAll('.ant-message, [role="alert"], [role="status"], .toast, .tooltip, div, span'));
-        const hasCopied = allEls.some(el => {
-          const t = (el.innerText || '').trim().toLowerCase();
-          return t === 'copied' || t === 'copied!' || t.includes('copied') || t.includes('sao chép thành công') || t.includes('copy success');
+          return null;
         });
 
-        // Đọc giá trị từ clipboard nếu có quyền
-        let clip = null;
-        try {
-          clip = await navigator.clipboard.readText();
-        } catch(e) {}
-
-        return { hasCopied, clip };
-      });
-
-      if (checkRes.hasCopied) {
-        copiedToastDetected = true;
+        if (maskedKeyInfo) break;
+        await new Promise(r => setTimeout(r, 800));
       }
 
-      if (checkRes.clip && checkRes.clip.length >= 16 && !checkRes.clip.includes(' ') && !checkRes.clip.includes('\n')) {
-        extractedApiKey = checkRes.clip;
+      const maskedPrefix = maskedKeyInfo?.prefix || '';
+      const maskedSuffix = maskedKeyInfo?.suffix || '';
+      if (maskedKeyInfo) {
+        task.message = `Đã tìm thấy API Key dạng rút gọn [${maskedKeyInfo.maskedText}], đang click nút Copy kế bên...`;
+        task.updatedAt = Date.now();
       }
 
-      if (copiedToastDetected && extractedApiKey) {
-        break;
-      }
+      // 3. Click nút "Copy" ngay cạnh chuỗi API Key
+      let extractedApiKey = null;
+      const copyWaitStart = Date.now();
 
-      await new Promise(r => setTimeout(r, 400));
-    }
+      while (Date.now() - copyWaitStart < 25000) {
+        if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
 
-    // Nếu clipboard không đọc được, trích xuất chuỗi key từ DOM
-    if (!extractedApiKey || extractedApiKey.length < 10) {
-      extractedApiKey = await page.evaluate(() => {
-        const inputs = Array.from(document.querySelectorAll('input, span, code, div, p'));
-        for (const el of inputs) {
-          const val = (el.value || el.innerText || '').trim();
-          if (val.length >= 20 && val.length <= 80 && !val.includes(' ') && !val.includes('\n') && !val.includes('http') && /[a-zA-Z0-9]/.test(val)) {
-            return val;
+        // Định vị chính xác phần tử Copy cạnh chuỗi masked key hoặc cạnh Regenerate
+        const copyTarget = await page.evaluate(() => {
+          const allSpans = Array.from(document.querySelectorAll('span, div, p, td'));
+          const maskedSpan = allSpans.find(s => {
+            const t = (s.innerText || '').trim();
+            return /\b[a-zA-Z0-9]{2,8}\*{2,8}[a-zA-Z0-9]{2,8}\b/.test(t) && t.length <= 30;
+          });
+
+          let container = null;
+          if (maskedSpan) {
+            container = maskedSpan.closest('.flex') || maskedSpan.parentElement;
+            let p = container;
+            while (p && !p.innerText.includes('Regenerat') && p !== document.body) {
+              p = p.parentElement;
+            }
+            if (p && p !== document.body) container = p;
+          } else {
+            const allContainers = Array.from(document.querySelectorAll('div, tr, section'));
+            container = allContainers.find(c => {
+              const t = (c.innerText || '');
+              return t.includes('API Key') && (t.includes('Copy') || t.includes('Regenerat'));
+            });
           }
-        }
-        return null;
-      });
-    }
 
-    const finalApiKey = extractedApiKey || 'Copied_API_Key';
-    task.apiKey = finalApiKey;
-    task.status = 'completed';
-    task.step = 9;
-    task.message = `🎉 Đăng ký thành công & Đã copy mã API Key DuoPlus: ${finalApiKey}`;
-    task.updatedAt = Date.now();
+          if (!container) return null;
+
+          const candidates = Array.from(container.querySelectorAll('span, button, a, [role="button"]'));
+          const copyEl = candidates.find(c => {
+            const t = (c.innerText || '').trim().toLowerCase();
+            return t === 'copy' || t === 'sao chép';
+          });
+
+          if (!copyEl) return null;
+
+          const rect = copyEl.getBoundingClientRect();
+          return {
+            hasRect: rect.width > 0 && rect.height > 0,
+            x: rect.x + rect.width / 2,
+            y: rect.y + rect.height / 2
+          };
+        });
+
+        if (copyTarget) {
+          // Click chuột thật theo tọa độ
+          if (copyTarget.hasRect) {
+            try {
+              await page.mouse.move(copyTarget.x, copyTarget.y);
+              await new Promise(r => setTimeout(r, 60));
+              await page.mouse.click(copyTarget.x, copyTarget.y, { delay: 40 });
+            } catch(e) {}
+          }
+
+          // Đồng thời dispatch sự kiện click DOM vào đúng phần tử Copy của dòng API Key
+          await page.evaluate(() => {
+            const allSpans = Array.from(document.querySelectorAll('span, button, a'));
+            const copyEl = allSpans.find(s => {
+              const t = (s.innerText || '').trim().toLowerCase();
+              const parentText = s.parentElement ? (s.parentElement.innerText || '') : '';
+              const grandParentText = s.parentElement && s.parentElement.parentElement ? (s.parentElement.parentElement.innerText || '') : '';
+              return (t === 'copy' || t === 'sao chép') && 
+                     (parentText.includes('****') || grandParentText.includes('****') || parentText.includes('Regenerat') || grandParentText.includes('Regenerat') || grandParentText.includes('API Key'));
+            });
+            if (copyEl) {
+              ['pointerdown', 'mousedown', 'focus', 'pointerup', 'mouseup', 'click'].forEach(evt => {
+                try { copyEl.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window })); } catch(e) {}
+              });
+              try { copyEl.click(); } catch(e) {}
+            }
+          });
+        }
+
+        // Chờ 500ms để clipboard ghi nhận
+        await new Promise(r => setTimeout(r, 500));
+
+        // Đọc kết quả từ hook hoặc clipboard
+        const checkRes = await page.evaluate(async () => {
+          let candidate = window.__capturedDuoApiKey || null;
+          let clip = null;
+          try {
+            clip = await navigator.clipboard.readText();
+          } catch(e) {}
+
+          const allEls = Array.from(document.querySelectorAll('.ant-message, [role="alert"], [role="status"], .toast, .tooltip, div, span'));
+          const hasCopied = allEls.some(el => {
+            const t = (el.innerText || '').trim().toLowerCase();
+            return t === 'copied' || t === 'copied!' || t.includes('copied') || t.includes('sao chép thành công') || t.includes('copy success');
+          });
+
+          return { candidate, clip, hasCopied };
+        });
+
+        // Kiểm tra candidate từ hook
+        if (checkRes.candidate && isValidDuoApiKey(checkRes.candidate, maskedPrefix, maskedSuffix)) {
+          extractedApiKey = checkRes.candidate.trim();
+          break;
+        }
+
+        // Kiểm tra candidate từ clipboard
+        if (checkRes.clip && isValidDuoApiKey(checkRes.clip, maskedPrefix, maskedSuffix)) {
+          extractedApiKey = checkRes.clip.trim();
+          break;
+        }
+
+        await new Promise(r => setTimeout(r, 800));
+      }
+
+      if (!extractedApiKey || !isValidDuoApiKey(extractedApiKey, maskedPrefix, maskedSuffix)) {
+        throw new Error(`Không thể copy được API Key hợp lệ (Giá trị thu được không đúng định dạng DuoPlus API Key). Vui lòng bấm [Try Again] để thử lại.`);
+      }
+
+      task.apiKey = extractedApiKey;
+      task.status = 'completed';
+      task.step = 9;
+      task.message = `🎉 Đăng ký thành công & Đã copy chính xác mã API Key DuoPlus: ${extractedApiKey}`;
+      task.updatedAt = Date.now();
+      console.log(`[DuoPlus Automation] Hoàn thành trích xuất API Key: ${extractedApiKey}`);
     }
 
     // Ngắt kết nối Puppeteer nhưng giữ nguyên cửa sổ trình duyệt GPM mở cho người dùng
