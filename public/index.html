@@ -7387,16 +7387,29 @@ async function submitDuoplusPhoneParams() {
   }
 }
 
-function openDuoplusWebConsole() {
-  const item = duoplusCurrentCloudPhoneTiktokId ? (tiktokData[duoplusCurrentCloudPhoneTiktokId] || {}) : {};
-  if (item.duoplusProfileId) {
-    const useGpm = confirm('Tài khoản này có sẵn GPMLogin profile [' + item.duoplusProfileId + '].\n\nBạn có muốn mở trang Cloud Phone trực tiếp trên cửa sổ GPMLogin để tự động đăng nhập không?');
-    if (useGpm) {
-      openGpmProfile(item.duoplusProfileId);
+async function openDuoplusWebConsole(imageId) {
+  const targetUrl = 'https://my.duoplus.net/images';
+  toast('🚀 Đang mở trình duyệt Chromium điều khiển Cloud Phone...', 'info', 3000);
+
+  try {
+    const res = await fetch('/api/duoplus/open-chromium', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageId: imageId || '',
+        url: targetUrl,
+        tiktokId: duoplusCurrentCloudPhoneTiktokId
+      })
+    });
+    const data = await res.json();
+    if (data && data.success) {
+      toast('✅ Đã mở trình duyệt Chromium điều khiển Cloud Phone trên máy tính!', 'success', 3500);
       return;
     }
-  }
-  window.open('https://my.duoplus.net/images', '_blank');
+  } catch(e) {}
+
+  // Fallback: nếu gọi backend mở Chromium không khả dụng (ví dụ duyệt từ xa), mở tab trình duyệt hiện tại
+  window.open(targetUrl, '_blank');
 }
 
 function openDuoplusPhoneScreen(imageId, status) {
@@ -7407,7 +7420,8 @@ function openDuoplusPhoneScreen(imageId, status) {
     }
   }
 
-  openDuoplusWebConsole();
+  // Mở trực tiếp Chromium trên máy tính điều khiển Cloud Phone, hoàn toàn KHÔNG qua GPM
+  openDuoplusWebConsole(imageId);
 }
 
 let tiktokNoteSaveTimeouts = {};
@@ -10930,6 +10944,9 @@ async function clearAllNotes() {
 
       <!-- Action Buttons Right: Cấu hình khởi tạo -->
       <div style="display:flex; align-items:center; gap:8px;">
+        <button class="btn btn-sm btn-secondary" onclick="openDuoplusWebConsole()" title="Mở trực tiếp trình duyệt Chromium trên máy tính điều khiển Cloud Phone (không qua GPM)" style="height:28px; font-size:11px; padding:0 12px; white-space:nowrap; display:inline-flex; align-items:center; gap:5px; font-weight:600;">
+          🖥️ Mở Chromium
+        </button>
         <button class="btn btn-sm" id="btnDuoInitConfig" onclick="duoplusTriggerInitConfig()" title="Cấu hình mặc định qua API: Mobile Network, Oppo (Random Model), SIM Vietnam, Proxy Socks5 (nếu trống lấy IP thực)" style="display:none; height:28px; font-size:11px; padding:0 14px; background:linear-gradient(135deg, #10b981, #059669); border:none; color:#fff; font-weight:700; border-radius:4px; box-shadow:0 2px 8px rgba(16,185,129,0.35); white-space:nowrap; align-items:center; gap:6px;">
           ⚡ Cấu hình khởi tạo
         </button>
@@ -10975,13 +10992,13 @@ async function clearAllNotes() {
         <div style="font-size:42px; margin-bottom:10px;">📱</div>
         <div style="font-size:14px; font-weight:600; color:var(--text);">Chưa có Cloud Phone nào trên tài khoản này</div>
         <div style="font-size:12px; margin-top:4px;">Bạn có thể mở trang Web DuoPlus để nhận dùng thử (Claim Free) hoặc tạo Cloud Phone mới.</div>
-        <button class="btn btn-sm btn-primary" onclick="openDuoplusWebConsole()" style="margin-top:14px; font-size:12px; padding:6px 16px;">🌐 Mở Web Console DuoPlus</button>
+        <button class="btn btn-sm btn-primary" onclick="openDuoplusWebConsole()" style="margin-top:14px; font-size:12px; padding:6px 16px;">🖥️ Mở Chromium DuoPlus</button>
       </div>
     </div>
 
     <!-- Modal Footer -->
     <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding:10px 18px;">
-      <span style="font-size:11px; color:var(--text-muted);">💡 Mẹo: Bấm <strong>Mở Cloud Phone</strong> để xem và điều khiển màn hình điện thoại trực tiếp trên trình duyệt.</span>
+      <span style="font-size:11px; color:var(--text-muted);">💡 Mẹo: Bấm <strong>Mở Cloud Phone</strong> để mở trực tiếp trình duyệt Chromium trên máy tính điều khiển điện thoại (không cần qua GPM).</span>
       <button class="btn btn-secondary btn-sm" onclick="closeDuoplusCloudPhoneModal()" style="height:32px; padding:4px 14px; font-size:12px;">Đóng</button>
     </div>
   </div>

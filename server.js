@@ -2509,6 +2509,73 @@ app.post('/api/duoplus/mobile/modelList', async (req, res) => {
   }
 });
 
+// 🌐 Mở trực tiếp trình duyệt Chromium / Chrome trên máy tính để điều khiển Cloud Phone (Không qua GPM)
+app.post('/api/duoplus/open-chromium', async (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  const { spawn } = require('child_process');
+  const puppeteer = require('puppeteer');
+
+  const { imageId, url = 'https://my.duoplus.net/images' } = req.body;
+
+  let browserPath = null;
+  // 1. Thử Puppeteer bundled Chromium
+  try {
+    const pPath = await puppeteer.executablePath();
+    if (fs.existsSync(pPath)) browserPath = pPath;
+  } catch(e) {}
+
+  // 2. Thử các trình duyệt Chromium phổ biến trên máy tính (Chrome, Edge, Brave)
+  if (!browserPath) {
+    const isWin = process.platform === 'win32';
+    const commonPaths = isWin ? [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Google\\Chrome\\Application\\chrome.exe') : '',
+      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+      'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+      'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe'
+    ].filter(Boolean) : [
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    ];
+
+    for (const p of commonPaths) {
+      if (fs.existsSync(p)) { browserPath = p; break; }
+    }
+  }
+
+  if (!browserPath) {
+    return res.status(404).json({ success: false, error: 'Không tìm thấy trình duyệt Chromium/Chrome trên máy tính' });
+  }
+
+  try {
+    const userDataDir = path.join(__dirname, '.duoplus_chromium_profile');
+    const targetUrl = url || 'https://my.duoplus.net/images';
+    const args = [
+      `--user-data-dir=${userDataDir}`,
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--window-size=1280,840',
+      targetUrl
+    ];
+
+    const child = spawn(browserPath, args, {
+      detached: true,
+      stdio: 'ignore'
+    });
+    child.unref();
+
+    console.log(`[DuoPlus Chromium] Launched browser at pid ${child.pid} using ${browserPath}`);
+    res.json({ success: true, pid: child.pid, browserPath, targetUrl });
+  } catch(err) {
+    console.error('[DuoPlus Chromium Error]:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ─── FLOPPYDATA PROXY API ──────────────────────────────────────────
 
 const FLOPPY_BASE_URL = 'https://api.floppydata.net';
