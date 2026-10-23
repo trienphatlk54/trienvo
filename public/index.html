@@ -2562,6 +2562,19 @@
   </div>
 
 <script>
+// 🌐 Tự động định tuyến API về http://localhost:3000 khi mở trực tiếp file:// hoặc từ port khác
+(function() {
+  const origFetch = window.fetch;
+  window.fetch = function(input, init) {
+    if (typeof input === 'string' && input.startsWith('/api/')) {
+      if (window.location.protocol === 'file:' || (window.location.port !== '3000' && !window.location.hostname.includes('render') && !window.location.hostname.includes('vercel') && !window.location.hostname.includes('vps'))) {
+        input = 'http://localhost:3000' + input;
+      }
+    }
+    return origFetch(input, init);
+  };
+})();
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ── AUTH / LOGIN SYSTEM ──────────────────────────────────────────────────────

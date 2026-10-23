@@ -74,6 +74,19 @@ const QR_TTL = 3 * 60 * 1000;
 
 const app = express();
 
+// CORS & Private Network Access Middleware
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
+
 
 app.get('/api/logs', (req, res) => res.type('text/plain').send(sysLogs.join('\n')));
 app.use(bodyParser.json());
