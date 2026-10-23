@@ -1902,7 +1902,7 @@ app.get('/api/tiktok/all', async (req, res) => {
 });
 
 app.post('/api/tiktok/save', async (req, res) => {
-  const { id, identifier, mail, username, password, session, status, result, notes, coMaTime, subTabTime, ngamTime, ngamSubTab, duoplus, duoplusProfileId, bitcloud, duoplusHotmail } = req.body;
+  const { id, identifier, mail, username, password, session, status, result, notes, coMaTime, subTabTime, ngamTime, ngamSubTab, duoplus, duoplusProfileId, bitcloud, duoplusHotmail, duoplusApiKey } = req.body;
   try {
     const ref = db.ref('tiktok_accounts');
     if (id) {
@@ -1911,10 +1911,11 @@ app.post('/api/tiktok/save', async (req, res) => {
       if (duoplusProfileId !== undefined) updateData.duoplusProfileId = duoplusProfileId || '';
       if (bitcloud !== undefined) updateData.bitcloud = bitcloud || '';
       if (duoplusHotmail !== undefined) updateData.duoplusHotmail = duoplusHotmail || '';
+      if (duoplusApiKey !== undefined) updateData.duoplusApiKey = duoplusApiKey || '';
       await ref.child(id).update(updateData);
     } else {
       const time = getFormattedTime();
-      await ref.push().set({ identifier, mail, username, password, session, status, result, notes: notes || '', time, coMaTime: coMaTime || '', subTabTime: subTabTime || new Date().toISOString(), ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '', duoplus: duoplus || '', duoplusProfileId: duoplusProfileId || '', bitcloud: bitcloud || '', duoplusHotmail: duoplusHotmail || '' });
+      await ref.push().set({ identifier, mail, username, password, session, status, result, notes: notes || '', time, coMaTime: coMaTime || '', subTabTime: subTabTime || new Date().toISOString(), ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '', duoplus: duoplus || '', duoplusProfileId: duoplusProfileId || '', bitcloud: bitcloud || '', duoplusHotmail: duoplusHotmail || '', duoplusApiKey: duoplusApiKey || '' });
     }
     res.json({ success: true });
   } catch(e) {

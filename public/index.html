@@ -4658,6 +4658,11 @@ function renderTiktokTable() {
             ✉️ ${escapeHtml(item.duoplusHotmail)}
           </div>
         ` : ''}
+        ${item.duoplusApiKey ? `
+          <div style="font-size:11px; color:#10b981; margin-top:3px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; font-family:monospace; background:rgba(16,185,129,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:4px;" onclick="copyText('${escapeHtml(item.duoplusApiKey)}')" title="DuoPlus API Key: ${escapeHtml(item.duoplusApiKey)} (Click để copy)">
+            <span>🔑</span> <span style="font-weight:700;">${escapeHtml(item.duoplusApiKey)}</span>
+          </div>
+        ` : ''}
       </td>
       <td style="padding:6px; text-align:center;">
         <input type="text" class="proxy-input" value="${escapeHtml(item.bitcloud || '')}" placeholder="BitCloud ID/Acc..." oninput="autoSaveTiktokBitCloud('${id}', this.value)" onclick="event.stopPropagation()" style="width:100%; min-width:110px; padding:4px 6px; font-size:11px; height:26px; box-sizing:border-box;">
@@ -5151,9 +5156,11 @@ async function openGpmProfile(profileId) {
 
 // ─── DUOPLUS AUTOMATION FRONTEND LOGIC ────────────────────────────────
 let duoplusCurrentTaskId = null;
+let duoplusCurrentTiktokId = null;
 let duoplusPollInterval = null;
 
 async function startDuoplusAutomationFlow({ tiktokId, hotmailId, hotmailEmail, profileId, profileName }) {
+  duoplusCurrentTiktokId = tiktokId;
   const modal = document.getElementById('duoplusProgressModal');
   if (modal) modal.classList.add('active');
 
@@ -5281,6 +5288,29 @@ function startDuoplusTaskPolling(taskId, hotmailId) {
 
     renderDuoplusTaskProgress(task, hotmailId);
 
+    if (task.apiKey) {
+      const keyAlert = document.getElementById('duoApiKeyAlert');
+      const keyDisp = document.getElementById('duoApiKeyDisplay');
+      if (keyAlert) keyAlert.style.display = 'block';
+      if (keyDisp) keyDisp.innerText = task.apiKey;
+
+      if (duoplusCurrentTiktokId && tiktokData[duoplusCurrentTiktokId]) {
+        if (tiktokData[duoplusCurrentTiktokId].duoplusApiKey !== task.apiKey) {
+          tiktokData[duoplusCurrentTiktokId].duoplusApiKey = task.apiKey;
+          fetch('/api/tiktok/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...tiktokData[duoplusCurrentTiktokId],
+              id: duoplusCurrentTiktokId,
+              duoplusApiKey: task.apiKey
+            })
+          }).catch(() => {});
+          renderTiktokTable();
+        }
+      }
+    }
+
     if (task.status === 'completed' || task.status === 'error') {
       clearInterval(duoplusPollInterval);
       duoplusPollInterval = null;
@@ -5291,7 +5321,7 @@ function startDuoplusTaskPolling(taskId, hotmailId) {
 function renderDuoplusTaskProgress(task, hotmailId) {
   const currentStep = task.step || 1;
 
-  for (let s = 1; s <= 7; s++) {
+  for (let s = 1; s <= 9; s++) {
     const stepEl = document.getElementById('duoStep' + s);
     if (!stepEl) continue;
     const badge = stepEl.querySelector('.duo-step-badge');
@@ -5423,7 +5453,7 @@ function renderDuoplusTaskProgress(task, hotmailId) {
 }
 
 function resetDuoplusModalUI() {
-  for (let s = 1; s <= 7; s++) {
+  for (let s = 1; s <= 9; s++) {
     const stepEl = document.getElementById('duoStep' + s);
     if (!stepEl) continue;
     const badge = stepEl.querySelector('.duo-step-badge');
@@ -5446,6 +5476,10 @@ function resetDuoplusModalUI() {
   if (manualInput) manualInput.value = '';
   const otpAlert = document.getElementById('duoOtpAlert');
   if (otpAlert) otpAlert.style.display = 'none';
+  const apiKeyAlert = document.getElementById('duoApiKeyAlert');
+  if (apiKeyAlert) apiKeyAlert.style.display = 'none';
+  const apiKeyDisplay = document.getElementById('duoApiKeyDisplay');
+  if (apiKeyDisplay) apiKeyDisplay.innerText = '------';
   const otpDisplay = document.getElementById('duoOtpCodeDisplay');
   if (otpDisplay) otpDisplay.innerText = '------';
 
@@ -8947,6 +8981,16 @@ async function clearAllNotes() {
             <span class="duo-step-title" style="flex:1;">Get Started ➔ Tắt thông báo ➔ Claim Free ➔ Start Config</span>
             <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
           </div>
+          <div id="duoStep8" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+            <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">8</span>
+            <span class="duo-step-title" style="flex:1;">Quét trang web & Click vào đường link API</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+          </div>
+          <div id="duoStep9" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+            <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">9</span>
+            <span class="duo-step-title" style="flex:1;">Generate Key ➔ Copy mã API Key DuoPlus</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+          </div>
         </div>
       </div>
       
@@ -8998,6 +9042,18 @@ async function clearAllNotes() {
             <div style="font-size:11px; font-weight:700; color:#34d399; text-transform:uppercase; letter-spacing:0.5px;">Mã OTP Hotmail Nhận Được:</div>
             <div id="duoOtpCodeDisplay" style="font-size:26px; font-weight:900; letter-spacing:6px; color:#fff; font-family:monospace; margin-top:2px;">------</div>
           </div>
+      <!-- API Key Display Box (shown when API Key is retrieved) -->
+      <div id="duoApiKeyAlert" style="display:none; margin: 0 16px; background:linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.15)); border:1px solid #10b981; border-radius:10px; padding:12px 14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <div style="font-size:11px; font-weight:700; color:#34d399; text-transform:uppercase; letter-spacing:0.5px;">🔑 DuoPlus API Key (Đã tự động điền vào ô Duoplus):</div>
+            <div id="duoApiKeyDisplay" style="font-size:13px; font-weight:700; color:#fff; font-family:monospace; margin-top:3px; word-break:break-all;">------</div>
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="copyText(document.getElementById('duoApiKeyDisplay').innerText)" style="background:#10b981; color:#fff; font-weight:700; border:none; padding:6px 14px; font-size:12px; cursor:pointer; border-radius:4px;">
+            📋 Copy Key
+          </button>
+        </div>
+      </div>
           <button class="btn btn-sm btn-primary" onclick="copyDuoplusOtp()" style="background:#10b981; color:#fff; font-weight:700; border:none; padding:6px 14px; font-size:12px; cursor:pointer; border-radius:4px;">
             📋 Copy OTP
           </button>

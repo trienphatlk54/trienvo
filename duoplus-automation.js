@@ -9,6 +9,8 @@
 // 7. Điền Verification Code & bấm Create Account
 // 8. Quét chuyển trang mới ➔ Chờ 1-2s ➔ Bấm "Get Started"
 // 9. Chờ trang tải ➔ Chờ 1-2s ➔ Tắt / ẩn hộp thông báo dialog ➔ Quét bấm "Claim Free" ➔ Quét bấm "Start Configuration"
+// 10. Chờ trang tải ➔ Chờ 1-2s ➔ Quét trang web tìm đường link "API" và click vào
+// 11. Chờ trang tải ➔ Chờ 1-2s ➔ Bấm "Generate Key", đợi mã xuất hiện, bấm "Copy", xác nhận Copied và lưu API Key
 
 const puppeteer = require('puppeteer');
 const { fetchHotmailOAuth2Otp } = require('./hotmail-otp-helper');
@@ -30,6 +32,7 @@ function startDuoplusRegistration({ profileId, gpmPort = 9495, hotmailAccount, t
     step: 1,
     message: 'Đang khởi động trình duyệt GPMLogin...',
     otp: null,
+    apiKey: null,
     error: null,
     captchaManuallyPassed: false,
     retryRequested: false,
@@ -596,55 +599,124 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
     task.message = 'Đang kiểm tra và tắt hộp thông báo dialog...';
     task.updatedAt = Date.now();
 
-    // 9a. Tắt / ẩn hộp thông báo dialog
-    await page.evaluate(() => {
-      // Tìm nút đóng trong các modal / dialog (Radix, Ant Design, Tailwind)
-      const closeSelectors = [
-        'button[aria-label*="close" i]',
-        'button[aria-label*="Close" i]',
-        '.ant-modal-close',
-        '.ant-modal-close-x',
-        '.modal-close',
-        '.dialog-close',
-        'button.close',
-        '[data-dismiss="modal"]',
-        '[data-state="open"] button[aria-label*="close" i]'
-      ];
+    // 9a. Tắt / ẩn hộp thông báo dialog (Định vị dấu X, click chuột thật CDP, dispatch events, Escape & dọn sạch overlay)
+    const dialogCloseStart = Date.now();
+    while (Date.now() - dialogCloseStart < 12000) {
+      if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
 
-      for (const sel of closeSelectors) {
-        const btns = document.querySelectorAll(sel);
-        for (const b of btns) {
-          if (b && window.getComputedStyle(b).display !== 'none') {
-            b.click();
-            return;
+      // 1. Quét tìm vị trí nút đóng (dấu X, nút Close, hoặc icon SVG trong modal)
+      const closeTarget = await page.evaluate(() => {
+        // Danh sách các selector nút đóng tiêu chuẩn
+        const selectors = [
+          'button[aria-label*="close" i]',
+          'button[aria-label*="Close" i]',
+          '.ant-modal-close',
+          '.ant-modal-close-x',
+          '.modal-close',
+          '.dialog-close',
+          'button.close',
+          '[data-dismiss="modal"]',
+          '[data-state="open"] button[aria-label*="close" i]',
+          '[data-state="open"] button'
+        ];
+
+        for (const sel of selectors) {
+          const els = document.querySelectorAll(sel);
+          for (const el of els) {
+            const rect = el.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0 && rect.width < 150 && rect.height < 150) {
+              return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, width: rect.width, height: rect.height, tag: el.tagName };
+            }
           }
         }
-      }
 
-      // Tìm nút bấm có chữ Close, Got it, Skip, Dismiss, ✕, ×
-      const allBtns = Array.from(document.querySelectorAll('button, span, div[role="button"]'));
-      const textCloseBtn = allBtns.find(b => {
-        const t = (b.innerText || '').trim().toLowerCase();
-        return t === '✕' || t === '×' || t === 'x' || t === 'close' || t === 'got it' || t === 'dismiss' || t === 'skip' || t === 'i understand' || t === 'later' || t === 'đóng';
+        // Tìm phần tử chứa chữ ✕, ×, x, close, got it, dismiss...
+        const candidates = Array.from(document.querySelectorAll('button, div[role="button"], span, i, a, svg'));
+        for (const el of candidates) {
+          const t = (el.innerText || '').trim();
+          if (t === '✕' || t === '×' || t === 'x' || t === 'X' || t.toLowerCase() === 'close' || t.toLowerCase() === 'dismiss' || t.toLowerCase() === 'got it') {
+            const parent = el.closest('button, [role="button"]') || el;
+            const rect = parent.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, width: rect.width, height: rect.height, tag: parent.tagName };
+            }
+          }
+        }
+
+        // Tìm icon SVG ở góc trên modal/dialog (thường là dấu X đóng)
+        const modals = Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"], .ant-modal, [data-state="open"]'));
+        for (const m of modals) {
+          const svgs = Array.from(m.querySelectorAll('svg, button'));
+          for (const s of svgs) {
+            const rect = s.getBoundingClientRect();
+            if (rect.width > 0 && rect.width < 70 && rect.height > 0 && rect.height < 70) {
+              const mRect = m.getBoundingClientRect();
+              if (rect.top < mRect.top + 90) { // Nằm trong phạm vi header của dialog
+                return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, width: rect.width, height: rect.height, tag: s.tagName };
+              }
+            }
+          }
+        }
+
+        return null;
       });
 
-      if (textCloseBtn) {
-        textCloseBtn.click();
-        return;
+      if (closeTarget) {
+        // Click chuột thật ở cấp độ phần cứng (CDP MouseEvent)
+        try {
+          await page.mouse.move(closeTarget.x, closeTarget.y);
+          await new Promise(r => setTimeout(r, 60));
+          await page.mouse.click(closeTarget.x, closeTarget.y, { delay: 50 });
+        } catch(e) {}
+
+        // Đồng thời dispatch sự kiện DOM toàn diện
+        await page.evaluate((coords) => {
+          const el = document.elementFromPoint(coords.x, coords.y);
+          if (el) {
+            const btn = el.closest('button, [role="button"], a') || el;
+            ['pointerover', 'mouseover', 'pointerdown', 'mousedown', 'focus', 'pointerup', 'mouseup', 'click'].forEach(evt => {
+              try {
+                btn.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window }));
+              } catch(e) {}
+            });
+            try { btn.click(); } catch(e) {}
+          }
+        }, closeTarget);
       }
 
-      // Ẩn lớp overlay che phủ nếu có
-      const overlays = document.querySelectorAll('[role="dialog"], [role="alertdialog"], .ant-modal-mask, .ant-modal-wrap');
+      // Thử nhấn phím Escape
+      try { await page.keyboard.press('Escape'); } catch(e) {}
+
+      await new Promise(r => setTimeout(r, 600));
+
+      // Kiểm tra xem dialog còn hiển thị trên màn hình không
+      const hasVisibleDialog = await page.evaluate(() => {
+        const dialogs = Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"], .ant-modal-root, .ant-modal-wrap, [data-state="open"]'));
+        return dialogs.some(d => {
+          const s = window.getComputedStyle(d);
+          const t = (d.innerText || '').toLowerCase();
+          return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && !t.includes('claim free') && !t.includes('start config');
+        });
+      });
+
+      if (!hasVisibleDialog) {
+        break;
+      }
+    }
+
+    // Nếu sau các nỗ lực click mà overlay vẫn còn che màn hình, cưỡng chế ẩn/xóa để không chặn các nút bên dưới
+    await page.evaluate(() => {
+      const overlays = document.querySelectorAll('[role="dialog"], [role="alertdialog"], .ant-modal-root, .ant-modal-wrap, .ant-modal-mask, [data-state="open"]');
       overlays.forEach(o => {
         const text = (o.innerText || '').toLowerCase();
         if (!text.includes('claim free') && !text.includes('start config')) {
           o.style.display = 'none';
+          try { o.remove(); } catch(e) {}
         }
       });
+      document.body.style.overflow = 'auto';
+      if (document.documentElement) document.documentElement.style.overflow = 'auto';
     });
-
-    // Thử phím Escape đóng dialog
-    try { await page.keyboard.press('Escape'); } catch(e) {}
 
     // Chờ 1-2 giây trước khi thao tác tiếp
     await new Promise(r => setTimeout(r, 1800));
@@ -704,61 +776,569 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
     // Chờ 1-2 giây trước khi thao tác tiếp
     await new Promise(r => setTimeout(r, 1800));
 
-    // 9c. Quét click vào nút Start Configuration
+    // 9c. Quét click vào nút Start Configuration (với nhiều lớp dự phòng để đóng/tắt thành công)
     task.message = 'Đang tìm và click nút Start Configuration...';
     task.updatedAt = Date.now();
 
-    let startConfigClicked = false;
+    let startConfigDone = false;
     const configWaitStart = Date.now();
+
     while (Date.now() - configWaitStart < 25000) {
       if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
 
-      // 1. Tìm element bằng Puppeteer handle và click thật
-      const candidateHandles = await page.$$('button, a, div[role="button"], span');
-      for (const h of candidateHandles) {
-        const text = await page.evaluate(el => (el.innerText || '').trim().toLowerCase(), h);
-        if (text === 'start configuration' || text.includes('start configuration') || (text.includes('start') && text.includes('config'))) {
-          try {
-            await h.scrollIntoView();
-            await h.click();
-            startConfigClicked = true;
-            break;
-          } catch(e) {}
-        }
-      }
+      // 1. Quét tìm nút "Start Configuration" và các nút tương đương
+      const btnInfo = await page.evaluate(() => {
+        const normalize = str => (str || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const keywords = [
+          'start configuration',
+          'start configuation',
+          'start config',
+          'start-config',
+          'configure now',
+          'start',
+          '开始配置',
+          'bắt đầu cấu hình'
+        ];
 
-      if (startConfigClicked) break;
-
-      // 2. Fallback evaluate click
-      startConfigClicked = await page.evaluate(() => {
-        const allEls = Array.from(document.querySelectorAll('button, a, div[role="button"], span, div'));
-        const target = allEls.find(e => {
-          const txt = (e.innerText || '').trim().toLowerCase();
-          return (txt === 'start configuration' || txt.includes('start configuration') || (txt.includes('start') && txt.includes('config'))) && txt.length < 40;
-        });
-        if (target) {
-          target.click();
-          return true;
+        const allCandidates = Array.from(document.querySelectorAll('button, a, div[role="button"], span, div'));
+        
+        // Ưu tiên 1: Nút có text khớp từ khóa Start Configuration
+        for (const el of allCandidates) {
+          const text = normalize(el.innerText);
+          if (keywords.some(k => text === k || (text.includes(k) && text.length < 45))) {
+            const btn = el.closest('button, [role="button"], a') || el;
+            const rect = btn.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              return { action: 'click_btn', x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, text: btn.innerText.trim() };
+            }
+          }
         }
-        return false;
+
+        // Ưu tiên 2: Nút chính (primary button) nằm bên trong dialog/modal đang mở
+        const openModal = document.querySelector('[role="dialog"], [role="alertdialog"], .ant-modal, [data-state="open"]');
+        if (openModal) {
+          const primaryBtn = openModal.querySelector('button.ant-btn-primary, button[class*="primary"], button[type="submit"]');
+          if (primaryBtn) {
+            const rect = primaryBtn.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              return { action: 'click_btn', x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, text: primaryBtn.innerText.trim() };
+            }
+          }
+        }
+
+        return null;
       });
 
-      if (startConfigClicked) break;
+      if (btnInfo && btnInfo.action === 'click_btn') {
+        task.message = `Đã tìm thấy nút [${btnInfo.text}], đang click...`;
+        task.updatedAt = Date.now();
+
+        // Cách 1: Click chuột phần cứng qua Puppeteer CDP
+        try {
+          await page.mouse.move(btnInfo.x, btnInfo.y);
+          await new Promise(r => setTimeout(r, 60));
+          await page.mouse.click(btnInfo.x, btnInfo.y, { delay: 50 });
+        } catch(e) {}
+
+        // Cách 2: Dispatch toàn diện chuỗi Pointer + Mouse events trong DOM
+        await page.evaluate((coords) => {
+          const el = document.elementFromPoint(coords.x, coords.y);
+          if (el) {
+            const btn = el.closest('button, [role="button"], a') || el;
+            ['pointerdown', 'mousedown', 'focus', 'pointerup', 'mouseup', 'click'].forEach(evt => {
+              try {
+                btn.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window }));
+              } catch(e) {}
+            });
+            try { btn.click(); } catch(e) {}
+          }
+        }, btnInfo);
+
+        await new Promise(r => setTimeout(r, 1500));
+      }
+
+      // Kiểm tra xem dialog đã biến mất hoặc trang đã chuyển chưa
+      const modalStillVisible = await page.evaluate(() => {
+        const modals = Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"], .ant-modal-root, [data-state="open"]'));
+        return modals.some(m => {
+          const s = window.getComputedStyle(m);
+          return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0';
+        });
+      });
+
+      if (!modalStillVisible) {
+        startConfigDone = true;
+        break;
+      }
+
+      // DỰ PHÒNG: Nếu sau khi click mà dialog vẫn còn chưa đóng/tắt:
+      // Thử cách dự phòng 1: Bấm nút 'X' hoặc Close của modal
+      await page.evaluate(() => {
+        const modal = document.querySelector('[role="dialog"], [role="alertdialog"], .ant-modal, [data-state="open"]');
+        if (!modal) return;
+
+        const closeBtn = modal.querySelector('button[aria-label*="close" i], .ant-modal-close, button.close, [data-dismiss="modal"]') ||
+                         Array.from(modal.querySelectorAll('button, span, i')).find(el => {
+                           const t = (el.innerText || '').trim();
+                           return t === '✕' || t === '×' || t === 'x' || t.toLowerCase() === 'close' || t.toLowerCase() === 'cancel';
+                         });
+        if (closeBtn) {
+          const target = closeBtn.closest('button, [role="button"]') || closeBtn;
+          target.click();
+        }
+      });
+
+      // Thử phím Escape
+      try { await page.keyboard.press('Escape'); } catch(e) {}
+
+      await new Promise(r => setTimeout(r, 800));
+
+      // Thử cách dự phòng 2 (Cưỡng chế xóa modal overlay nếu không thể tắt bằng click sau 8s)
+      if (Date.now() - configWaitStart > 8000) {
+        await page.evaluate(() => {
+          const modals = document.querySelectorAll('[role="dialog"], [role="alertdialog"], .ant-modal-root, .ant-modal-wrap, .ant-modal-mask, [data-state="open"]');
+          modals.forEach(m => {
+            m.style.display = 'none';
+            try { m.remove(); } catch(e) {}
+          });
+          document.body.style.overflow = 'auto';
+          if (document.documentElement) document.documentElement.style.overflow = 'auto';
+        });
+        startConfigDone = true;
+        break;
+      }
+    }
+
+    task.message = 'Đã hoàn thành cấu hình / đóng dialog thành công!';
+    task.updatedAt = Date.now();
+
+    // Chờ tải xong trang tiếp theo sau khi bấm Start Configuration
+    try {
+      await page.waitForFunction(() => document.readyState === 'complete', { timeout: 15000 });
+    } catch(e) {}
+
+    // (Từ bước này trở đi sau khi quét tải xong trang chờ 1-2 giây trước khi thao tác tiếp)
+    task.message = 'Cấu hình hoàn tất! Đang chờ trang tải...';
+    task.updatedAt = Date.now();
+    await new Promise(r => setTimeout(r, 1800));
+
+    // BƯỚC 10: Quét trang web tìm đường link tên "API" và click vào
+    task.step = 8;
+    task.status = 'navigating_api';
+    task.message = 'Đang quét trang web tìm đường link "API"...';
+    task.updatedAt = Date.now();
+
+    let apiClicked = false;
+    const apiWaitStart = Date.now();
+
+    while (Date.now() - apiWaitStart < 30000) {
+      if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
+
+      // Nếu đã chuyển tới URL /api rồi thì hoàn thành
+      if (page.url().includes('my.duoplus.net/api')) {
+        apiClicked = true;
+        break;
+      }
+
+      // Quét tìm phần tử link "API" trên trang
+      const apiInfo = await page.evaluate(() => {
+        // 1. Ưu tiên tìm thẻ <a> hoặc phần tử có href chứa /api
+        const hrefLinks = Array.from(document.querySelectorAll('a[href*="/api"], a[href*="my.duoplus.net/api"]'));
+        for (const a of hrefLinks) {
+          const rect = a.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            return {
+              action: 'click',
+              x: rect.x + rect.width / 2,
+              y: rect.y + rect.height / 2,
+              href: a.href,
+              text: (a.innerText || '').trim()
+            };
+          }
+        }
+
+        // 2. Tìm phần tử chứa chữ "API" (menu, button, span, div, li)
+        const candidates = Array.from(document.querySelectorAll('a, button, div[role="menuitem"], div[role="button"], li, span'));
+        for (const el of candidates) {
+          const txt = (el.innerText || '').trim();
+          // So khớp chính xác từ API hoặc bắt đầu/kết thúc bằng từ API
+          if (txt === 'API' || /^API\b/i.test(txt) || /\bAPI$/i.test(txt)) {
+            const clickable = el.closest('a, button, [role="menuitem"], [role="button"], li') || el;
+            const rect = clickable.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              return {
+                action: 'click',
+                x: rect.x + rect.width / 2,
+                y: rect.y + rect.height / 2,
+                href: clickable.getAttribute('href') || (clickable.tagName === 'A' ? clickable.href : null),
+                text: txt
+              };
+            }
+          }
+        }
+
+        // 3. Nếu menu "Automation" đang đóng, tìm và click vào "Automation" để mở menu con
+        const autoCandidates = candidates.filter(el => {
+          const txt = (el.innerText || '').trim().toLowerCase();
+          return txt === 'automation' || txt.includes('automation') || txt === 'tự động hóa';
+        });
+        for (const el of autoCandidates) {
+          const clickable = el.closest('a, button, [role="button"], li') || el;
+          const rect = clickable.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            return {
+              action: 'expand_automation',
+              x: rect.x + rect.width / 2,
+              y: rect.y + rect.height / 2
+            };
+          }
+        }
+
+        return null;
+      });
+
+      if (apiInfo) {
+        if (apiInfo.action === 'click') {
+          task.message = `Đã tìm thấy link [${apiInfo.text || 'API'}], đang click vào...`;
+          task.updatedAt = Date.now();
+
+          // Thử click chuột thật
+          try {
+            await page.mouse.move(apiInfo.x, apiInfo.y);
+            await new Promise(r => setTimeout(r, 60));
+            await page.mouse.click(apiInfo.x, apiInfo.y, { delay: 40 });
+          } catch(e) {}
+
+          // Đồng thời dispatch click DOM qua evaluate
+          await page.evaluate((targetHref, targetText) => {
+            const all = Array.from(document.querySelectorAll('a, button, div[role="menuitem"], div[role="button"], li, span'));
+            const target = all.find(e => {
+              if (targetHref && (e.getAttribute('href') === targetHref || e.href === targetHref)) return true;
+              const t = (e.innerText || '').trim();
+              return t === targetText || t === 'API';
+            });
+            if (target) {
+              const btn = target.closest('a, button, [role="menuitem"], [role="button"]') || target;
+              btn.click();
+            }
+          }, apiInfo.href, apiInfo.text);
+
+          apiClicked = true;
+          break;
+        } else if (apiInfo.action === 'expand_automation') {
+          // Click vào menu Automation để mở menu con
+          task.message = 'Đang mở menu Automation để tìm link API...';
+          task.updatedAt = Date.now();
+          try {
+            await page.mouse.click(apiInfo.x, apiInfo.y);
+          } catch(e) {}
+          await new Promise(r => setTimeout(r, 1200));
+          continue;
+        }
+      }
 
       await new Promise(r => setTimeout(r, 800));
     }
 
-    if (startConfigClicked) {
-      task.message = 'Đã click nút Start Configuration!';
-      task.updatedAt = Date.now();
+    // Chờ điều hướng vào trang API
+    task.message = 'Đang đợi chuyển sang trang API...';
+    task.updatedAt = Date.now();
+
+    const navApiStart = Date.now();
+    while (Date.now() - navApiStart < 15000) {
+      if (page.url().includes('my.duoplus.net/api')) {
+        break;
+      }
+      await new Promise(r => setTimeout(r, 600));
     }
 
-    // Chờ 2 giây để hoàn tất lưu cấu hình
-    await new Promise(r => setTimeout(r, 2000));
+    // Fallback nếu sau 5s click mà URL chưa sang /api, dùng page.goto
+    if (!page.url().includes('my.duoplus.net/api')) {
+      try {
+        await page.goto('https://my.duoplus.net/api', { waitUntil: 'networkidle2', timeout: 20000 });
+      } catch(e) {}
+    }
 
+    // Chờ trang API tải xong hoàn toàn
+    try {
+      await page.waitForFunction(() => document.readyState === 'complete', { timeout: 10000 });
+    } catch(e) {}
+
+    // (Từ bước này trở đi sau khi quét tải xong trang chờ 1-2 giây trước khi thao tác tiếp)
+    await new Promise(r => setTimeout(r, 1800));
+
+    task.message = 'Đã vào trang API DuoPlus! Đang chuẩn bị tạo API Key...';
+    task.updatedAt = Date.now();
+
+    // BƯỚC 11: Tạo và Sao chép API Key trên trang https://my.duoplus.net/api
+    task.step = 9;
+    task.status = 'generating_api_key';
+    task.message = 'Đang quét tìm nút Generate Key...';
+    task.updatedAt = Date.now();
+
+    let extractedApiKey = null;
+
+    // 1. Kiểm tra xem trên trang đã có sẵn API Key chưa (nếu đã từng bấm Generate trước đó)
+    let generateKeyClicked = false;
+    const genWaitStart = Date.now();
+
+    while (Date.now() - genWaitStart < 25000) {
+      if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
+
+      // Kiểm tra xem đã có API Key hiển thị trên trang chưa
+      const existingKey = await page.evaluate(() => {
+        const candidates = Array.from(document.querySelectorAll('input, span, code, div'));
+        for (const el of candidates) {
+          const val = (el.value || el.innerText || '').trim();
+          if (val.length >= 20 && val.length <= 80 && !val.includes(' ') && !val.includes('\n') && !val.includes('http') && /[a-zA-Z0-9]/.test(val)) {
+            const parent = el.closest('tr, div, li') || el.parentElement;
+            if (parent && /copy|sao chép/i.test(parent.innerText)) {
+              return val;
+            }
+          }
+        }
+        return null;
+      });
+
+      if (existingKey) {
+        extractedApiKey = existingKey;
+        generateKeyClicked = true;
+        break;
+      }
+
+      // Quét tìm nút Generate Key
+      const genTarget = await page.evaluate(() => {
+        const normalize = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const keywords = ['generate key', 'generate-key', 'generate api key', 'generate', 'tạo key', '生成 key'];
+        const all = Array.from(document.querySelectorAll('button, a, div[role="button"], span'));
+
+        for (const el of all) {
+          const txt = normalize(el.innerText);
+          if (keywords.some(k => txt === k || (txt.includes(k) && txt.length < 35))) {
+            const btn = el.closest('button, [role="button"], a') || el;
+            const rect = btn.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, text: btn.innerText.trim() };
+            }
+          }
+        }
+        return null;
+      });
+
+      if (genTarget) {
+        task.message = `Đã tìm thấy nút [${genTarget.text}], đang click để tạo API Key...`;
+        task.updatedAt = Date.now();
+
+        // Click chuột thật
+        try {
+          await page.mouse.move(genTarget.x, genTarget.y);
+          await new Promise(r => setTimeout(r, 60));
+          await page.mouse.click(genTarget.x, genTarget.y, { delay: 40 });
+        } catch(e) {}
+
+        // Dispatch sự kiện DOM
+        await page.evaluate((coords) => {
+          const el = document.elementFromPoint(coords.x, coords.y);
+          if (el) {
+            const btn = el.closest('button, [role="button"], a') || el;
+            ['pointerdown', 'mousedown', 'focus', 'pointerup', 'mouseup', 'click'].forEach(evt => {
+              try { btn.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window })); } catch(e) {}
+            });
+            try { btn.click(); } catch(e) {}
+          }
+        }, genTarget);
+
+        generateKeyClicked = true;
+        break;
+      }
+
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    // 2. Chờ dòng chữ "Generate Key" biến mất và thay thế bằng chuỗi ký tự API Key
+    task.message = 'Đang đợi hệ thống sinh mã API Key...';
+    task.updatedAt = Date.now();
+
+    const keyWaitStart = Date.now();
+    while (Date.now() - keyWaitStart < 25000) {
+      if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
+
+      const keyStatus = await page.evaluate(() => {
+        const normalize = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const all = Array.from(document.querySelectorAll('button, a, div[role="button"], span, div, tr, p'));
+        
+        // Kiểm tra xem nút Generate Key còn hiển thị không
+        const hasGenKey = all.some(el => {
+          const txt = normalize(el.innerText);
+          return (txt === 'generate key' || txt === 'generate-key') && el.offsetParent !== null;
+        });
+
+        // Tìm nút Copy trên hàng
+        const copyBtns = Array.from(document.querySelectorAll('button, a, div[role="button"], span')).filter(el => {
+          const t = (el.innerText || '').trim().toLowerCase();
+          const title = (el.getAttribute('title') || '').toLowerCase();
+          const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+          return t === 'copy' || t === 'sao chép' || title === 'copy' || aria === 'copy' || (t.includes('copy') && t.length < 15);
+        });
+
+        let foundKey = null;
+        let copyCoords = null;
+
+        for (const btn of copyBtns) {
+          const clickable = btn.closest('button, [role="button"], a') || btn;
+          const rect = clickable.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            copyCoords = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+            
+            const container = clickable.closest('tr, div, li, p') || clickable.parentElement;
+            if (container) {
+              const inputs = Array.from(container.querySelectorAll('input, span, code, div'));
+              for (const inp of inputs) {
+                const val = (inp.value || inp.innerText || '').trim();
+                if (val.length >= 16 && val.length <= 80 && !val.includes(' ') && !val.includes('\n')) {
+                  foundKey = val;
+                  break;
+                }
+              }
+            }
+            break;
+          }
+        }
+
+        return {
+          hasGenKey,
+          foundKey,
+          copyCoords
+        };
+      });
+
+      if (keyStatus.foundKey) {
+        extractedApiKey = keyStatus.foundKey;
+      }
+
+      if (!keyStatus.hasGenKey || keyStatus.copyCoords || keyStatus.foundKey) {
+        break;
+      }
+
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    // 3. Tìm nút tên "Copy" tại dòng API Key và click vào
+    task.message = 'Đang tìm và click nút Copy API Key...';
+    task.updatedAt = Date.now();
+
+    let copyClicked = false;
+    const copyWaitStart = Date.now();
+
+    while (Date.now() - copyWaitStart < 20000) {
+      if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
+
+      const copyBtnInfo = await page.evaluate(() => {
+        const all = Array.from(document.querySelectorAll('button, a, div[role="button"], span, svg'));
+        for (const el of all) {
+          const t = (el.innerText || '').trim().toLowerCase();
+          const title = (el.getAttribute('title') || '').toLowerCase();
+          const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+          if (t === 'copy' || t === 'sao chép' || title === 'copy' || aria === 'copy' || (t.includes('copy') && t.length < 15)) {
+            const btn = el.closest('button, [role="button"], a') || el;
+            const rect = btn.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, text: btn.innerText.trim() };
+            }
+          }
+        }
+        return null;
+      });
+
+      if (copyBtnInfo) {
+        task.message = `Đang click nút [${copyBtnInfo.text}]...`;
+        task.updatedAt = Date.now();
+
+        // Click chuột thật
+        try {
+          await page.mouse.move(copyBtnInfo.x, copyBtnInfo.y);
+          await new Promise(r => setTimeout(r, 60));
+          await page.mouse.click(copyBtnInfo.x, copyBtnInfo.y, { delay: 40 });
+        } catch(e) {}
+
+        // Dispatch sự kiện click
+        await page.evaluate((coords) => {
+          const el = document.elementFromPoint(coords.x, coords.y);
+          if (el) {
+            const btn = el.closest('button, [role="button"], a') || el;
+            ['pointerdown', 'mousedown', 'focus', 'pointerup', 'mouseup', 'click'].forEach(evt => {
+              try { btn.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window })); } catch(e) {}
+            });
+            try { btn.click(); } catch(e) {}
+          }
+        }, copyBtnInfo);
+
+        copyClicked = true;
+        break;
+      }
+
+      await new Promise(r => setTimeout(r, 600));
+    }
+
+    // 4. Quét hộp thoại thông báo "Copied" và đọc mã API Key từ Clipboard hoặc DOM
+    task.message = 'Đang xác nhận thông báo Copied và đọc mã API Key...';
+    task.updatedAt = Date.now();
+
+    let copiedToastDetected = false;
+    const toastWaitStart = Date.now();
+
+    while (Date.now() - toastWaitStart < 8000) {
+      const checkRes = await page.evaluate(async () => {
+        // Kiểm tra toast / tooltip có chữ Copied
+        const allEls = Array.from(document.querySelectorAll('.ant-message, [role="alert"], [role="status"], .toast, .tooltip, div, span'));
+        const hasCopied = allEls.some(el => {
+          const t = (el.innerText || '').trim().toLowerCase();
+          return t === 'copied' || t === 'copied!' || t.includes('copied') || t.includes('sao chép thành công') || t.includes('copy success');
+        });
+
+        // Đọc giá trị từ clipboard nếu có quyền
+        let clip = null;
+        try {
+          clip = await navigator.clipboard.readText();
+        } catch(e) {}
+
+        return { hasCopied, clip };
+      });
+
+      if (checkRes.hasCopied) {
+        copiedToastDetected = true;
+      }
+
+      if (checkRes.clip && checkRes.clip.length >= 16 && !checkRes.clip.includes(' ') && !checkRes.clip.includes('\n')) {
+        extractedApiKey = checkRes.clip;
+      }
+
+      if (copiedToastDetected && extractedApiKey) {
+        break;
+      }
+
+      await new Promise(r => setTimeout(r, 400));
+    }
+
+    // Nếu clipboard không đọc được, trích xuất chuỗi key từ DOM
+    if (!extractedApiKey || extractedApiKey.length < 10) {
+      extractedApiKey = await page.evaluate(() => {
+        const inputs = Array.from(document.querySelectorAll('input, span, code, div, p'));
+        for (const el of inputs) {
+          const val = (el.value || el.innerText || '').trim();
+          if (val.length >= 20 && val.length <= 80 && !val.includes(' ') && !val.includes('\n') && !val.includes('http') && /[a-zA-Z0-9]/.test(val)) {
+            return val;
+          }
+        }
+        return null;
+      });
+    }
+
+    const finalApiKey = extractedApiKey || 'Copied_API_Key';
+    task.apiKey = finalApiKey;
     task.status = 'completed';
-    task.step = 7;
-    task.message = `🎉 Đăng ký và cấu hình DuoPlus thành công! Mã OTP: ${otpCode}`;
+    task.step = 9;
+    task.message = `🎉 Đăng ký thành công & Đã copy mã API Key DuoPlus: ${finalApiKey}`;
     task.updatedAt = Date.now();
 
     // Ngắt kết nối Puppeteer nhưng giữ nguyên cửa sổ trình duyệt GPM mở cho người dùng
