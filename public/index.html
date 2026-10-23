@@ -2562,17 +2562,17 @@
   </div>
 
 <script>
-// 🌐 Tự động định tuyến API về http://localhost:3000 khi mở trực tiếp file:// hoặc từ port khác
+// 🌐 Tự động định tuyến API về http://localhost:3000 CHỈ KHI mở trực tiếp bằng giao thức file://
 (function() {
-  const origFetch = window.fetch;
-  window.fetch = function(input, init) {
-    if (typeof input === 'string' && input.startsWith('/api/')) {
-      if (window.location.protocol === 'file:' || (window.location.port !== '3000' && !window.location.hostname.includes('render') && !window.location.hostname.includes('vercel') && !window.location.hostname.includes('vps'))) {
+  if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+    const origFetch = window.fetch;
+    window.fetch = function(input, init) {
+      if (typeof input === 'string' && input.startsWith('/api/')) {
         input = 'http://localhost:3000' + input;
       }
-    }
-    return origFetch(input, init);
-  };
+      return origFetch(input, init);
+    };
+  }
 })();
 
 
@@ -3230,18 +3230,39 @@ function updateHotmailSubTabCounts() {
 
 async function loadHotmailData() {
   const tbody = document.getElementById('hotmailTableBody');
-  try {
-    const res = await fetch('/api/hotmail/all');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    hotmailData = (data && typeof data === 'object' && !data.error) ? data : {};
+  const urls = ['/api/hotmail/all', '/api/hm/all', '/api/mail-accounts/all'];
+  let data = null;
+  let lastErr = null;
+  
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json && typeof json === 'object' && !json.error) {
+          data = json;
+          break;
+        }
+      }
+    } catch(e) {
+      lastErr = e;
+    }
+  }
+
+  if (data && typeof data === 'object' && !data.error) {
+    hotmailData = data;
     renderHotmailTable();
-  } catch (e) {
-    console.error('Lỗi tải dữ liệu Hotmail:', e);
+  } else {
+    console.error('Lỗi tải dữ liệu Hotmail:', lastErr);
+    // Nếu trong hotmailData đã có sẵn dữ liệu thì vẫn giữ nguyên bảng
+    if (hotmailData && Object.keys(hotmailData).length > 0) {
+      renderHotmailTable();
+      return;
+    }
     if (tbody) {
       tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:var(--error);">
-        ⚠️ Không thể tải dữ liệu Hotmail (${escapeHtml(e.message)}).<br>
-        <span style="font-size:12px; color:var(--text-muted); display:block; margin:6px 0;">Hãy đảm bảo máy chủ node server.js đang hoạt động.</span>
+        ⚠️ Không thể tải dữ liệu Hotmail (${escapeHtml(lastErr ? lastErr.message : 'Failed to fetch')}).<br>
+        <span style="font-size:12px; color:var(--text-muted); display:block; margin:6px 0;">Hãy đảm bảo máy chủ server đang hoạt động (hoặc tạm tắt Tiện ích chặn quảng cáo / AdBlock nếu có).</span>
         <button class="btn btn-primary btn-sm" onclick="loadHotmailData()" style="margin-top:6px; font-size:12px;">🔄 Thử lại ngay</button>
       </td></tr>`;
     }

@@ -2137,85 +2137,93 @@ app.post('/api/gmail/delete', async (req, res) => {
   }
 });
 
-// 📬 HOTMAIL ACCOUNTS API 📬
-app.get('/api/hotmail/all', async (req, res) => {
-  try {
-    const ref = db.ref('hotmail_accounts');
-    const snap = await ref.once('value');
-    res.json(snap.val() || {});
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+// 📬 HOTMAIL ACCOUNTS API (Hỗ trợ alias /api/hm và /api/mail-accounts tránh Adblocker chặn) 📬
+['/api/hotmail/all', '/api/hm/all', '/api/mail-accounts/all'].forEach(route => {
+  app.get(route, async (req, res) => {
+    try {
+      const ref = db.ref('hotmail_accounts');
+      const snap = await ref.once('value');
+      res.json(snap.val() || {});
+    } catch(e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
 });
 
-app.post('/api/hotmail/save', async (req, res) => {
-  const { id, hotmail, password, authCookies, sessionId, restoreMail, service, otpCode, time } = req.body;
-  try {
-    const ref = db.ref('hotmail_accounts');
-    if (id) {
-      const updateData = {
-        hotmail: hotmail || '',
-        password: password || '',
-        authCookies: authCookies || '',
-        sessionId: sessionId || '',
-        restoreMail: restoreMail || '',
-        service: service || ''
-      };
-      if (otpCode !== undefined) updateData.otpCode = otpCode;
-      await ref.child(id).update(updateData);
-    } else {
-      const addedTime = time || getFormattedTime();
-      await ref.push().set({
-        hotmail: hotmail || '',
-        password: password || '',
-        authCookies: authCookies || '',
-        sessionId: sessionId || '',
-        restoreMail: restoreMail || '',
-        service: service || '',
-        otpCode: otpCode || '',
-        time: addedTime
-      });
+['/api/hotmail/save', '/api/hm/save', '/api/mail-accounts/save'].forEach(route => {
+  app.post(route, async (req, res) => {
+    const { id, hotmail, password, authCookies, sessionId, restoreMail, service, otpCode, time } = req.body;
+    try {
+      const ref = db.ref('hotmail_accounts');
+      if (id) {
+        const updateData = {
+          hotmail: hotmail || '',
+          password: password || '',
+          authCookies: authCookies || '',
+          sessionId: sessionId || '',
+          restoreMail: restoreMail || '',
+          service: service || ''
+        };
+        if (otpCode !== undefined) updateData.otpCode = otpCode;
+        await ref.child(id).update(updateData);
+      } else {
+        const addedTime = time || getFormattedTime();
+        await ref.push().set({
+          hotmail: hotmail || '',
+          password: password || '',
+          authCookies: authCookies || '',
+          sessionId: sessionId || '',
+          restoreMail: restoreMail || '',
+          service: service || '',
+          otpCode: otpCode || '',
+          time: addedTime
+        });
+      }
+      res.json({ success: true });
+    } catch(e) {
+      res.status(500).json({ success: false, error: e.message });
     }
-    res.json({ success: true });
-  } catch(e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
+  });
 });
 
-app.post('/api/hotmail/bulk-save', async (req, res) => {
-  const { accounts } = req.body;
-  if (!accounts || !Array.isArray(accounts)) return res.json({ success: false, error: 'Dữ liệu không hợp lệ' });
-  try {
-    const ref = db.ref('hotmail_accounts');
-    const nowTime = getFormattedTime();
-    for (const acc of accounts) {
-      await ref.push().set({
-        hotmail: acc.hotmail || '',
-        password: acc.password || '',
-        authCookies: acc.authCookies || '',
-        sessionId: acc.sessionId || '',
-        restoreMail: acc.restoreMail || '',
-        service: acc.service || '',
-        otpCode: acc.otpCode || '',
-        time: acc.time || nowTime
-      });
+['/api/hotmail/bulk-save', '/api/hm/bulk-save', '/api/mail-accounts/bulk-save'].forEach(route => {
+  app.post(route, async (req, res) => {
+    const { accounts } = req.body;
+    if (!accounts || !Array.isArray(accounts)) return res.json({ success: false, error: 'Dữ liệu không hợp lệ' });
+    try {
+      const ref = db.ref('hotmail_accounts');
+      const nowTime = getFormattedTime();
+      for (const acc of accounts) {
+        await ref.push().set({
+          hotmail: acc.hotmail || '',
+          password: acc.password || '',
+          authCookies: acc.authCookies || '',
+          sessionId: acc.sessionId || '',
+          restoreMail: acc.restoreMail || '',
+          service: acc.service || '',
+          otpCode: acc.otpCode || '',
+          time: acc.time || nowTime
+        });
+      }
+      res.json({ success: true, count: accounts.length });
+    } catch(e) {
+      res.status(500).json({ success: false, error: e.message });
     }
-    res.json({ success: true, count: accounts.length });
-  } catch(e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
+  });
 });
 
-app.post('/api/hotmail/delete', async (req, res) => {
-  const { id } = req.body;
-  try {
-    if (id) {
-      await db.ref('hotmail_accounts').child(id).remove();
+['/api/hotmail/delete', '/api/hm/delete', '/api/mail-accounts/delete'].forEach(route => {
+  app.post(route, async (req, res) => {
+    const { id } = req.body;
+    try {
+      if (id) {
+        await db.ref('hotmail_accounts').child(id).remove();
+      }
+      res.json({ success: true });
+    } catch(e) {
+      res.status(500).json({ success: false, error: e.message });
     }
-    res.json({ success: true });
-  } catch(e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
+  });
 });
 
 // ── Hotmail OAuth2 Get OTP Helper & Endpoint ───────────────────────────
