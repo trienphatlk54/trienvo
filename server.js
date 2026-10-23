@@ -1902,7 +1902,7 @@ app.get('/api/tiktok/all', async (req, res) => {
 });
 
 app.post('/api/tiktok/save', async (req, res) => {
-  const { id, identifier, mail, username, password, session, status, result, notes, coMaTime, subTabTime, ngamTime, ngamSubTab, duoplus, duoplusProfileId, bitcloud, duoplusHotmail, duoplusApiKey } = req.body;
+  const { id, identifier, mail, username, password, session, status, result, notes, coMaTime, subTabTime, ngamTime, ngamSubTab, duoplus, duoplusProfileId, bitcloud, duoplusHotmail, duoplusApiKey, gpmProxy, duoplusProxy } = req.body;
   try {
     const ref = db.ref('tiktok_accounts');
     if (id) {
@@ -1912,10 +1912,12 @@ app.post('/api/tiktok/save', async (req, res) => {
       if (bitcloud !== undefined) updateData.bitcloud = bitcloud || '';
       if (duoplusHotmail !== undefined) updateData.duoplusHotmail = duoplusHotmail || '';
       if (duoplusApiKey !== undefined) updateData.duoplusApiKey = duoplusApiKey || '';
+      if (gpmProxy !== undefined) updateData.gpmProxy = gpmProxy || '';
+      if (duoplusProxy !== undefined) updateData.duoplusProxy = duoplusProxy || '';
       await ref.child(id).update(updateData);
     } else {
       const time = getFormattedTime();
-      await ref.push().set({ identifier, mail, username, password, session, status, result, notes: notes || '', time, coMaTime: coMaTime || '', subTabTime: subTabTime || new Date().toISOString(), ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '', duoplus: duoplus || '', duoplusProfileId: duoplusProfileId || '', bitcloud: bitcloud || '', duoplusHotmail: duoplusHotmail || '', duoplusApiKey: duoplusApiKey || '' });
+      await ref.push().set({ identifier, mail, username, password, session, status, result, notes: notes || '', time, coMaTime: coMaTime || '', subTabTime: subTabTime || new Date().toISOString(), ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '', duoplus: duoplus || '', duoplusProfileId: duoplusProfileId || '', bitcloud: bitcloud || '', duoplusHotmail: duoplusHotmail || '', duoplusApiKey: duoplusApiKey || '', gpmProxy: gpmProxy || duoplusProxy || '', duoplusProxy: duoplusProxy || gpmProxy || '' });
     }
     res.json({ success: true });
   } catch(e) {
@@ -1939,6 +1941,33 @@ app.post('/api/tiktok/delete', async (req, res) => {
 try {
   require('./gpm-bridge');
 } catch (e) {}
+
+app.post('/api/gpm/update-profile', async (req, res) => {
+  const { port = '9495', profileId, payload } = req.body;
+  const targets = [
+    `http://127.0.0.1:${port}/api/v1/profiles/update/${profileId}`,
+    `http://localhost:${port}/api/v1/profiles/update/${profileId}`
+  ];
+  let lastError = null;
+  for (const url of targets) {
+    try {
+      const gpmRes = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(6000)
+      });
+      const data = await gpmRes.json();
+      return res.json(data);
+    } catch(e) {
+      lastError = e;
+    }
+  }
+  res.status(500).json({
+    success: false,
+    error: `Không thể kết nối đến GPMLogin (Port ${port}): ${lastError ? lastError.message : 'Timeout'}.`
+  });
+});
 
 app.post('/api/gpm/create-profile', async (req, res) => {
   const { port = '9495', payload } = req.body;

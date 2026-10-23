@@ -1900,7 +1900,7 @@
                 <th style="padding: 6px;">Result</th>
                 <th style="padding: 6px;">Time Ngâm</th>
                 <th style="padding: 6px;">Notes</th>
-                <th style="padding: 6px; width: 160px; text-align: center;">Duoplus</th>
+                <th style="padding: 6px; min-width: 220px; width: 230px; text-align: center;">Duoplus</th>
                 <th style="padding: 6px; width: 130px; text-align: center;">BitCloud</th>
                 <th style="padding: 6px; width: 80px; text-align: center;">Hành động</th>
               </tr>
@@ -4644,6 +4644,27 @@ function renderTiktokTable() {
         <input type="text" class="proxy-input" value="${escapeHtml(item.notes || '')}" placeholder="Ghi chú..." oninput="autoSaveTiktokNote('${id}', this.value)" onclick="event.stopPropagation()" style="width:100%; min-width:110px; padding:4px 8px; font-size:11px; height:26px; box-sizing:border-box;">
       </td>
       <td style="padding:6px; text-align:center; white-space:nowrap;">
+        <!-- Area Proxy chọn / nhập cho dòng này -->
+        <div style="margin-bottom: 5px; max-width: 230px; margin-left: auto; margin-right: auto;">
+          <div style="display: flex; gap: 3px; align-items: center;">
+            <input type="text" id="gpmProxy_${id}" class="proxy-input"
+              value="${escapeHtml(item.gpmProxy || item.duoplusProxy || item.proxy || '')}"
+              placeholder="Proxy: ip:port:user:pass..."
+              list="gpmProxyDatalist"
+              oninput="autoSaveTiktokGpmProxy('${id}', this.value)"
+              onfocus="prepareGpmProxySuggestions()"
+              onclick="event.stopPropagation()"
+              title="Nhập hoặc chọn Proxy áp dụng khi tạo profile GPM (Click 🎯 để chọn nhanh)"
+              style="flex: 1; min-width: 135px; font-size: 11px; font-family: monospace; padding: 2px 6px; height: 24px; border-radius: 4px; box-sizing: border-box; background: var(--surface); color: var(--text);">
+            <select class="proxy-quick-select" onchange="applyQuickProxyToRow('${id}', this.value); this.value='';" title="Chọn nhanh Proxy từ danh sách" style="width: 26px; height: 24px; padding: 0; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; text-align: center;">
+              <option value="" disabled selected>🎯</option>
+              ${renderQuickProxySelectOptions(item.gpmProxy || item.duoplusProxy || item.proxy || '')}
+            </select>
+            ${(item.gpmProxy || item.duoplusProxy || item.proxy) ? `
+              <button type="button" class="btn btn-ghost" onclick="copyText('${escapeHtml(item.gpmProxy || item.duoplusProxy || item.proxy)}')" title="Copy Proxy" style="padding: 1px 4px; height: 24px; font-size: 11px; color: var(--text-muted);">📋</button>
+            ` : ''}
+          </div>
+        </div>
         <div style="display:inline-flex; align-items:center; justify-content:center; gap:5px;">
           <button class="btn btn-sm btn-gpm" id="btnGpm_${id}" onclick="createGpmProfileForTiktok('${id}', this)" title="Tạo profile trên GPMLogin với liên kết Duoplus.net" style="padding:3px 8px; font-size:11px; height:25px; background:linear-gradient(135deg, #0284c7, #0078d4); color:#fff; border:none; font-weight:700; white-space:nowrap; border-radius:4px; cursor:pointer;">
             ${item.duoplusProfileId ? '🔄 Tạo lại' : '📱 Tạo Duoplus GPM'}
@@ -4812,6 +4833,190 @@ function autoSaveTiktokBitCloud(id, val) {
   }, 400);
 }
 
+// 🌐 TikTok GPM Proxy Helpers & Auto-Save 🌐
+let tiktokGpmProxySaveTimeouts = {};
+
+function formatProxyForGpm(str) {
+  if (!str) return '';
+  str = str.trim();
+  if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('socks5://') || str.startsWith('socks4://')) {
+    return str;
+  }
+  // Mặc định thêm tiền tố socks5:// cho GPMLogin nếu chưa có scheme
+  return 'socks5://' + str;
+}
+
+function getKnownProxies() {
+  const set = new Set();
+  
+  // 1. Từ localStorage recent
+  try {
+    const recents = JSON.parse(localStorage.getItem('recent_gpm_proxies') || '[]');
+    if (Array.isArray(recents)) {
+      recents.forEach(p => { if (p && typeof p === 'string' && p.trim()) set.add(p.trim()); });
+    }
+  } catch(e) {}
+
+  // 2. Từ dữ liệu tất cả tài khoản tiktokData
+  if (typeof tiktokData === 'object' && tiktokData) {
+    Object.values(tiktokData).forEach(item => {
+      const p = item.gpmProxy || item.duoplusProxy || item.proxy;
+      if (p && typeof p === 'string' && p.trim()) set.add(p.trim());
+    });
+  }
+
+  // 3. Từ Floppy proxies nếu đã load
+  if (Array.isArray(window.floppyProxyEntries)) {
+    window.floppyProxyEntries.forEach(item => {
+      const p = item.proxy || item.ipPort || item.connectionString;
+      if (p && typeof p === 'string' && p.trim()) set.add(p.trim());
+    });
+  }
+
+  return Array.from(set);
+}
+
+function recordRecentProxy(proxyStr) {
+  if (!proxyStr || typeof proxyStr !== 'string' || !proxyStr.trim()) return;
+  proxyStr = proxyStr.trim();
+  try {
+    let recents = JSON.parse(localStorage.getItem('recent_gpm_proxies') || '[]');
+    if (!Array.isArray(recents)) recents = [];
+    recents = recents.filter(p => p !== proxyStr);
+    recents.unshift(proxyStr);
+    if (recents.length > 25) recents = recents.slice(0, 25);
+    localStorage.setItem('recent_gpm_proxies', JSON.stringify(recents));
+  } catch(e) {}
+}
+
+function renderQuickProxySelectOptions(currentVal) {
+  const proxies = getKnownProxies();
+  if (proxies.length === 0) {
+    return '<option value="" disabled>-- Chưa có proxy nào --</option>';
+  }
+  let html = '<option value="" disabled selected>🎯 Chọn Proxy (' + proxies.length + ')</option>';
+  proxies.forEach(p => {
+    const isSel = (p === currentVal) ? 'selected' : '';
+    const clean = p.replace(/^socks5:\/\//, '').replace(/^http:\/\//, '');
+    const parts = clean.split(':');
+    let label = p;
+    if (parts.length >= 3) {
+      label = `${parts[0]}:${parts[1]} (${parts[2]})`;
+    } else if (parts.length === 2) {
+      label = `${parts[0]}:${parts[1]}`;
+    }
+    html += `<option value="${escapeHtml(p)}" ${isSel}>${escapeHtml(label)}</option>`;
+  });
+  return html;
+}
+
+function prepareGpmProxySuggestions() {
+  let datalist = document.getElementById('gpmProxyDatalist');
+  if (!datalist) {
+    datalist = document.createElement('datalist');
+    datalist.id = 'gpmProxyDatalist';
+    document.body.appendChild(datalist);
+  }
+  const proxies = getKnownProxies();
+  datalist.innerHTML = proxies.map(p => `<option value="${escapeHtml(p)}">`).join('');
+}
+
+function autoSaveTiktokGpmProxy(id, val) {
+  val = (val || '').trim();
+  if (!tiktokData[id]) return;
+  tiktokData[id].gpmProxy = val;
+  tiktokData[id].duoplusProxy = val;
+  
+  if (tiktokGpmProxySaveTimeouts[id]) clearTimeout(tiktokGpmProxySaveTimeouts[id]);
+  tiktokGpmProxySaveTimeouts[id] = setTimeout(async () => {
+    if (val) recordRecentProxy(val);
+    try {
+      await fetch('/api/tiktok/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...tiktokData[id],
+          id,
+          gpmProxy: val,
+          duoplusProxy: val
+        })
+      });
+      
+      // Nếu profile GPM đã tồn tại, tự động cập nhật proxy vào GPMLogin
+      if (tiktokData[id].duoplusProfileId) {
+        updateGpmProfileProxy(tiktokData[id].duoplusProfileId, val);
+      }
+    } catch(e) {
+      console.error('Lỗi lưu proxy:', e);
+    }
+  }, 500);
+}
+
+function applyQuickProxyToRow(id, val) {
+  if (!val) return;
+  val = val.trim();
+  const input = document.getElementById('gpmProxy_' + id);
+  if (input) input.value = val;
+  
+  if (tiktokData[id]) {
+    tiktokData[id].gpmProxy = val;
+    tiktokData[id].duoplusProxy = val;
+    recordRecentProxy(val);
+    
+    fetch('/api/tiktok/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...tiktokData[id],
+        id,
+        gpmProxy: val,
+        duoplusProxy: val
+      })
+    }).then(() => {
+      toast('✅ Đã áp dụng Proxy cho dòng!', 'success', 2000);
+      if (tiktokData[id].duoplusProfileId) {
+        updateGpmProfileProxy(tiktokData[id].duoplusProfileId, val);
+      }
+      renderTiktokTable();
+    }).catch(e => {
+      toast('❌ Lỗi lưu Proxy: ' + e.message, 'error');
+    });
+  }
+}
+
+async function updateGpmProfileProxy(profileId, proxyStr) {
+  if (!profileId) return;
+  const port = localStorage.getItem('gpm_api_port') || '9495';
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+  const formatted = formatProxyForGpm(proxyStr);
+  const payload = { raw_proxy: formatted };
+  
+  // 1. Thử qua Local Bridge
+  try {
+    const bRes = await fetch(`http://localhost:${bridgePort}/api/v1/profiles/update/${profileId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(3000)
+    });
+    const bData = await bRes.json();
+    if (bData && bData.success) {
+      toast(`🔄 Đã cập nhật Proxy vào GPM Profile [${profileId.slice(0, 8)}...]`, 'info', 2500);
+      return;
+    }
+  } catch(e) {}
+  
+  // 2. Thử qua Server Proxy
+  try {
+    await fetch('/api/gpm/update-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ port, profileId, payload }),
+      signal: AbortSignal.timeout(3000)
+    });
+  } catch(e) {}
+}
+
 let currentPickerTiktokId = null;
 
 async function createGpmProfileForTiktok(id, btn) {
@@ -4836,6 +5041,17 @@ function openSelectHotmailModal(tiktokId) {
   const userEl = document.getElementById('pickerTiktokUser');
   if (userEl) userEl.innerText = item.username || item.mail || item.identifier || tiktokId;
   
+  const rowInput = document.getElementById('gpmProxy_' + tiktokId);
+  const pStr = ((rowInput ? rowInput.value : '') || item.gpmProxy || item.duoplusProxy || item.proxy || '').trim();
+  const proxyEl = document.getElementById('pickerTiktokProxy');
+  if (proxyEl) {
+    if (pStr) {
+      proxyEl.innerHTML = `<span style="color:#10b981; font-weight:700;">🌐 ${escapeHtml(pStr)}</span>`;
+    } else {
+      proxyEl.innerHTML = `<span style="color:var(--text-muted); font-style:italic;">(Không dùng proxy - IP thật)</span>`;
+    }
+  }
+
   const searchInput = document.getElementById('pickerHotmailSearch');
   if (searchInput) searchInput.value = '';
   
@@ -4971,6 +5187,11 @@ async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = nul
   const username = (item.username || item.mail || item.identifier || 'User').trim();
   const hotmailName = (hotmailEmail || '').trim();
   const profileName = username ? `${username}_${hotmailName}` : hotmailName;
+
+  // Lấy Proxy cấu hình từ ô của dòng này
+  const rowInput = document.getElementById('gpmProxy_' + tiktokId);
+  const rawProxyStr = ((rowInput ? rowInput.value : '') || item.gpmProxy || item.duoplusProxy || item.proxy || '').trim();
+  const formattedProxy = rawProxyStr ? formatProxyForGpm(rawProxyStr) : '';
   
   const btn = document.getElementById('btnGpm_' + tiktokId);
   const origBtnText = btn ? btn.innerHTML : '📱 Tạo Duoplus GPM';
@@ -4979,7 +5200,7 @@ async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = nul
     btn.innerHTML = '⏳ Đang tạo...';
   }
   
-  toast(`Đang tạo profile GPMLogin: ${profileName}...`, 'info', 2000);
+  toast(`Đang tạo profile GPMLogin: ${profileName}${formattedProxy ? ' (Proxy: ' + formattedProxy + ')' : ''}...`, 'info', 2500);
   
   // Cấu hình profile GPM mới:
   // - Link mặc định: https://my.duoplus.net/sign-up
@@ -4987,10 +5208,12 @@ async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = nul
   // - Phiên bản: 154 (154.0.8037.98)
   // - OS: Windows
   // - Thông số ngẫu nhiên tránh trùng: canvas noise, audio noise, webgl noise, font masked, client_rect noise
+  // - Áp dụng Proxy đã chọn/nhập
   const payload = {
     name: profileName,
-    note: `TikTok: ${username} | Hotmail: ${hotmailName} | Duoplus.net`,
+    note: `TikTok: ${username} | Hotmail: ${hotmailName} | Duoplus.net${formattedProxy ? ' | Proxy: ' + formattedProxy : ''}`,
     startup_urls: "https://my.duoplus.net/sign-up",
+    raw_proxy: formattedProxy,
     browser_type: 1, // Chrome
     browser_version: "154.0.8037.98", // Phiên bản 154
     os: "windows", // OS: Windows
@@ -6953,6 +7176,9 @@ async function saveTiktok() {
     duoplus: existing.duoplus || '',
     duoplusProfileId: existing.duoplusProfileId || '',
     duoplusHotmail: existing.duoplusHotmail || '',
+    duoplusApiKey: existing.duoplusApiKey || '',
+    gpmProxy: existing.gpmProxy || '',
+    duoplusProxy: existing.duoplusProxy || '',
     bitcloud: existing.bitcloud || '',
     coMaTime: existing.coMaTime || '',
     subTabTime: existing.subTabTime || '',
@@ -10006,8 +10232,9 @@ async function clearAllNotes() {
         <h3 style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
           📬 Chọn Hotmail liên kết Duoplus GPM
         </h3>
-        <p style="font-size:12px; color:var(--text-muted); margin-top:3px;">
-          Tài khoản TikTok: <strong id="pickerTiktokUser" style="color:#38bdf8; font-family:monospace;"></strong>
+        <p style="font-size:12px; color:var(--text-muted); margin-top:3px; display:flex; gap:16px; flex-wrap:wrap; align-items:center;">
+          <span>Tài khoản TikTok: <strong id="pickerTiktokUser" style="color:#38bdf8; font-family:monospace;"></strong></span>
+          <span>Proxy GPM: <strong id="pickerTiktokProxy" style="color:#10b981; font-family:monospace;"></strong></span>
         </p>
       </div>
       <button class="btn btn-ghost" onclick="closeSelectHotmailModal()" style="font-size:16px; padding:2px 8px;">✕</button>
