@@ -2235,11 +2235,22 @@ app.post(['/api/admin/update-server', '/api/admin/pull'], async (req, res) => {
   exec(cmd, { cwd: __dirname }, (error, stdout, stderr) => {
     if (error) {
       console.error('[Auto-Update Error]:', error);
+      // Nếu pull thành công nhưng pm2 restart failed, tự restart bằng process.exit(0)
+      if (stdout && stdout.includes('FETCH_HEAD')) {
+        res.json({ success: true, stdout, note: 'Code updated, restarting process...' });
+        setTimeout(() => process.exit(0), 1000);
+        return;
+      }
       return res.status(500).json({ success: false, error: error.message, stderr });
     }
     console.log('[Auto-Update Output]:', stdout);
     res.json({ success: true, stdout, stderr });
   });
+});
+
+app.post('/api/admin/restart', (req, res) => {
+  res.json({ success: true, message: 'Server is restarting via PM2...' });
+  setTimeout(() => process.exit(0), 800);
 });
 
 // ── Hotmail OAuth2 Get OTP Helper & Endpoint ───────────────────────────
