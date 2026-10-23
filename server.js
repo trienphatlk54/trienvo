@@ -2196,13 +2196,14 @@ app.post('/api/hotmail/get-otp', async (req, res) => {
 
 // ─── DUOPLUS REGISTRATION AUTOMATION API ────────────────────────────
 app.post('/api/duoplus/start-registration', async (req, res) => {
-  const { profileId, gpmPort, hotmailAccount, tiktokAccount } = req.body;
+  const { profileId, gpmPort, hotmailAccount, tiktokAccount, startFromStep } = req.body;
   try {
     const taskId = startDuoplusRegistration({
       profileId,
       gpmPort: gpmPort || 9495,
       hotmailAccount,
-      tiktokAccount
+      tiktokAccount,
+      startFromStep: startFromStep || 1
     });
     res.json({ success: true, taskId });
   } catch(err) {

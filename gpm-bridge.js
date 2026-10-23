@@ -72,7 +72,8 @@ const server = http.createServer(async (req, res) => {
           profileId: body.profileId,
           gpmPort: body.gpmPort || GPM_PORT,
           hotmailAccount: body.hotmailAccount,
-          tiktokAccount: body.tiktokAccount
+          tiktokAccount: body.tiktokAccount,
+          startFromStep: body.startFromStep || 1
         });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, taskId }));

@@ -5158,9 +5158,11 @@ async function openGpmProfile(profileId) {
 let duoplusCurrentTaskId = null;
 let duoplusCurrentTiktokId = null;
 let duoplusPollInterval = null;
+let duoplusCurrentTaskParams = null;
 
-async function startDuoplusAutomationFlow({ tiktokId, hotmailId, hotmailEmail, profileId, profileName }) {
+async function startDuoplusAutomationFlow({ tiktokId, hotmailId, hotmailEmail, profileId, profileName, startFromStep = 1 }) {
   duoplusCurrentTiktokId = tiktokId;
+  duoplusCurrentTaskParams = { tiktokId, hotmailId, hotmailEmail, profileId, profileName };
   const modal = document.getElementById('duoplusProgressModal');
   if (modal) modal.classList.add('active');
 
@@ -5188,10 +5190,10 @@ async function startDuoplusAutomationFlow({ tiktokId, hotmailId, hotmailEmail, p
   const mailEl = document.getElementById('duoProgMail');
   if (mailEl) mailEl.innerText = hotmailEmail;
   const footerEl = document.getElementById('duoTaskFooterInfo');
-  if (footerEl) footerEl.innerText = `Profile ID: ${profileId}`;
+  if (footerEl) footerEl.innerText = `Profile ID: ${profileId}${startFromStep > 1 ? ` | Bắt đầu từ Bước ${startFromStep}` : ''}`;
 
-  resetDuoplusModalUI();
-  setDuoplusStatusMessage('⏳ Đang gửi lệnh khởi động tự động hóa DuoPlus...');
+  resetDuoplusModalUI(startFromStep);
+  setDuoplusStatusMessage(startFromStep > 1 ? `🔄 Đang khởi động tự động hóa từ Bước ${startFromStep}...` : '⏳ Đang gửi lệnh khởi động tự động hóa DuoPlus...');
 
   const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
   const gpmPort = localStorage.getItem('gpm_api_port') || '9495';
@@ -5200,7 +5202,8 @@ async function startDuoplusAutomationFlow({ tiktokId, hotmailId, hotmailEmail, p
     profileId,
     gpmPort: parseInt(gpmPort, 10),
     hotmailAccount,
-    tiktokAccount: tiktokItem
+    tiktokAccount: tiktokItem,
+    startFromStep: parseInt(startFromStep || 1, 10)
   };
 
   let taskId = null;
@@ -5452,20 +5455,49 @@ function renderDuoplusTaskProgress(task, hotmailId) {
   }
 }
 
-function resetDuoplusModalUI() {
+function resetDuoplusModalUI(fromStep = 1) {
+  const currentStep = parseInt(fromStep || 1, 10);
   for (let s = 1; s <= 9; s++) {
     const stepEl = document.getElementById('duoStep' + s);
     if (!stepEl) continue;
     const badge = stepEl.querySelector('.duo-step-badge');
     const title = stepEl.querySelector('.duo-step-title');
     const statusText = stepEl.querySelector('.duo-step-status');
-    if (badge) {
-      badge.innerText = s;
-      badge.style.background = s === 1 ? '#0284c7' : 'rgba(255,255,255,0.08)';
-      badge.style.color = s === 1 ? '#fff' : 'var(--text-muted)';
+
+    if (s < currentStep) {
+      if (badge) {
+        badge.innerText = '✓';
+        badge.style.background = '#10b981';
+        badge.style.color = '#fff';
+      }
+      if (title) title.style.color = '#34d399';
+      if (statusText) {
+        statusText.innerText = 'Xong';
+        statusText.style.color = '#34d399';
+      }
+    } else if (s === currentStep) {
+      if (badge) {
+        badge.innerText = s;
+        badge.style.background = '#0284c7';
+        badge.style.color = '#fff';
+      }
+      if (title) title.style.color = '#38bdf8';
+      if (statusText) {
+        statusText.innerText = 'Đang chạy...';
+        statusText.style.color = '#38bdf8';
+      }
+    } else {
+      if (badge) {
+        badge.innerText = s;
+        badge.style.background = 'rgba(255,255,255,0.08)';
+        badge.style.color = 'var(--text-muted)';
+      }
+      if (title) title.style.color = 'var(--text-muted)';
+      if (statusText) {
+        statusText.innerText = 'Chờ...';
+        statusText.style.color = 'var(--text-muted)';
+      }
     }
-    if (title) title.style.color = s === 1 ? '#38bdf8' : 'var(--text-muted)';
-    if (statusText) statusText.innerText = s === 1 ? 'Đang chạy...' : 'Chờ...';
   }
 
   const captchaAlert = document.getElementById('duoCaptchaAlert');
@@ -5475,21 +5507,65 @@ function resetDuoplusModalUI() {
   const manualInput = document.getElementById('duoManualOtpInput');
   if (manualInput) manualInput.value = '';
   const otpAlert = document.getElementById('duoOtpAlert');
-  if (otpAlert) otpAlert.style.display = 'none';
+  if (otpAlert && currentStep <= 4) otpAlert.style.display = 'none';
   const apiKeyAlert = document.getElementById('duoApiKeyAlert');
-  if (apiKeyAlert) apiKeyAlert.style.display = 'none';
+  if (apiKeyAlert && currentStep <= 8) apiKeyAlert.style.display = 'none';
   const apiKeyDisplay = document.getElementById('duoApiKeyDisplay');
-  if (apiKeyDisplay) apiKeyDisplay.innerText = '------';
+  if (apiKeyDisplay && currentStep <= 8) apiKeyDisplay.innerText = '------';
   const otpDisplay = document.getElementById('duoOtpCodeDisplay');
-  if (otpDisplay) otpDisplay.innerText = '------';
+  if (otpDisplay && currentStep <= 4) otpDisplay.innerText = '------';
 
   const spinner = document.getElementById('duoStatusSpinner');
   if (spinner) spinner.style.display = 'block';
   const msgEl = document.getElementById('duoStatusMessage');
   if (msgEl) {
     msgEl.style.color = 'var(--text)';
-    msgEl.innerText = 'Đang kết nối...';
+    msgEl.innerText = currentStep > 1 ? `🔄 Đang kết nối lại từ Bước ${currentStep}...` : 'Đang kết nối...';
   }
+}
+
+async function retryDuoplusFromStep(stepNum) {
+  if (!duoplusCurrentTaskParams || !duoplusCurrentTaskParams.tiktokId) {
+    if (duoplusCurrentTiktokId && tiktokData[duoplusCurrentTiktokId]) {
+      const item = tiktokData[duoplusCurrentTiktokId];
+      let hotmailId = null;
+      for (const [hId, h] of Object.entries(hotmailData || {})) {
+        if (h.hotmail === item.duoplusHotmail) {
+          hotmailId = hId;
+          break;
+        }
+      }
+      duoplusCurrentTaskParams = {
+        tiktokId: duoplusCurrentTiktokId,
+        hotmailId,
+        hotmailEmail: item.duoplusHotmail || '',
+        profileId: item.duoplusProfileId || '',
+        profileName: item.duoplusProfileId || ''
+      };
+    } else {
+      toast('Chưa có thông tin tài khoản đang chạy', 'warning');
+      return;
+    }
+  }
+
+  // Hủy task cũ nếu đang chạy
+  if (duoplusCurrentTaskId) {
+    const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+    try {
+      fetch(`http://localhost:${bridgePort}/api/v1/duoplus/cancel-task/${duoplusCurrentTaskId}`, { method: 'POST' }).catch(() => {});
+    } catch(e) {}
+  }
+
+  if (duoplusPollInterval) {
+    clearInterval(duoplusPollInterval);
+    duoplusPollInterval = null;
+  }
+
+  toast(`🔄 Bắt đầu chạy tự động hóa từ Bước ${stepNum}...`, 'info', 2500);
+  await startDuoplusAutomationFlow({
+    ...duoplusCurrentTaskParams,
+    startFromStep: stepNum
+  });
 }
 
 function setDuoplusStatusMessage(msg) {
@@ -5649,12 +5725,16 @@ async function retryDuoplusRegistration(tiktokId) {
       break;
     }
   }
-  startDuoplusAutomationFlow({
+  duoplusCurrentTaskParams = {
     tiktokId,
     hotmailId,
     hotmailEmail: item.duoplusHotmail,
     profileId: item.duoplusProfileId,
     profileName: item.duoplusProfileId
+  };
+  startDuoplusAutomationFlow({
+    ...duoplusCurrentTaskParams,
+    startFromStep: 1
   });
 }
 
@@ -8946,50 +9026,59 @@ async function clearAllNotes() {
       <!-- Step tracker container -->
       <div style="padding: 0 16px;">
         <div style="display:flex; flex-direction:column; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px;">
-          <div id="duoStep1" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+          <div id="duoStep1" class="duo-step-item" style="display:flex; align-items:center; gap:8px; font-size:12px;">
             <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">1</span>
             <span class="duo-step-title" style="flex:1;">Khởi động GPMLogin & Mở https://my.duoplus.net/sign-up</span>
-            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted); margin-right:4px;">Chờ...</span>
+            <button class="btn btn-ghost btn-xs duo-step-btn" onclick="retryDuoplusFromStep(1)" title="Chạy lại từ Bước 1" style="font-size:10px; padding:2px 7px; height:22px; border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:var(--text-muted); cursor:pointer;">🔄 Thử lại</button>
           </div>
-          <div id="duoStep2" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+          <div id="duoStep2" class="duo-step-item" style="display:flex; align-items:center; gap:8px; font-size:12px;">
             <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">2</span>
             <span class="duo-step-title" style="flex:1;">Điền Email Hotmail, Mật khẩu & Đồng ý điều khoản</span>
-            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted); margin-right:4px;">Chờ...</span>
+            <button class="btn btn-ghost btn-xs duo-step-btn" onclick="retryDuoplusFromStep(2)" title="Chạy lại từ Bước 2" style="font-size:10px; padding:2px 7px; height:22px; border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:var(--text-muted); cursor:pointer;">🔄 Thử lại</button>
           </div>
-          <div id="duoStep3" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+          <div id="duoStep3" class="duo-step-item" style="display:flex; align-items:center; gap:8px; font-size:12px;">
             <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">3</span>
             <span class="duo-step-title" style="flex:1;">Bấm nút Send Code & Ghi nhận mốc thời gian</span>
-            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted); margin-right:4px;">Chờ...</span>
+            <button class="btn btn-ghost btn-xs duo-step-btn" onclick="retryDuoplusFromStep(3)" title="Chạy lại từ Bước 3" style="font-size:10px; padding:2px 7px; height:22px; border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:var(--text-muted); cursor:pointer;">🔄 Thử lại</button>
           </div>
-          <div id="duoStep4" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+          <div id="duoStep4" class="duo-step-item" style="display:flex; align-items:center; gap:8px; font-size:12px;">
             <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">4</span>
             <span class="duo-step-title" style="flex:1;">Giải Captcha trên trình duyệt GPMLogin</span>
-            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted); margin-right:4px;">Chờ...</span>
+            <button class="btn btn-ghost btn-xs duo-step-btn" onclick="retryDuoplusFromStep(4)" title="Chạy lại từ Bước 4: Chờ giải Captcha" style="font-size:10px; padding:2px 7px; height:22px; border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:var(--text-muted); cursor:pointer;">🔄 Thử lại</button>
           </div>
-          <div id="duoStep5" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+          <div id="duoStep5" class="duo-step-item" style="display:flex; align-items:center; gap:8px; font-size:12px;">
             <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">5</span>
             <span class="duo-step-title" style="flex:1;">Quét hộp thư Hotmail tìm mã OTP mới</span>
-            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted); margin-right:4px;">Chờ...</span>
+            <button class="btn btn-ghost btn-xs duo-step-btn" onclick="retryDuoplusFromStep(5)" title="Chạy lại từ Bước 5: Quét mã OTP" style="font-size:10px; padding:2px 7px; height:22px; border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:var(--text-muted); cursor:pointer;">🔄 Thử lại</button>
           </div>
-          <div id="duoStep6" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+          <div id="duoStep6" class="duo-step-item" style="display:flex; align-items:center; gap:8px; font-size:12px;">
             <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">6</span>
             <span class="duo-step-title" style="flex:1;">Điền Verification Code & Bấm Create Account</span>
-            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted); margin-right:4px;">Chờ...</span>
+            <button class="btn btn-ghost btn-xs duo-step-btn" onclick="retryDuoplusFromStep(6)" title="Chạy lại từ Bước 6: Nhập OTP & Tạo tài khoản" style="font-size:10px; padding:2px 7px; height:22px; border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:var(--text-muted); cursor:pointer;">🔄 Thử lại</button>
           </div>
-          <div id="duoStep7" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+          <div id="duoStep7" class="duo-step-item" style="display:flex; align-items:center; gap:8px; font-size:12px;">
             <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">7</span>
             <span class="duo-step-title" style="flex:1;">Get Started ➔ Tắt thông báo ➔ Claim Free</span>
-            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted); margin-right:4px;">Chờ...</span>
+            <button class="btn btn-ghost btn-xs duo-step-btn" onclick="retryDuoplusFromStep(7)" title="Chạy lại từ Bước 7: Get Started & Nhận dùng thử" style="font-size:10px; padding:2px 7px; height:22px; border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:var(--text-muted); cursor:pointer;">🔄 Thử lại</button>
           </div>
-          <div id="duoStep8" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+          <div id="duoStep8" class="duo-step-item" style="display:flex; align-items:center; gap:8px; font-size:12px; background:rgba(2,132,199,0.08); padding:4px 6px; border-radius:6px;">
             <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">8</span>
-            <span class="duo-step-title" style="flex:1;">Truy cập trực tiếp https://my.duoplus.net/api</span>
-            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+            <span class="duo-step-title" style="flex:1; font-weight:600;">Truy cập trực tiếp https://my.duoplus.net/api</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted); margin-right:4px;">Chờ...</span>
+            <button class="btn btn-primary btn-xs duo-step-btn" onclick="retryDuoplusFromStep(8)" title="Chạy lại từ Bước 8: Vào trang API & Sinh Key" style="font-size:11px; font-weight:700; padding:2px 8px; height:22px; border-radius:4px; background:linear-gradient(135deg, #0284c7, #0369a1); color:#fff; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 6px rgba(2,132,199,0.35);">🔄 Try Again</button>
           </div>
-          <div id="duoStep9" class="duo-step-item" style="display:flex; align-items:center; gap:10px; font-size:12px;">
+          <div id="duoStep9" class="duo-step-item" style="display:flex; align-items:center; gap:8px; font-size:12px;">
             <span class="duo-step-badge" style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text-muted);">9</span>
             <span class="duo-step-title" style="flex:1;">Generate Key ➔ Copy mã API Key DuoPlus</span>
-            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted);">Chờ...</span>
+            <span class="duo-step-status" style="font-size:11px; color:var(--text-muted); margin-right:4px;">Chờ...</span>
+            <button class="btn btn-ghost btn-xs duo-step-btn" onclick="retryDuoplusFromStep(9)" title="Chạy lại từ Bước 9: Generate Key & Sao chép" style="font-size:10px; padding:2px 7px; height:22px; border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:var(--text-muted); cursor:pointer;">🔄 Thử lại</button>
           </div>
         </div>
       </div>
@@ -9085,6 +9174,11 @@ async function clearAllNotes() {
 @keyframes duoPulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.6; transform: scale(0.98); }
+}
+.duo-step-btn:hover {
+  background: rgba(56, 189, 248, 0.25) !important;
+  border-color: #38bdf8 !important;
+  color: #38bdf8 !important;
 }
 </style>
 

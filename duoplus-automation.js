@@ -16,11 +16,12 @@ const puppeteer = require('puppeteer');
 const { fetchHotmailOAuth2Otp } = require('./hotmail-otp-helper');
 
 const activeTasks = new Map();
+const profileDebugPorts = new Map();
 
 /**
  * Khởi tạo tác vụ tự động đăng ký DuoPlus
  */
-function startDuoplusRegistration({ profileId, gpmPort = 9495, hotmailAccount, tiktokAccount }) {
+function startDuoplusRegistration({ profileId, gpmPort = 9495, hotmailAccount, tiktokAccount, startFromStep = 1 }) {
   const taskId = 'duo_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
   
   const task = {
@@ -47,7 +48,7 @@ function startDuoplusRegistration({ profileId, gpmPort = 9495, hotmailAccount, t
   activeTasks.set(taskId, task);
 
   // Chạy quy trình nền bất đồng bộ
-  runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, tiktokAccount }).catch(err => {
+  runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, tiktokAccount, startFromStep }).catch(err => {
     task.status = 'error';
     task.error = err.message;
     task.message = 'Lỗi: ' + err.message;
@@ -126,7 +127,7 @@ function cancelDuoplusTask(taskId) {
 /**
  * Quy trình thực thi tự động hóa
  */
-async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, tiktokAccount }) {
+async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, tiktokAccount, startFromStep = 1 }) {
   let browser = null;
 
   try {
@@ -138,20 +139,33 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
     task.message = 'Đang mở profile GPMLogin trên màn hình máy tính...';
     task.updatedAt = Date.now();
 
-    const startRes = await fetch(`http://127.0.0.1:${gpmPort}/api/v1/profiles/start/${profileId}`, {
-      signal: AbortSignal.timeout(15000)
-    });
-    const startData = await startRes.json();
-    if (!startData.success && !startData.data?.remote_debugging_port) {
-      throw new Error('GPMLogin không thể mở profile: ' + (startData.message || 'Thiếu cổng debugging'));
+    let remote_debugging_port = null;
+    let websocket_debugging_url = null;
+
+    try {
+      const startRes = await fetch(`http://127.0.0.1:${gpmPort}/api/v1/profiles/start/${profileId}`, {
+        signal: AbortSignal.timeout(15000)
+      });
+      const startData = await startRes.json();
+      if (startData && startData.data) {
+        remote_debugging_port = startData.data.remote_debugging_port;
+        websocket_debugging_url = startData.data.websocket_debugging_url;
+      }
+    } catch(err) {
+      console.log('[DuoPlus Automation] profiles/start error:', err.message);
     }
 
-    const remote_debugging_port = startData.data?.remote_debugging_port;
-    const websocket_debugging_url = startData.data?.websocket_debugging_url;
+    if (!remote_debugging_port && profileDebugPorts.has(profileId)) {
+      const cached = profileDebugPorts.get(profileId);
+      remote_debugging_port = cached.remote_debugging_port;
+      websocket_debugging_url = cached.websocket_debugging_url;
+    }
 
     if (!remote_debugging_port && !websocket_debugging_url) {
-      throw new Error('GPMLogin không trả về cổng điều khiển DevTools');
+      throw new Error('GPMLogin không thể kết nối profile hoặc thiếu cổng DevTools. Vui lòng đảm bảo GPMLogin đang chạy!');
     }
+
+    profileDebugPorts.set(profileId, { remote_debugging_port, websocket_debugging_url });
 
     // BƯỚC 2: Kết nối Puppeteer tới cửa sổ Chrome GPM
     task.status = 'navigating';
@@ -196,8 +210,18 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
 
     try { await page.bringToFront(); } catch(e) {}
 
-    // Đảm bảo ở trang đăng ký
-    if (!page.url().includes('my.duoplus.net/sign-up')) {
+    const fromStep = parseInt(startFromStep || task.step || 1, 10);
+    task.step = fromStep;
+
+    if (fromStep > 1) {
+      task.message = `🔄 Bắt đầu chạy tự động hóa từ Bước ${fromStep}...`;
+      task.updatedAt = Date.now();
+      console.log(`[DuoPlus Automation] Khởi chạy từ Bước ${fromStep} trên profile ${profileId}`);
+    }
+
+    // BƯỚC 2: Đảm bảo ở trang đăng ký
+    if (fromStep <= 2) {
+      if (!page.url().includes('my.duoplus.net/sign-up')) {
       await page.goto('https://my.duoplus.net/sign-up', { waitUntil: 'networkidle2', timeout: 45000 });
     } else {
       try {
@@ -205,13 +229,15 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
       } catch(e) {}
     }
 
-    // Chờ ô nhập email hiển thị
-    await page.waitForSelector('input[name="username"], input[type="email"], input[placeholder*="email" i]', { timeout: 30000 });
+      // Chờ ô nhập email hiển thị
+      await page.waitForSelector('input[name="username"], input[type="email"], input[placeholder*="email" i]', { timeout: 30000 });
+    }
 
     if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
 
     // BƯỚC 3: Điền Hotmail, Password & Tick chọn Agreement
-    task.status = 'filling_form';
+    if (fromStep <= 3) {
+      task.status = 'filling_form';
     task.step = 3;
     task.message = 'Đang tự động điền Email, Mật khẩu và tick đồng ý điều khoản...';
     task.updatedAt = Date.now();
@@ -264,12 +290,14 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
       }
     });
 
-    await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 600));
+    }
 
     if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
 
     // BƯỚC 4: Click nút Send Code & Ghi nhận mốc thời gian
-    task.message = 'Đang bấm nút Send Code...';
+    if (fromStep <= 4) {
+      task.message = 'Đang bấm nút Send Code...';
     task.updatedAt = Date.now();
 
     const sendCodeTimestamp = Date.now();
@@ -362,17 +390,18 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
       await new Promise(r => setTimeout(r, 1000));
     }
 
-    if (!captchaPassed) {
-      throw new Error('Hết thời gian chờ giải Captcha (3 phút). Vui lòng thử lại.');
+      if (!captchaPassed) {
+        throw new Error('Hết thời gian chờ giải Captcha (3 phút). Vui lòng thử lại.');
+      }
     }
 
-    // BƯỚC 6: Quét mail Hotmail lấy OTP liên tục (chỉ lọc từ khóa 'duoplus', không lọc thời gian, có Try Again)
-    task.status = 'polling_otp';
+    // BƯỚC 5: Quét mail Hotmail lấy OTP liên tục (chỉ lọc từ khóa 'duoplus', không lọc thời gian, có Try Again)
+    let otpCode = task.otp || hotmailAccount?.otpCode || null;
+    if (fromStep <= 5) {
+      task.status = 'polling_otp';
     task.step = 5;
     task.message = '✅ Captcha hoàn tất! Đang quét hộp thư Hotmail tìm mail DuoPlus...';
     task.updatedAt = Date.now();
-
-    let otpCode = null;
 
     // Vòng lặp quét OTP (hỗ trợ Try Again nhiều chu kỳ mà không mất kết nối browser)
     while (!otpCode) {
@@ -442,10 +471,13 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
       task.retryRequested = false;
     }
 
+    }
+
     if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
 
-    // BƯỚC 7: Điền Verification Code và Click Create Account
-    task.status = 'submitting';
+    // BƯỚC 6: Điền Verification Code và Click Create Account
+    if (fromStep <= 6) {
+      task.status = 'submitting';
     task.step = 6;
     task.message = `✅ Đã nhận mã OTP: [${otpCode}]! Đang điền mã và bấm Create Account...`;
     task.updatedAt = Date.now();
@@ -493,10 +525,12 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
       });
     }
 
-    if (!createClicked) throw new Error('Không tìm thấy nút Create Account');
+      if (!createClicked) throw new Error('Không tìm thấy nút Create Account');
+    }
 
-    // BƯỚC 8: Quét chuyển sang trang mới ➔ Chờ 1-2s ➔ Bấm nút "Get Started"
-    task.message = 'Đang kiểm tra chuyển trang sau khi bấm Create Account...';
+    // BƯỚC 7: Quét chuyển sang trang mới ➔ Chờ 1-2s ➔ Bấm nút "Get Started"
+    if (fromStep <= 7) {
+      task.message = 'Đang kiểm tra chuyển trang sau khi bấm Create Account...';
     task.updatedAt = Date.now();
 
     // Quét xem đã chuyển sang trang mới hay chưa (URL thay đổi hoặc xuất hiện nút Get Started)
@@ -768,17 +802,16 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
       await new Promise(r => setTimeout(r, 800));
     }
 
-    if (claimFreeClicked) {
-      task.message = 'Đã click nút Claim Free!';
-      task.updatedAt = Date.now();
+      if (claimFreeClicked) {
+        task.message = 'Đã click nút Claim Free!';
+        task.updatedAt = Date.now();
+      }
+      await new Promise(r => setTimeout(r, 1800));
     }
 
-    // Chờ 1-2 giây trước khi thao tác tiếp
-    await new Promise(r => setTimeout(r, 1800));
-
-    // (Bỏ qua bước Start Configuration)
     // BƯỚC 8: Truy cập trực tiếp đường link https://my.duoplus.net/api
-    task.step = 8;
+    if (fromStep <= 8) {
+      task.step = 8;
     task.status = 'navigating_api';
     task.message = 'Đang truy cập trực tiếp vào https://my.duoplus.net/api...';
     task.updatedAt = Date.now();
@@ -797,12 +830,14 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
     } catch(e) {}
 
     // (Từ bước này trở đi sau khi quét tải xong trang chờ 1-2 giây trước khi thao tác tiếp)
-    task.message = 'Đã vào trang API DuoPlus! Đang chuẩn bị tạo API Key...';
-    task.updatedAt = Date.now();
-    await new Promise(r => setTimeout(r, 1800));
+      task.message = 'Đã vào trang API DuoPlus! Đang chuẩn bị tạo API Key...';
+      task.updatedAt = Date.now();
+      await new Promise(r => setTimeout(r, 1800));
+    }
 
-    // BƯỚC 11: Tạo và Sao chép API Key trên trang https://my.duoplus.net/api
-    task.step = 9;
+    // BƯỚC 9: Tạo và Sao chép API Key trên trang https://my.duoplus.net/api
+    if (fromStep <= 9) {
+      task.step = 9;
     task.status = 'generating_api_key';
     task.message = 'Đang quét tìm nút Generate Key...';
     task.updatedAt = Date.now();
@@ -1071,6 +1106,7 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
     task.step = 9;
     task.message = `🎉 Đăng ký thành công & Đã copy mã API Key DuoPlus: ${finalApiKey}`;
     task.updatedAt = Date.now();
+    }
 
     // Ngắt kết nối Puppeteer nhưng giữ nguyên cửa sổ trình duyệt GPM mở cho người dùng
     try {
