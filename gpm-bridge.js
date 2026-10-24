@@ -4,6 +4,7 @@
 // Tích hợp DuoPlus Automation (Mở GPM, Tự điền form, Chờ Captcha, Quét Hotmail OTP, Hoàn tất đăng ký)
 
 const http = require('http');
+const { launchDuoPlusDirectChromium } = require('./duoplus-chromium-helper');
 const { 
   startDuoplusRegistration, 
   getDuoplusTaskStatus, 
@@ -147,6 +148,24 @@ const server = http.createServer(async (req, res) => {
     const ok = cancelDuoplusTask(taskId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: ok }));
+    return;
+  }
+
+  // DuoPlus Direct Chromium Launcher (Mở trực tiếp trình duyệt điều khiển Cloud Phone không qua Proxy GPM)
+  if (req.url.includes('/duoplus/open-chromium') && req.method === 'POST') {
+    let bodyBuffer = '';
+    req.on('data', chunk => { bodyBuffer += chunk; });
+    req.on('end', async () => {
+      try {
+        const body = bodyBuffer ? JSON.parse(bodyBuffer) : {};
+        const result = await launchDuoPlusDirectChromium(body);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
     return;
   }
 

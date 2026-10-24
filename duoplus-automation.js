@@ -14,6 +14,7 @@
 
 const puppeteer = require('puppeteer');
 const { fetchHotmailOAuth2Otp } = require('./hotmail-otp-helper');
+const { saveDuoPlusAuthCache } = require('./duoplus-chromium-helper');
 
 const activeTasks = new Map();
 const profileDebugPorts = new Map();

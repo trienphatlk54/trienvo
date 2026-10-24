@@ -6566,7 +6566,7 @@ function renderDuoplusCloudPhonesTable(list) {
             <button class="btn btn-ghost btn-xs" onclick="openEditDuoplusPhoneModal('${p.id}', '${escapeHtml(p.name || '')}', '${escapeHtml(p.remark || '')}', '${escapeHtml(p.brand || 'oppo')}', '${escapeHtml(p.model || '')}', '${escapeHtml(p.network_mode || '2')}', '${escapeHtml(p.sim_country || 'VN')}', '${escapeHtml(p.ip || '')}', '${escapeHtml(p.dpi_name || '1080x1920(480dpi)')}')" title="Chỉnh sửa thông số máy qua API" style="font-size:11px; padding:2px 8px; border:1px solid var(--border); border-radius:4px; color:var(--text);">
               ✏️ Sửa
             </button>
-            <button class="btn btn-primary btn-xs" onclick="openDuoplusPhoneScreen('${p.id}', ${st})" title="Mở trình điều khiển Cloud Phone trực tiếp trên Web" style="font-size:11px; padding:2px 8px; border-radius:4px; background:linear-gradient(135deg, #0284c7, #0369a1); color:#fff; border:none; font-weight:600; display:inline-flex; align-items:center; gap:3px;">
+            <button class="btn btn-primary btn-xs" onclick="openDuoplusPhoneScreen('${p.id}', ${st}, '${escapeHtml(p.name || '')}')" title="Mở trình điều khiển Cloud Phone trực tiếp trên Web" style="font-size:11px; padding:2px 8px; border-radius:4px; background:linear-gradient(135deg, #0284c7, #0369a1); color:#fff; border:none; font-weight:600; display:inline-flex; align-items:center; gap:3px;">
               📱 Mở Cloud Phone
             </button>
           </div>
@@ -7387,41 +7387,73 @@ async function submitDuoplusPhoneParams() {
   }
 }
 
-async function openDuoplusWebConsole(imageId) {
-  const targetUrl = 'https://my.duoplus.net/images';
-  toast('🚀 Đang mở trình duyệt Chromium điều khiển Cloud Phone...', 'info', 3000);
+async function openDuoplusWebConsole(imageId, imageName) {
+  const item = duoplusCurrentCloudPhoneTiktokId ? (tiktokData[duoplusCurrentCloudPhoneTiktokId] || {}) : {};
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+  const devName = imageName || (imageId ? ('snap_' + imageId) : '');
+  const targetUrl = imageId
+    ? `https://my.duoplus.net/control?id=${encodeURIComponent(imageId)}&mid=${encodeURIComponent(imageId)}&name=${encodeURIComponent(devName)}&w=363&h=682&isMobile=false&type=connect`
+    : 'https://my.duoplus.net/images';
 
+  const payload = {
+    imageId: imageId || '',
+    imageName: devName,
+    url: targetUrl,
+    tiktokId: duoplusCurrentCloudPhoneTiktokId || '',
+    profileId: item.duoplusProfileId || item.duoplus || '',
+    hotmail: item.duoplusHotmail || '',
+    apiKey: item.duoplusApiKey || (document.getElementById('duoCpApiKeyInput')?.value || '').trim()
+  };
+
+  toast(imageId ? `🚀 Đang mở Chromium kết nối trực tiếp Cloud Phone [${imageId}]...` : '🚀 Đang mở trình duyệt Chromium DuoPlus...', 'info', 3000);
+
+  // 1. Ưu tiên gọi GPM Bridge trên máy tính (hỗ trợ cả khi truy cập qua VPS lẫn Localhost)
+  const bridgeUrls = [
+    `http://localhost:${bridgePort}/api/v1/duoplus/open-chromium`,
+    `http://127.0.0.1:${bridgePort}/api/v1/duoplus/open-chromium`
+  ];
+  for (const bUrl of bridgeUrls) {
+    try {
+      const bRes = await fetch(bUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000)
+      });
+      const bData = await bRes.json();
+      if (bData && bData.success) {
+        toast(`✅ Đã mở cửa sổ Chromium điều khiển Cloud Phone${imageId ? ' [' + imageId + ']' : ''} (Kết nối trực tiếp không qua Proxy GPM)!`, 'success', 4000);
+        return;
+      }
+    } catch (e) {}
+  }
+
+  // 2. Thử gọi qua Local Server
   try {
     const res = await fetch('/api/duoplus/open-chromium', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        imageId: imageId || '',
-        url: targetUrl,
-        tiktokId: duoplusCurrentCloudPhoneTiktokId
-      })
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000)
     });
     const data = await res.json();
     if (data && data.success) {
-      toast('✅ Đã mở trình duyệt Chromium điều khiển Cloud Phone trên máy tính!', 'success', 3500);
+      toast(`✅ Đã mở cửa sổ Chromium điều khiển Cloud Phone${imageId ? ' [' + imageId + ']' : ''}!`, 'success', 4000);
       return;
     }
   } catch(e) {}
 
-  // Fallback: nếu gọi backend mở Chromium không khả dụng (ví dụ duyệt từ xa), mở tab trình duyệt hiện tại
+  // Fallback: mở tab trình duyệt hiện tại
   window.open(targetUrl, '_blank');
 }
 
-function openDuoplusPhoneScreen(imageId, status) {
+function openDuoplusPhoneScreen(imageId, status, imageName) {
   if (status !== 1 && status !== 10) {
-    const doPowerOn = confirm(`Cloud Phone [${imageId}] đang tắt hoặc chưa bật.\n\nBạn có muốn gửi lệnh Bật nguồn qua API và mở màn hình điều khiển trên DuoPlus không?`);
-    if (doPowerOn) {
-      duoplusPowerOnPhone(imageId);
-    }
+    duoplusPowerOnPhone(imageId);
   }
 
-  // Mở trực tiếp Chromium trên máy tính điều khiển Cloud Phone, hoàn toàn KHÔNG qua GPM
-  openDuoplusWebConsole(imageId);
+  // Mở trực tiếp đường dẫn /control?id=...&type=connect trên Chromium máy tính (tự động Temporary Startup & Connect không bị lỗi 2004)
+  openDuoplusWebConsole(imageId, imageName);
 }
 
 let tiktokNoteSaveTimeouts = {};
