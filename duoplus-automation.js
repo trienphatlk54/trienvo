@@ -835,43 +835,108 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
       await new Promise(r => setTimeout(r, 1800));
     }
 
-    // BƯỚC 8: Truy cập trực tiếp đường link https://my.duoplus.net/api (tải 1 lần + thêm 3 lần nữa = tổng 4 lần)
+    // BƯỚC 8: Truy cập https://my.duoplus.net/api và quét hộp thoại dialog (nếu còn dialog thì tiếp tục tải lại trang cho đến khi hết)
     if (fromStep <= 8) {
       task.step = 8;
       task.status = 'navigating_api';
+      task.message = 'Đang truy cập https://my.duoplus.net/api và quét kiểm tra hộp thoại dialog...';
       task.updatedAt = Date.now();
 
-      const totalNavigations = 4;
-      for (let navCount = 1; navCount <= totalNavigations; navCount++) {
+      // Hàm quét kiểm tra xem trên trang có đang hiển thị hộp thoại dialog thông báo hay không
+      const checkHasNotificationDialog = async () => {
+        try {
+          return await page.evaluate(() => {
+            const isVisible = (el) => {
+              if (!el) return false;
+              const s = window.getComputedStyle(el);
+              if (s.display === 'none' || s.visibility === 'hidden' || parseFloat(s.opacity) === 0) return false;
+              const r = el.getBoundingClientRect();
+              return r.width > 40 && r.height > 40;
+            };
+
+            const dialogSelectors = [
+              '[role="dialog"]',
+              '[role="alertdialog"]',
+              '.ant-modal',
+              '.ant-modal-content',
+              '.ant-modal-wrap',
+              '.modal-content',
+              '.dialog-content',
+              '[data-radix-dialog-content]',
+              'div[data-state="open"][role="dialog"]',
+              'div[data-state="open"].fixed'
+            ];
+
+            for (const sel of dialogSelectors) {
+              const els = Array.from(document.querySelectorAll(sel));
+              for (const el of els) {
+                if (isVisible(el)) return true;
+              }
+            }
+
+            const masks = Array.from(document.querySelectorAll('.ant-modal-mask, [data-radix-dialog-overlay], div.fixed.inset-0[data-state="open"]'));
+            for (const m of masks) {
+              if (isVisible(m)) return true;
+            }
+
+            return false;
+          });
+        } catch (e) {
+          return false;
+        }
+      };
+
+      // Truy cập trang https://my.duoplus.net/api lần đầu
+      try {
+        await page.goto('https://my.duoplus.net/api', { waitUntil: 'networkidle2', timeout: 35000 });
+      } catch(e) {
+        try {
+          await page.goto('https://my.duoplus.net/api', { waitUntil: 'domcontentloaded', timeout: 20000 });
+        } catch(e2) {}
+      }
+
+      try {
+        await page.waitForFunction(() => document.readyState === 'complete', { timeout: 15000 });
+      } catch(e) {}
+
+      // Chờ xem có xuất hiện hộp thoại dialog thông báo hay không
+      await new Promise(r => setTimeout(r, 2500));
+
+      let reloadCount = 0;
+      const maxSafetyReloads = 30;
+      while (reloadCount < maxSafetyReloads) {
         if (task.cancelled) throw new Error('Người dùng đã hủy tác vụ');
 
-        if (navCount === 1) {
-          task.message = `Đang truy cập https://my.duoplus.net/api (lần 1/${totalNavigations})...`;
-        } else {
-          task.message = `Đang tải lại https://my.duoplus.net/api (lần ${navCount}/${totalNavigations} - thêm ${navCount - 1}/3 lần)...`;
+        const hasDialog = await checkHasNotificationDialog();
+        if (!hasDialog) {
+          task.message = reloadCount === 0
+            ? '✅ Quét trang API không thấy hộp thoại dialog thông báo! Chuyển sang bước tiếp theo...'
+            : `✅ Đã hết hộp thoại dialog thông báo sau ${reloadCount} lần tải lại trang! Chuyển sang bước tiếp theo...`;
+          task.updatedAt = Date.now();
+          break;
         }
+
+        reloadCount++;
+        task.message = `🔄 Phát hiện hộp thoại dialog thông báo đang hiển thị! Đang tải lại trang https://my.duoplus.net/api (lần ${reloadCount}) và chờ kiểm tra lại...`;
         task.updatedAt = Date.now();
 
         try {
           await page.goto('https://my.duoplus.net/api', { waitUntil: 'networkidle2', timeout: 35000 });
         } catch(e) {
           try {
-            await page.goto('https://my.duoplus.net/api', { waitUntil: 'domcontentloaded', timeout: 20000 });
+            await page.reload({ waitUntil: 'domcontentloaded', timeout: 20000 });
           } catch(e2) {}
         }
 
-        // Chờ trang API tải xong hoàn toàn
         try {
           await page.waitForFunction(() => document.readyState === 'complete', { timeout: 15000 });
         } catch(e) {}
 
-        // Chờ 2 giây sau mỗi lần tải trang
-        await new Promise(r => setTimeout(r, 2000));
+        // Chờ xem sau khi tải lại trang có xuất hiện hộp thoại dialog thông báo hay không
+        await new Promise(r => setTimeout(r, 2500));
       }
 
-      task.message = '✅ Đã tải xong trang API 4 lần! Đang chuẩn bị quét API Key...';
-      task.updatedAt = Date.now();
-      await new Promise(r => setTimeout(r, 1500));
+      await new Promise(r => setTimeout(r, 1000));
     }
 
     // BƯỚC 9: Tạo và Sao chép API Key trên trang https://my.duoplus.net/api
@@ -1146,19 +1211,65 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
         throw new Error(`Không thể copy được API Key hợp lệ (Giá trị thu được không đúng định dạng DuoPlus API Key). Vui lòng bấm [Try Again] để thử lại.`);
       }
 
+      // Lưu phiên đăng nhập DuoPlus vào cache trước khi đóng trình duyệt GPM
+      try {
+        const localStorageData = await page.evaluate(() => {
+          const out = {};
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            out[k] = localStorage.getItem(k);
+          }
+          return out;
+        });
+        const cookies = await page.cookies();
+        saveDuoPlusAuthCache({
+          profileId,
+          hotmail: hotmailAccount?.hotmail || '',
+          apiKey: extractedApiKey,
+          localStorageData,
+          cookies
+        });
+      } catch (cacheErr) {}
+
+      // Tắt cửa sổ trình duyệt Profile GPMLogin sau khi đã lấy API Key thành công
+      try {
+        await browser.close();
+        browser = null;
+      } catch (closeErr) {
+        try {
+          await browser.disconnect();
+          browser = null;
+        } catch (e2) {}
+      }
+
+      profileDebugPorts.delete(profileId);
+
+      // Gọi API GPMLogin đóng profile để đồng bộ trạng thái trên ứng dụng GPMLogin
+      try {
+        await ensureGpmRunningAndRequest({
+          port: parseInt(gpmPort, 10) || 9495,
+          urlPath: `/api/v1/profiles/close/${profileId}`,
+          method: 'GET',
+          maxRetries: 1
+        });
+      } catch (gpmCloseErr) {}
+
       task.apiKey = extractedApiKey;
       task.status = 'completed';
       task.step = 9;
-      task.message = `🎉 Đăng ký thành công & Đã copy chính xác mã API Key DuoPlus: ${extractedApiKey}`;
+      task.message = `🎉 Đã lấy API Key thành công (${extractedApiKey}) & Tự động đóng Profile GPM!`;
       task.updatedAt = Date.now();
-      console.log(`[DuoPlus Automation] Hoàn thành trích xuất API Key: ${extractedApiKey}`);
+      console.log(`[DuoPlus Automation] Hoàn thành trích xuất API Key & Đã đóng Profile GPM [${profileId}]: ${extractedApiKey}`);
     }
 
-    // Ngắt kết nối Puppeteer nhưng giữ nguyên cửa sổ trình duyệt GPM mở cho người dùng
-    try {
-      await browser.disconnect();
-      browser = null;
-    } catch(e) {}
+    if (browser) {
+      try {
+        await browser.close();
+        browser = null;
+      } catch(e) {
+        try { await browser.disconnect(); browser = null; } catch(e2) {}
+      }
+    }
 
   } catch(err) {
     if (browser) {
