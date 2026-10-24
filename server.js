@@ -1983,80 +1983,61 @@ try {
 
 app.post('/api/gpm/update-profile', async (req, res) => {
   const { port = '9495', profileId, payload } = req.body;
-  const targets = [
-    `http://127.0.0.1:${port}/api/v1/profiles/update/${profileId}`,
-    `http://localhost:${port}/api/v1/profiles/update/${profileId}`
-  ];
-  let lastError = null;
-  for (const url of targets) {
-    try {
-      const gpmRes = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(6000)
-      });
-      const data = await gpmRes.json();
-      return res.json(data);
-    } catch(e) {
-      lastError = e;
-    }
+  try {
+    const gpmRes = await ensureGpmRunningAndRequest({
+      port: parseInt(port, 10) || 9495,
+      urlPath: `/api/v1/profiles/update/${profileId}`,
+      method: 'POST',
+      bodyBuffer: JSON.stringify(payload || {}),
+      maxRetries: 6
+    });
+    const data = JSON.parse(gpmRes.text || '{}');
+    return res.json(data);
+  } catch (e) {
+    return res.status(200).json({
+      success: false,
+      error: `Đang kết nối lại GPMLogin (Port ${port}): ${e.message}`
+    });
   }
-  res.status(500).json({
-    success: false,
-    error: `Không thể kết nối đến GPMLogin (Port ${port}): ${lastError ? lastError.message : 'Timeout'}.`
-  });
 });
 
 app.post('/api/gpm/create-profile', async (req, res) => {
   const { port = '9495', payload } = req.body;
-  const targets = [
-    `http://127.0.0.1:${port}/api/v1/profiles/create`,
-    `http://localhost:${port}/api/v1/profiles/create`
-  ];
-  let lastError = null;
-  for (const url of targets) {
-    try {
-      const gpmRes = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(6000)
-      });
-      const data = await gpmRes.json();
-      return res.json(data);
-    } catch(e) {
-      lastError = e;
-    }
+  try {
+    const gpmRes = await ensureGpmRunningAndRequest({
+      port: parseInt(port, 10) || 9495,
+      urlPath: '/api/v1/profiles/create',
+      method: 'POST',
+      bodyBuffer: JSON.stringify(payload || {}),
+      maxRetries: 8
+    });
+    const data = JSON.parse(gpmRes.text || '{}');
+    return res.json(data);
+  } catch (e) {
+    return res.status(200).json({
+      success: false,
+      error: `Không thể kết nối đến GPMLogin (Port ${port}): ${e.message}. Đảm bảo GPMLogin đang chạy trên máy tính.`
+    });
   }
-  res.status(500).json({
-    success: false,
-    error: `Không thể kết nối đến GPMLogin (Port ${port}): ${lastError ? lastError.message : 'Timeout'}. Đảm bảo GPMLogin đang chạy trên máy tính.`
-  });
 });
 
 app.post('/api/gpm/start-profile', async (req, res) => {
   const { port = '9495', profileId } = req.body;
-  const targets = [
-    `http://127.0.0.1:${port}/api/v1/profiles/start/${profileId}`,
-    `http://localhost:${port}/api/v1/profiles/start/${profileId}`
-  ];
-  let lastError = null;
-  for (const url of targets) {
-    try {
-      const gpmRes = await fetch(url, {
-        signal: AbortSignal.timeout(6000)
-      });
-      const data = await gpmRes.json();
-      return res.json(data);
-    } catch(e) {
-      lastError = e;
-    }
+  try {
+    const gpmRes = await ensureGpmRunningAndRequest({
+      port: parseInt(port, 10) || 9495,
+      urlPath: `/api/v1/profiles/start/${profileId}`,
+      method: 'GET',
+      maxRetries: 8
+    });
+    const data = JSON.parse(gpmRes.text || '{}');
+    return res.json(data);
+  } catch (e) {
+    return res.status(200).json({
+      success: false,
+      error: `Không thể mở profile: ${e.message}`
+    });
   }
-  res.status(500).json({
-    success: false,
-    error: `Không thể mở profile: ${lastError ? lastError.message : 'Timeout'}`
-  });
 });
 
 
@@ -2510,15 +2491,20 @@ app.post('/api/duoplus/mobile/modelList', async (req, res) => {
 });
 
 // 🌐 Mở trực tiếp trình duyệt Chromium / Chrome trên máy tính để điều khiển Cloud Phone (Không qua GPM)
-const { launchDuoPlusDirectChromium } = require('./duoplus-chromium-helper');
+const { launchDuoPlusDirectChromium, ensureGpmRunningAndRequest, triggerSystemAlarmBeep } = require('./duoplus-chromium-helper');
 app.post('/api/duoplus/open-chromium', async (req, res) => {
   try {
     const result = await launchDuoPlusDirectChromium(req.body || {});
     res.json(result);
   } catch (err) {
     console.error('[DuoPlus Chromium Error]:', err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(200).json({ success: false, error: err.message });
   }
+});
+
+app.post('/api/duoplus/alarm-beep', (req, res) => {
+  triggerSystemAlarmBeep();
+  res.json({ success: true });
 });
 
 // ─── FLOPPYDATA PROXY API ──────────────────────────────────────────

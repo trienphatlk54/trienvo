@@ -1,10 +1,14 @@
 // 🌐 GPMLogin Bridge for Shopee Toolkit
 // Cho phép website (chạy trên VPS hoặc Local) kết nối an toàn với GPMLogin trên máy tính cá nhân
 // Tự động xử lý CORS và Chrome Private Network Access (PNA)
-// Tích hợp DuoPlus Automation (Mở GPM, Tự điền form, Chờ Captcha, Quét Hotmail OTP, Hoàn tất đăng ký)
+// Tự động phục hồi kết nối khi tắt/mở lại GPMLogin, không bao giờ trả lỗi 502 Bad Gateway
 
 const http = require('http');
-const { launchDuoPlusDirectChromium } = require('./duoplus-chromium-helper');
+const {
+  launchDuoPlusDirectChromium,
+  ensureGpmRunningAndRequest,
+  triggerSystemAlarmBeep
+} = require('./duoplus-chromium-helper');
 const { 
   startDuoplusRegistration, 
   getDuoplusTaskStatus, 
@@ -31,23 +35,19 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Ping / Health check endpoint
+  // Ping / Health check endpoint (Tự động kiểm tra và đánh thức GPMLogin nếu vừa tắt/mở lại)
   if (req.url === '/api/v1/ping' || req.url === '/ping' || req.url === '/status') {
     let gpmOnline = false;
     try {
-      const pingRes = await fetch(`http://127.0.0.1:${GPM_PORT}/api/v1/profiles?page=1&per_page=1`, {
-        signal: AbortSignal.timeout(2000)
+      const gpmRes = await ensureGpmRunningAndRequest({
+        port: GPM_PORT,
+        urlPath: '/api/v1/profiles?page=1&per_page=1',
+        method: 'GET',
+        maxRetries: 3
       });
-      gpmOnline = pingRes.ok;
-    } catch(e) {
-      try {
-        const pingRes2 = await fetch(`http://localhost:${GPM_PORT}/api/v1/profiles?page=1&per_page=1`, {
-          signal: AbortSignal.timeout(2000)
-        });
-        gpmOnline = pingRes2.ok;
-      } catch(e2) {
-        gpmOnline = false;
-      }
+      gpmOnline = gpmRes && gpmRes.status >= 200 && gpmRes.status < 400;
+    } catch (e) {
+      gpmOnline = false;
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -57,8 +57,16 @@ const server = http.createServer(async (req, res) => {
       bridgePort: BRIDGE_PORT,
       gpmPort: GPM_PORT,
       gpmOnline,
-      message: gpmOnline ? 'GPM Bridge và GPMLogin đang hoạt động tốt!' : `GPM Bridge đang chạy nhưng GPMLogin (Port ${GPM_PORT}) chưa được bật trên máy tính.`
+      message: gpmOnline ? 'GPM Bridge và GPMLogin đang hoạt động tốt!' : `GPM Bridge đang chạy, đang đợi GPMLogin (Port ${GPM_PORT}) sẵn sàng...`
     }));
+    return;
+  }
+
+  // DuoPlus Timer Alarm Beep (Phát âm thanh cảnh báo hệ thống khi đạt 8/10 phút)
+  if (req.url.includes('/duoplus/alarm-beep')) {
+    triggerSystemAlarmBeep();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
     return;
   }
 
@@ -79,7 +87,7 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, taskId }));
       } catch(err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: err.message }));
       }
     });
@@ -92,7 +100,7 @@ const server = http.createServer(async (req, res) => {
     const taskId = (parts[1] || '').split('?')[0];
     const task = getDuoplusTaskStatus(taskId);
     if (!task) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: false, error: 'Không tìm thấy tác vụ: ' + taskId }));
       return;
     }
@@ -134,7 +142,7 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: ok }));
       } catch(e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: e.message }));
       }
     });
@@ -162,7 +170,7 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result));
       } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: err.message }));
       }
     });
@@ -209,7 +217,7 @@ const server = http.createServer(async (req, res) => {
         else if (req.url.includes('/mobile/modelList')) subPath = '/api/v1/mobile/modelList';
 
         if (!subPath) {
-          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Endpoint không tồn tại' }));
           return;
         }
@@ -227,59 +235,33 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: openApiData.code === 200, ...openApiData }));
       } catch(err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: err.message }));
       }
     });
     return;
   }
 
-  // Forward request to GPMLogin
+  // Forward request to GPMLogin (với Auto-Recover & Connection: close, không bao giờ trả 502 Bad Gateway)
   let bodyBuffer = '';
   req.on('data', chunk => { bodyBuffer += chunk; });
   req.on('end', async () => {
-    const forwardTargets = [
-      `http://127.0.0.1:${GPM_PORT}${req.url}`,
-      `http://localhost:${GPM_PORT}${req.url}`
-    ];
-
-    let lastError = null;
-    let gpmRes = null;
-
-    for (const targetUrl of forwardTargets) {
-      try {
-        const fetchOptions = {
-          method: req.method,
-          headers: { 'Content-Type': req.headers['content-type'] || 'application/json' },
-          signal: AbortSignal.timeout(10000)
-        };
-        if (req.method !== 'GET' && req.method !== 'HEAD' && bodyBuffer) {
-          fetchOptions.body = bodyBuffer;
-        }
-
-        gpmRes = await fetch(targetUrl, fetchOptions);
-        break;
-      } catch(err) {
-        lastError = err;
-      }
-    }
-
-    if (!gpmRes) {
-      res.writeHead(502, { 'Content-Type': 'application/json' });
+    try {
+      const gpmRes = await ensureGpmRunningAndRequest({
+        port: GPM_PORT,
+        urlPath: req.url,
+        method: req.method,
+        bodyBuffer,
+        maxRetries: 8
+      });
+      res.writeHead(200, { 'Content-Type': gpmRes.contentType || 'application/json' });
+      res.end(gpmRes.text);
+    } catch (err) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: false,
-        error: `Không thể kết nối đến GPMLogin (Port ${GPM_PORT}): ${lastError ? lastError.message : 'Unknown error'}. Hãy chắc chắn rằng GPMLogin đang chạy trên máy tính.`
+        error: `GPMLogin (Port ${GPM_PORT}) đang khởi động lại, vui lòng thử lại sau vài giây.`
       }));
-      return;
-    }
-
-    try {
-      const responseText = await gpmRes.text();
-      res.writeHead(gpmRes.status, { 'Content-Type': gpmRes.headers.get('content-type') || 'application/json' });
-      res.end(responseText);
-    } catch(err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'Lỗi đọc dữ liệu từ GPMLogin: ' + err.message }));
     }
   });
 });
@@ -297,7 +279,7 @@ server.listen(BRIDGE_PORT, '0.0.0.0', () => {
   console.log('   🚀 GPMLOGIN BRIDGE CHO SHOPEE TOOLKIT ĐÃ KHỞI ĐỘNG!');
   console.log(`   📡 Bridge Port: http://localhost:${BRIDGE_PORT}`);
   console.log(`   🔗 GPMLogin Port mục tiêu: http://localhost:${GPM_PORT}`);
-  console.log('   ✨ Hỗ trợ kết nối trực tiếp từ Web VPS và Localhost.');
+  console.log('   ✨ Hỗ trợ kết nối trực tiếp từ Web VPS và Localhost (Auto-Recover GPM).');
   console.log('   🤖 Tích hợp tự động hóa đăng ký DuoPlus.net (Try Again & Manual OTP)');
   console.log('================================================================');
 });

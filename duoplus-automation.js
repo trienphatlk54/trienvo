@@ -14,7 +14,7 @@
 
 const puppeteer = require('puppeteer');
 const { fetchHotmailOAuth2Otp } = require('./hotmail-otp-helper');
-const { saveDuoPlusAuthCache } = require('./duoplus-chromium-helper');
+const { saveDuoPlusAuthCache, ensureGpmRunningAndRequest, isDebugPortAlive } = require('./duoplus-chromium-helper');
 
 const activeTasks = new Map();
 const profileDebugPorts = new Map();
@@ -144,10 +144,13 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
     let websocket_debugging_url = null;
 
     try {
-      const startRes = await fetch(`http://127.0.0.1:${gpmPort}/api/v1/profiles/start/${profileId}`, {
-        signal: AbortSignal.timeout(15000)
+      const startRes = await ensureGpmRunningAndRequest({
+        port: parseInt(gpmPort, 10) || 9495,
+        urlPath: `/api/v1/profiles/start/${profileId}`,
+        method: 'GET',
+        maxRetries: 8
       });
-      const startData = await startRes.json();
+      const startData = JSON.parse(startRes.text || '{}');
       if (startData && startData.data) {
         remote_debugging_port = startData.data.remote_debugging_port;
         websocket_debugging_url = startData.data.websocket_debugging_url;
@@ -158,8 +161,30 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
 
     if (!remote_debugging_port && profileDebugPorts.has(profileId)) {
       const cached = profileDebugPorts.get(profileId);
-      remote_debugging_port = cached.remote_debugging_port;
-      websocket_debugging_url = cached.websocket_debugging_url;
+      if (cached && cached.remote_debugging_port && await isDebugPortAlive(cached.remote_debugging_port)) {
+        remote_debugging_port = cached.remote_debugging_port;
+        websocket_debugging_url = cached.websocket_debugging_url;
+      } else {
+        profileDebugPorts.delete(profileId);
+      }
+    }
+
+    // Nếu vừa tắt/mở lại GPM và lần gọi đầu chưa kịp trả về port, thử gọi lại start 1 lần nữa
+    if (!remote_debugging_port && !websocket_debugging_url) {
+      await new Promise(r => setTimeout(r, 1500));
+      try {
+        const retryRes = await ensureGpmRunningAndRequest({
+          port: parseInt(gpmPort, 10) || 9495,
+          urlPath: `/api/v1/profiles/start/${profileId}`,
+          method: 'GET',
+          maxRetries: 5
+        });
+        const retryData = JSON.parse(retryRes.text || '{}');
+        if (retryData && retryData.data) {
+          remote_debugging_port = retryData.data.remote_debugging_port;
+          websocket_debugging_url = retryData.data.websocket_debugging_url;
+        }
+      } catch (e2) {}
     }
 
     if (!remote_debugging_port && !websocket_debugging_url) {

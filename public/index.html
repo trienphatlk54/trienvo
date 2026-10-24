@@ -5445,7 +5445,7 @@ async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = nul
   let success = false;
   let errorMsg = '';
   
-  // Tier 1: Local Bridge (Port 9497)
+  // Tier 1: Local Bridge (Port 9497) - Auto-Recover GPM khi tắt/mở lại
   const bridgeUrls = [
     `http://localhost:${bridgePort}/api/v1/profiles/create`,
     `http://127.0.0.1:${bridgePort}/api/v1/profiles/create`
@@ -5456,7 +5456,7 @@ async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = nul
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(4000)
+        signal: AbortSignal.timeout(22000)
       });
       const bData = await bRes.json();
       if (bData && (bData.success || bData.data)) {
@@ -5478,11 +5478,11 @@ async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = nul
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ port, payload, id: tiktokId }),
-        signal: AbortSignal.timeout(6000)
+        signal: AbortSignal.timeout(20000)
       });
       const proxyData = await proxyRes.json();
-      if (proxyData && proxyData.success) {
-        profileId = proxyData.data?.id || proxyData.data?.profile_id || 'ok';
+      if (proxyData && (proxyData.success || proxyData.data)) {
+        profileId = proxyData.data?.id || proxyData.data?.profile_id || proxyData.id || 'ok';
         success = true;
       } else {
         errorMsg = proxyData.error || errorMsg;
@@ -5502,7 +5502,7 @@ async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = nul
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(3000)
+          signal: AbortSignal.timeout(6000)
         });
         const gpmData = await gpmRes.json();
         if (gpmData && (gpmData.success || gpmData.data)) {
@@ -5559,15 +5559,21 @@ async function openGpmProfile(profileId) {
   const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
   toast('🚀 Đang mở profile GPMLogin...', 'info', 1500);
 
-  // 1. Tier 1: GPM Bridge
-  try {
-    const res = await fetch(`http://localhost:${bridgePort}/api/v1/profiles/start/${profileId}`, { signal: AbortSignal.timeout(4000) });
-    const data = await res.json();
-    if (data.success) {
-      toast('✅ Đã mở profile thành công!', 'success', 2000);
-      return;
-    }
-  } catch(e) {}
+  // 1. Tier 1: GPM Bridge (tự động khôi phục kết nối khi tắt/mở lại GPM)
+  const bridgeUrls = [
+    `http://localhost:${bridgePort}/api/v1/profiles/start/${profileId}`,
+    `http://127.0.0.1:${bridgePort}/api/v1/profiles/start/${profileId}`
+  ];
+  for (const bUrl of bridgeUrls) {
+    try {
+      const res = await fetch(bUrl, { signal: AbortSignal.timeout(22000) });
+      const data = await res.json();
+      if (data && (data.success || data.data)) {
+        toast('✅ Đã mở profile thành công!', 'success', 2000);
+        return;
+      }
+    } catch(e) {}
+  }
 
   // 2. Tier 2: Server Proxy
   try {
@@ -5575,10 +5581,10 @@ async function openGpmProfile(profileId) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ port, profileId }),
-      signal: AbortSignal.timeout(6000)
+      signal: AbortSignal.timeout(20000)
     });
     const pData = await pRes.json();
-    if (pData.success) {
+    if (pData && (pData.success || pData.data)) {
       toast('✅ Đã mở profile thành công!', 'success', 2000);
       return;
     }
@@ -5586,15 +5592,15 @@ async function openGpmProfile(profileId) {
 
   // 3. Tier 3: Direct GPM
   try {
-    const dRes = await fetch(`http://127.0.0.1:${port}/api/v1/profiles/start/${profileId}`, { signal: AbortSignal.timeout(3000) });
+    const dRes = await fetch(`http://127.0.0.1:${port}/api/v1/profiles/start/${profileId}`, { signal: AbortSignal.timeout(6000) });
     const dData = await dRes.json();
-    if (dData.success) {
+    if (dData && (dData.success || dData.data)) {
       toast('✅ Đã mở profile thành công!', 'success', 2000);
       return;
     }
   } catch(e) {}
 
-  toast(`⚠️ Không kết nối được GPMLogin (Port ${port}). Hãy chạy 'start-gpm-bridge.bat' trên máy tính!`, 'error', 4500);
+  toast(`⚠️ Không kết nối được GPMLogin (Port ${port}). Đang tự động khởi chạy lại GPMLogin, vui lòng thử lại sau vài giây!`, 'warning', 4500);
 }
 
 // ─── DUOPLUS AUTOMATION FRONTEND LOGIC ────────────────────────────────
@@ -5663,7 +5669,7 @@ async function startDuoplusAutomationFlow({ tiktokId, hotmailId, hotmailEmail, p
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(15000)
       });
       const data = await res.json();
       if (data && data.success && data.taskId) {
@@ -5680,7 +5686,7 @@ async function startDuoplusAutomationFlow({ tiktokId, hotmailId, hotmailEmail, p
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(8000)
+        signal: AbortSignal.timeout(15000)
       });
       const sData = await sRes.json();
       if (sData && sData.success && sData.taskId) {
@@ -6619,15 +6625,21 @@ function getValidDuoPlusModel(phoneOs, brand) {
   return brandList[Math.floor(Math.random() * brandList.length)];
 }
 
-// 🐼 Tải và quản lý danh sách Proxy từ PandaProxy API cho Cloud Phone
+// 🐼 Tải và quản lý danh sách Proxy từ PandaProxy API cho Cloud Phone (Kèm tính năng Xoay Proxy)
+window.duoCpPandaProxyList = [];
+window.duoCpSelectedPandaId = null;
+let duoCpRotateCooldownTimer = null;
+
 async function loadDuoCpPandaProxies(showToast = false) {
   const sel = document.getElementById('duoCpPandaSelect');
   if (!sel) return;
+  const prevVal = sel.value;
   if (showToast) toast('Đang tải danh sách proxy từ PandaProxy...', 'info', 1500);
   try {
     const res = await fetch('/api/panda/proxies');
     const json = await res.json();
     const list = (json && Array.isArray(json.data)) ? json.data : [];
+    window.duoCpPandaProxyList = list;
     
     sel.innerHTML = '<option value="" disabled selected>🐼 Chọn PandaProxy (' + list.length + ')...</option>';
     
@@ -6637,6 +6649,9 @@ async function loadDuoCpPandaProxies(showToast = false) {
       return;
     }
     
+    const curInputVal = (document.getElementById('duoCpProxyInput')?.value || '').trim();
+    let matchedVal = '';
+
     list.forEach((p, idx) => {
       const code = p.code || ('PANDA-' + (idx + 1));
       const ip = p.proxy?.ipaddress?.ip || '';
@@ -6645,9 +6660,20 @@ async function loadDuoCpPandaProxies(showToast = false) {
       const pass = p.proxy?.password || '';
       if (ip && port) {
         const proxyStr = `${ip}:${port}:${u}:${pass}`;
-        sel.innerHTML += `<option value="${escapeHtml(proxyStr)}">🐼 ${escapeHtml(code)}: ${escapeHtml(ip)}:${escapeHtml(port)}</option>`;
+        if (curInputVal && (curInputVal === proxyStr || curInputVal.startsWith(`${ip}:${port}:`))) {
+          matchedVal = proxyStr;
+          window.duoCpSelectedPandaId = p.id;
+        }
+        sel.innerHTML += `<option value="${escapeHtml(proxyStr)}" data-panda-id="${p.id}" data-panda-port="${escapeHtml(String(port))}" data-panda-code="${escapeHtml(code)}">🐼 ${escapeHtml(code)}: ${escapeHtml(ip)}:${escapeHtml(port)}</option>`;
       }
     });
+
+    if (matchedVal) {
+      sel.value = matchedVal;
+    } else if (prevVal) {
+      sel.value = prevVal;
+    }
+
     if (showToast) toast(`Đã tải ${list.length} proxy từ PandaProxy`, 'success', 2000);
   } catch(e) {
     console.error('Lỗi tải PandaProxy:', e);
@@ -6660,6 +6686,13 @@ function applyPandaProxyToDuoCp(proxyStr) {
   proxyStr = proxyStr.trim();
   const proxyInput = document.getElementById('duoCpProxyInput');
   if (proxyInput) proxyInput.value = proxyStr;
+
+  const sel = document.getElementById('duoCpPandaSelect');
+  if (sel && sel.selectedIndex >= 0) {
+    const opt = sel.options[sel.selectedIndex];
+    const pid = opt ? opt.getAttribute('data-panda-id') : null;
+    if (pid) window.duoCpSelectedPandaId = parseInt(pid, 10) || pid;
+  }
   
   // Lưu riêng vào duoplusProxy (tách biệt hoàn toàn với gpmProxy)
   if (duoplusCurrentCloudPhoneTiktokId && tiktokData[duoplusCurrentCloudPhoneTiktokId]) {
@@ -6674,7 +6707,148 @@ function applyPandaProxyToDuoCp(proxyStr) {
       })
     }).then(() => renderTiktokTable()).catch(() => {});
   }
-  toast(`✅ Đã chọn Proxy từ PandaProxy: ${proxyStr}`, 'success', 2500);
+  toast(`✅ Đã chọn Proxy từ PandaProxy: ${proxyStr}. Bạn có thể bấm [🔄 Xoay Proxy] hoặc [🚀 Áp dụng].`, 'success', 2500);
+}
+
+async function rotateDuoCpPandaProxy() {
+  const sel = document.getElementById('duoCpPandaSelect');
+  const proxyInput = document.getElementById('duoCpProxyInput');
+  const btnRotate = document.getElementById('btnRotateDuoCpPanda');
+  const badge = document.getElementById('duoCpPandaIpBadge');
+
+  if (!window.duoCpPandaProxyList || window.duoCpPandaProxyList.length === 0) {
+    await loadDuoCpPandaProxies(false);
+  }
+
+  let targetItem = null;
+  const list = window.duoCpPandaProxyList || [];
+
+  // 1. Tìm theo option đang chọn trong dropdown
+  if (sel && sel.selectedIndex > 0) {
+    const opt = sel.options[sel.selectedIndex];
+    const pid = opt ? opt.getAttribute('data-panda-id') : null;
+    if (pid) {
+      targetItem = list.find(p => String(p.id) === String(pid));
+    }
+  }
+
+  // 2. Nếu chưa chọn dropdown, tìm theo nội dung đang có trong ô Nhập Proxy Socks5
+  if (!targetItem && proxyInput && proxyInput.value.trim()) {
+    const cur = proxyInput.value.trim();
+    const parts = cur.split(':');
+    const host = parts[0];
+    const user = parts[2] || '';
+    targetItem = list.find(p => {
+      const pIp = p.proxy?.ipaddress?.ip || '';
+      const pUser = p.proxy?.username || '';
+      return (pUser && user && pUser === user) || (pIp && host && pIp === host);
+    });
+  }
+
+  // 3. Nếu vẫn chưa tìm thấy nhưng danh sách có proxy, lấy proxy đã chọn gần nhất hoặc proxy đầu tiên
+  if (!targetItem && window.duoCpSelectedPandaId) {
+    targetItem = list.find(p => String(p.id) === String(window.duoCpSelectedPandaId));
+  }
+  if (!targetItem && list.length > 0) {
+    targetItem = list[0];
+  }
+
+  if (!targetItem || !targetItem.id) {
+    toast('⚠️ Vui lòng chọn một gói PandaProxy trong danh sách trước khi bấm Xoay Proxy!', 'warning', 3500);
+    return;
+  }
+
+  window.duoCpSelectedPandaId = targetItem.id;
+  const origPort = targetItem.proxy?.port || 3129;
+  const origHost = targetItem.proxy?.ipaddress?.ip || '';
+  const origUser = targetItem.proxy?.username || '';
+  const origPass = targetItem.proxy?.password || '';
+
+  if (btnRotate) {
+    btnRotate.disabled = true;
+    btnRotate.innerHTML = '⏳ Đang xoay...';
+  }
+
+  try {
+    const res = await fetch('/api/panda/rotate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: targetItem.id })
+    });
+    const data = await res.json();
+
+    if (res.ok && (data.status === 'success' || data.proxy || data.ip)) {
+      let newProxyStr = `${origHost}:${origPort}:${origUser}:${origPass}`;
+      if (data.proxy && typeof data.proxy === 'string') {
+        const rParts = data.proxy.split(':');
+        if (rParts.length >= 4) {
+          // Giữ đúng port SOCKS5 của gói PandaProxy (ví dụ 3129) kết hợp thông tin mới
+          const useHost = origHost || rParts[0];
+          const usePort = origPort || rParts[1];
+          const useUser = rParts[2] || origUser;
+          const usePass = rParts.slice(3).join(':') || origPass;
+          newProxyStr = `${useHost}:${usePort}:${useUser}:${usePass}`;
+        }
+      }
+
+      if (proxyInput) {
+        proxyInput.value = newProxyStr;
+        autoSaveDuoCpProxy(newProxyStr);
+      }
+
+      // Đồng bộ lại dropdown
+      if (sel) {
+        for (let i = 0; i < sel.options.length; i++) {
+          if (String(sel.options[i].getAttribute('data-panda-id')) === String(targetItem.id)) {
+            sel.options[i].value = newProxyStr;
+            sel.selectedIndex = i;
+            break;
+          }
+        }
+      }
+
+      const newExitIp = data.ip || 'Mới';
+      const waitSec = parseInt(data.timeRemaining, 10) || 60;
+      if (badge) {
+        badge.style.display = 'inline-flex';
+        badge.innerHTML = `🌐 IP mới: <strong>${escapeHtml(newExitIp)}</strong>`;
+      }
+
+      toast(`✅ Xoay PandaProxy [${targetItem.code || targetItem.id}] thành công! IP mới: ${newExitIp}`, 'success', 4000);
+
+      // Đếm ngược thời gian chờ xoay tiếp theo trên nút
+      if (duoCpRotateCooldownTimer) clearInterval(duoCpRotateCooldownTimer);
+      let rem = Math.min(waitSec, 60);
+      if (btnRotate) {
+        btnRotate.disabled = false;
+        btnRotate.innerHTML = `🔄 Xoay (${rem}s)`;
+      }
+      duoCpRotateCooldownTimer = setInterval(() => {
+        rem--;
+        if (rem <= 0) {
+          clearInterval(duoCpRotateCooldownTimer);
+          duoCpRotateCooldownTimer = null;
+          if (btnRotate) btnRotate.innerHTML = '🔄 Xoay Proxy';
+        } else if (btnRotate && !btnRotate.disabled) {
+          btnRotate.innerHTML = `🔄 Xoay (${rem}s)`;
+        }
+      }, 1000);
+    } else {
+      const msg = data.message || data.error || 'Chưa đến thời gian xoay tiếp theo';
+      const remSec = parseInt(data.timeRemaining, 10) || 0;
+      toast(`⚠️ Không thể xoay proxy: ${msg}${remSec ? ` (Còn ${remSec}s)` : ''}`, 'warning', 4000);
+      if (btnRotate) {
+        btnRotate.disabled = false;
+        btnRotate.innerHTML = remSec > 0 ? `🔄 Xoay (${remSec}s)` : '🔄 Xoay Proxy';
+      }
+    }
+  } catch (err) {
+    toast('❌ Lỗi kết nối khi xoay PandaProxy: ' + err.message, 'error', 3500);
+    if (btnRotate) {
+      btnRotate.disabled = false;
+      btnRotate.innerHTML = '🔄 Xoay Proxy';
+    }
+  }
 }
 
 function autoSaveDuoCpProxy(val) {
@@ -7387,7 +7561,219 @@ async function submitDuoplusPhoneParams() {
   }
 }
 
+// ⏱️ BỘ ĐẾM THỜI GIAN 10 PHÚT KHI MỞ CLOUD PHONE & CẢNH BÁO ÂM THANH LỚN KHI ĐẠT 8/10 PHÚT
+let duoCpUsageTimerInterval = null;
+let duoCpAlarmRepeatInterval = null;
+let duoCpUsageStartTime = 0;
+let duoCpCurrentCycle = 1;
+let duoCpAlarmMutedForCycle = false;
+let duoCpActivePhoneLabel = '';
+let duoCpAudioCtx = null;
+
+function ensureDuoCpAudioUnlocked() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+    if (!duoCpAudioCtx) {
+      duoCpAudioCtx = new AudioContextClass();
+    }
+    if (duoCpAudioCtx.state === 'suspended') {
+      duoCpAudioCtx.resume();
+    }
+    return duoCpAudioCtx;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Phát chuỗi âm thanh cảnh báo CỰC LỚN (Siren nhiều hồi liên tiếp + System Beep trên Windows)
+function playLoudDuoCpAlarm() {
+  try {
+    const ctx = ensureDuoCpAudioUnlocked();
+    if (ctx) {
+      const now = ctx.currentTime;
+      // Tạo 6 nhịp còi báo động tần số cao (880Hz <-> 1480Hz) sóng vuông/răng cưa độ lớn tối đa
+      const pattern = [
+        { freq: 980, start: 0.0, dur: 0.22 },
+        { freq: 1480, start: 0.25, dur: 0.22 },
+        { freq: 980, start: 0.50, dur: 0.22 },
+        { freq: 1480, start: 0.75, dur: 0.22 },
+        { freq: 1100, start: 1.05, dur: 0.25 },
+        { freq: 1600, start: 1.35, dur: 0.40 }
+      ];
+
+      pattern.forEach(p => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(p.freq, now + p.start);
+        gain.gain.setValueAtTime(0.95, now + p.start);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + p.start + p.dur);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + p.start);
+        osc.stop(now + p.start + p.dur + 0.02);
+      });
+    }
+  } catch (e) {}
+
+  // Kích hoạt đồng thời loa hệ thống Windows qua GPM Bridge / Local Server (kêu ngay cả khi thu nhỏ trình duyệt)
+  const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
+  fetch(`http://localhost:${bridgePort}/api/v1/duoplus/alarm-beep`, { method: 'POST', signal: AbortSignal.timeout(2500) }).catch(() => {
+    fetch('/api/duoplus/alarm-beep', { method: 'POST', signal: AbortSignal.timeout(2500) }).catch(() => {});
+  });
+}
+
+function startDuoCpUsageTimer(imageId, imageName) {
+  ensureDuoCpAudioUnlocked();
+  duoCpActivePhoneLabel = imageName ? `${imageName} (${imageId || 'CloudPhone'})` : (imageId || 'Cloud Phone');
+  duoCpUsageStartTime = Date.now();
+  duoCpCurrentCycle = 1;
+  duoCpAlarmMutedForCycle = false;
+
+  if (duoCpUsageTimerInterval) clearInterval(duoCpUsageTimerInterval);
+  if (duoCpAlarmRepeatInterval) {
+    clearInterval(duoCpAlarmRepeatInterval);
+    duoCpAlarmRepeatInterval = null;
+  }
+
+  const modalBar = document.getElementById('duoCpTimerBar');
+  if (modalBar) modalBar.style.display = 'flex';
+
+  const floatWidget = document.getElementById('duoCpFloatingTimer');
+  if (floatWidget) floatWidget.style.display = 'flex';
+
+  updateDuoCpTimerUI();
+  duoCpUsageTimerInterval = setInterval(updateDuoCpTimerUI, 1000);
+}
+
+function resetDuoCpUsageTimer() {
+  duoCpUsageStartTime = Date.now();
+  duoCpAlarmMutedForCycle = false;
+  if (duoCpAlarmRepeatInterval) {
+    clearInterval(duoCpAlarmRepeatInterval);
+    duoCpAlarmRepeatInterval = null;
+  }
+  updateDuoCpTimerUI();
+  toast('🔄 Đã bắt đầu lại chu kỳ đếm 10 phút Cloud Phone!', 'info', 2000);
+}
+
+function muteDuoCpAlarmCurrentCycle() {
+  duoCpAlarmMutedForCycle = true;
+  if (duoCpAlarmRepeatInterval) {
+    clearInterval(duoCpAlarmRepeatInterval);
+    duoCpAlarmRepeatInterval = null;
+  }
+  updateDuoCpTimerUI();
+  toast('🔕 Đã tắt chuông cảnh báo cho chu kỳ 10 phút hiện tại.', 'info', 2500);
+}
+
+function stopDuoCpUsageTimer() {
+  if (duoCpUsageTimerInterval) {
+    clearInterval(duoCpUsageTimerInterval);
+    duoCpUsageTimerInterval = null;
+  }
+  if (duoCpAlarmRepeatInterval) {
+    clearInterval(duoCpAlarmRepeatInterval);
+    duoCpAlarmRepeatInterval = null;
+  }
+  const modalBar = document.getElementById('duoCpTimerBar');
+  if (modalBar) modalBar.style.display = 'none';
+  const floatWidget = document.getElementById('duoCpFloatingTimer');
+  if (floatWidget) floatWidget.style.display = 'none';
+  toast('⏹️ Đã dừng bộ đếm thời gian Cloud Phone.', 'info', 2000);
+}
+
+function updateDuoCpTimerUI() {
+  if (!duoCpUsageStartTime) return;
+  const totalElapsedSec = Math.floor((Date.now() - duoCpUsageStartTime) / 1000);
+  const CYCLE_SECONDS = 600; // 10 phút = 600 giây
+  const WARN_SECONDS = 480;  // 8/10 phút = 480 giây (8 phút)
+
+  const newCycle = Math.floor(totalElapsedSec / CYCLE_SECONDS) + 1;
+  if (newCycle !== duoCpCurrentCycle) {
+    duoCpCurrentCycle = newCycle;
+    duoCpAlarmMutedForCycle = false;
+    if (duoCpAlarmRepeatInterval) {
+      clearInterval(duoCpAlarmRepeatInterval);
+      duoCpAlarmRepeatInterval = null;
+    }
+    toast(`🔄 Cloud Phone [${duoCpActivePhoneLabel}] đã chuyển sang Chu kỳ 10 phút tiếp theo (Chu kỳ #${duoCpCurrentCycle})!`, 'info', 4000);
+  }
+
+  const secInCycle = totalElapsedSec % CYCLE_SECONDS;
+  const remSec = CYCLE_SECONDS - secInCycle;
+
+  const mm = String(Math.floor(secInCycle / 60)).padStart(2, '0');
+  const ss = String(secInCycle % 60).padStart(2, '0');
+  const remMm = String(Math.floor(remSec / 60)).padStart(2, '0');
+  const remSs = String(remSec % 60).padStart(2, '0');
+  const pct = Math.min(100, Math.round((secInCycle / CYCLE_SECONDS) * 100));
+
+  const isWarning = secInCycle >= WARN_SECONDS;
+
+  // Kích hoạt cảnh báo âm thanh lớn lặp lại nhiều lần khi đạt 8/10 phút (480s -> 599s)
+  if (isWarning && !duoCpAlarmMutedForCycle) {
+    if (!duoCpAlarmRepeatInterval) {
+      playLoudDuoCpAlarm();
+      toast(`🚨 CẢNH BÁO 8/10 PHÚT: Cloud Phone [${duoCpActivePhoneLabel}] đã dùng ${mm}:${ss}/10:00 (Còn ${remMm}:${remSs})!`, 'error', 7000);
+      duoCpAlarmRepeatInterval = setInterval(() => {
+        if (!duoCpAlarmMutedForCycle) {
+          playLoudDuoCpAlarm();
+          toast(`🔊 CẢNH BÁO KHẨN: Cloud Phone [${duoCpActivePhoneLabel}] đã qua mốc 8/10 phút (${mm}:${ss}/10:00)!`, 'error', 5000);
+        }
+      }, 7500);
+    }
+  } else {
+    if (duoCpAlarmRepeatInterval) {
+      clearInterval(duoCpAlarmRepeatInterval);
+      duoCpAlarmRepeatInterval = null;
+    }
+  }
+
+  // Cập nhật thanh Timer trong Modal
+  const timeText = `${mm}:${ss} / 10:00 (Còn ${remMm}:${remSs})`;
+  const modalLabel = document.getElementById('duoCpTimerPhoneLabel');
+  const modalClock = document.getElementById('duoCpTimerClock');
+  const modalCycle = document.getElementById('duoCpTimerCycleBadge');
+  const modalFill = document.getElementById('duoCpTimerProgressFill');
+  const modalBar = document.getElementById('duoCpTimerBar');
+  const btnMuteModal = document.getElementById('btnDuoCpMuteAlarm');
+
+  if (modalLabel) modalLabel.innerText = duoCpActivePhoneLabel;
+  if (modalClock) modalClock.innerText = timeText;
+  if (modalCycle) modalCycle.innerText = `Chu kỳ #${duoCpCurrentCycle}`;
+  if (modalFill) {
+    modalFill.style.width = `${pct}%`;
+    modalFill.style.background = isWarning ? 'linear-gradient(90deg, #ef4444, #f97316)' : 'linear-gradient(90deg, #10b981, #38bdf8)';
+  }
+  if (modalBar) {
+    modalBar.style.background = isWarning ? 'rgba(239, 68, 68, 0.18)' : 'rgba(16, 185, 129, 0.1)';
+    modalBar.style.borderColor = isWarning ? '#ef4444' : 'rgba(16, 185, 129, 0.35)';
+  }
+  if (btnMuteModal) {
+    btnMuteModal.style.display = (isWarning && !duoCpAlarmMutedForCycle) ? 'inline-flex' : 'none';
+  }
+
+  // Cập nhật Floating Timer ở góc màn hình
+  const floatClock = document.getElementById('duoCpFloatClock');
+  const floatLabel = document.getElementById('duoCpFloatLabel');
+  const floatWidget = document.getElementById('duoCpFloatingTimer');
+  const btnMuteFloat = document.getElementById('btnDuoCpFloatMute');
+
+  if (floatLabel) floatLabel.innerText = `📱 ${duoCpActivePhoneLabel} (CK #${duoCpCurrentCycle})`;
+  if (floatClock) floatClock.innerText = `${mm}:${ss} / 10:00`;
+  if (floatWidget) {
+    floatWidget.style.borderColor = isWarning ? '#ef4444' : '#10b981';
+    floatWidget.style.boxShadow = isWarning ? '0 0 22px rgba(239, 68, 68, 0.75)' : '0 8px 25px rgba(0,0,0,0.5)';
+  }
+  if (btnMuteFloat) {
+    btnMuteFloat.style.display = (isWarning && !duoCpAlarmMutedForCycle) ? 'inline-flex' : 'none';
+  }
+}
+
 async function openDuoplusWebConsole(imageId, imageName) {
+  ensureDuoCpAudioUnlocked();
   const item = duoplusCurrentCloudPhoneTiktokId ? (tiktokData[duoplusCurrentCloudPhoneTiktokId] || {}) : {};
   const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
   const devName = imageName || (imageId ? ('snap_' + imageId) : '');
@@ -7422,7 +7808,8 @@ async function openDuoplusWebConsole(imageId, imageName) {
       });
       const bData = await bRes.json();
       if (bData && bData.success) {
-        toast(`✅ Đã mở cửa sổ Chromium điều khiển Cloud Phone${imageId ? ' [' + imageId + ']' : ''} (Kết nối trực tiếp không qua Proxy GPM)!`, 'success', 4000);
+        toast(`✅ Đã mở cửa sổ Chromium điều khiển Cloud Phone${imageId ? ' [' + imageId + ']' : ''} & kích hoạt bộ đếm 10 phút (Báo động ở 08:00)!`, 'success', 4000);
+        startDuoCpUsageTimer(imageId || 'DuoPlus', devName);
         return;
       }
     } catch (e) {}
@@ -7438,12 +7825,14 @@ async function openDuoplusWebConsole(imageId, imageName) {
     });
     const data = await res.json();
     if (data && data.success) {
-      toast(`✅ Đã mở cửa sổ Chromium điều khiển Cloud Phone${imageId ? ' [' + imageId + ']' : ''}!`, 'success', 4000);
+      toast(`✅ Đã mở cửa sổ Chromium điều khiển Cloud Phone${imageId ? ' [' + imageId + ']' : ''} & kích hoạt bộ đếm 10 phút (Báo động ở 08:00)!`, 'success', 4000);
+      startDuoCpUsageTimer(imageId || 'DuoPlus', devName);
       return;
     }
   } catch(e) {}
 
-  // Fallback: mở tab trình duyệt hiện tại
+  // Fallback: mở tab trình duyệt hiện tại & kích hoạt bộ đếm 10 phút
+  startDuoCpUsageTimer(imageId || 'DuoPlus', devName);
   window.open(targetUrl, '_blank');
 }
 
@@ -10961,13 +11350,17 @@ async function clearAllNotes() {
         </span>
         <input type="text" id="duoCpProxyInput" placeholder="ip:port:username:password..." oninput="autoSaveDuoCpProxy(this.value)" style="flex:1; min-width:240px; font-size:11px; font-family:monospace; padding:5px 8px; height:28px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:#38bdf8; font-weight:600;">
         
-        <!-- Dropdown chọn nhanh từ PandaProxy API -->
-        <select id="duoCpPandaSelect" onchange="applyPandaProxyToDuoCp(this.value); this.value='';" title="Chọn nhanh Proxy từ PandaProxy API cho Cloud Phone" style="height:28px; font-size:11px; padding:0 8px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:#f59e0b; font-weight:700; cursor:pointer; max-width:200px;">
+        <!-- Dropdown chọn nhanh từ PandaProxy API & Nút Xoay Proxy -->
+        <select id="duoCpPandaSelect" onchange="applyPandaProxyToDuoCp(this.value);" title="Chọn nhanh Proxy từ PandaProxy API cho Cloud Phone" style="height:28px; font-size:11px; padding:0 8px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:#f59e0b; font-weight:700; cursor:pointer; max-width:210px;">
           <option value="" disabled selected>🐼 Chọn PandaProxy...</option>
         </select>
-        <button class="btn btn-sm btn-ghost" onclick="loadDuoCpPandaProxies(true)" title="Tải lại danh sách từ PandaProxy API" style="height:28px; padding:0 6px; font-size:12px; color:#f59e0b;">
-          🔄
+        <button class="btn btn-sm" id="btnRotateDuoCpPanda" onclick="rotateDuoCpPandaProxy()" title="Xoay đổi IP mới cho gói PandaProxy đang chọn" style="height:28px; padding:0 10px; font-size:11px; background:linear-gradient(135deg, #f59e0b, #d97706); border:none; color:#fff; font-weight:700; border-radius:4px; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;">
+          🔄 Xoay Proxy
         </button>
+        <button class="btn btn-sm btn-ghost" onclick="loadDuoCpPandaProxies(true)" title="Tải lại danh sách từ PandaProxy API" style="height:28px; padding:0 6px; font-size:12px; color:#f59e0b;">
+          🔃
+        </button>
+        <span id="duoCpPandaIpBadge" style="display:none; align-items:center; gap:4px; font-size:11px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.4); color:#34d399; padding:2px 8px; border-radius:4px; font-family:monospace; white-space:nowrap;"></span>
         
         <button class="btn btn-sm btn-primary" onclick="applyDuoplusProxyToCloudPhones()" id="btnApplyDuoProxy" title="Áp dụng Proxy SOCKS5 cho Cloud Phone qua API" style="height:28px; font-size:11px; padding:0 12px; background:linear-gradient(135deg, #0284c7, #0369a1); border:none; color:#fff; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;">
           🚀 Áp dụng
@@ -10981,6 +11374,34 @@ async function clearAllNotes() {
         </button>
         <button class="btn btn-sm" id="btnDuoInitConfig" onclick="duoplusTriggerInitConfig()" title="Cấu hình mặc định qua API: Mobile Network, Oppo (Random Model), SIM Vietnam, Proxy Socks5 (nếu trống lấy IP thực)" style="display:none; height:28px; font-size:11px; padding:0 14px; background:linear-gradient(135deg, #10b981, #059669); border:none; color:#fff; font-weight:700; border-radius:4px; box-shadow:0 2px 8px rgba(16,185,129,0.35); white-space:nowrap; align-items:center; gap:6px;">
           ⚡ Cấu hình khởi tạo
+        </button>
+      </div>
+    </div>
+
+    <!-- ⏱️ Thanh đếm thời gian 10 phút sử dụng Cloud Phone (Cảnh báo âm thanh lớn khi đạt 8/10 phút) -->
+    <div id="duoCpTimerBar" style="display:none; background:rgba(16,185,129,0.1); border-bottom:1px solid rgba(16,185,129,0.35); padding:8px 18px; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; transition:all 0.3s;">
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <span style="font-size:13px; font-weight:800; color:#fbbf24;">⏱️ Bộ đếm 10p:</span>
+        <span id="duoCpTimerPhoneLabel" style="font-size:12px; font-weight:700; color:#38bdf8; font-family:monospace;">Cloud Phone</span>
+        <span id="duoCpTimerCycleBadge" style="font-size:11px; background:rgba(56,189,248,0.2); color:#38bdf8; padding:2px 7px; border-radius:10px; font-weight:700;">Chu kỳ #1</span>
+        <span id="duoCpTimerClock" style="font-size:13px; font-weight:800; font-family:monospace; color:#fff; background:rgba(0,0,0,0.35); padding:2px 8px; border-radius:4px;">00:00 / 10:00</span>
+        <span style="font-size:11px; color:var(--text-muted);">(Cảnh báo âm thanh lớn lúc <strong>08:00</strong>)</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; flex:1; max-width:340px; min-width:200px;">
+        <div style="flex:1; height:8px; background:rgba(255,255,255,0.1); border-radius:4px; overflow:hidden;">
+          <div id="duoCpTimerProgressFill" style="width:0%; height:100%; background:linear-gradient(90deg, #10b981, #38bdf8); transition:width 0.5s;"></div>
+        </div>
+        <button class="btn btn-xs" id="btnDuoCpMuteAlarm" onclick="muteDuoCpAlarmCurrentCycle()" style="display:none; background:#ef4444; color:#fff; border:none; font-weight:700; padding:3px 8px; border-radius:4px; font-size:11px; cursor:pointer;">
+          🔕 Tắt chuông
+        </button>
+        <button class="btn btn-xs btn-ghost" onclick="playLoudDuoCpAlarm()" title="Nghe thử âm thanh cảnh báo" style="border:1px solid var(--border); font-size:11px; padding:2px 6px; border-radius:4px;">
+          🔊 Test
+        </button>
+        <button class="btn btn-xs btn-ghost" onclick="resetDuoCpUsageTimer()" title="Reset lại chu kỳ 10 phút về 00:00" style="border:1px solid var(--border); font-size:11px; padding:2px 7px; border-radius:4px;">
+          🔄 Reset 10p
+        </button>
+        <button class="btn btn-xs btn-ghost" onclick="stopDuoCpUsageTimer()" title="Dừng và ẩn bộ đếm" style="color:#f87171; border:1px solid rgba(239,68,68,0.3); font-size:11px; padding:2px 7px; border-radius:4px;">
+          ⏹️ Dừng
         </button>
       </div>
     </div>
@@ -11033,6 +11454,28 @@ async function clearAllNotes() {
       <span style="font-size:11px; color:var(--text-muted);">💡 Mẹo: Bấm <strong>Mở Cloud Phone</strong> để mở trực tiếp trình duyệt Chromium trên máy tính điều khiển điện thoại (không cần qua GPM).</span>
       <button class="btn btn-secondary btn-sm" onclick="closeDuoplusCloudPhoneModal()" style="height:32px; padding:4px 14px; font-size:12px;">Đóng</button>
     </div>
+  </div>
+</div>
+
+<!-- ⏱️ Widget nổi đếm thời gian 10 phút Cloud Phone (Hiển thị ngay cả khi đóng Modal) -->
+<div id="duoCpFloatingTimer" style="display:none; position:fixed; bottom:20px; left:20px; z-index:10005; background:var(--surface2); border:2px solid #10b981; border-radius:10px; padding:10px 14px; box-shadow:0 8px 25px rgba(0,0,0,0.5); align-items:center; gap:10px; flex-wrap:wrap;">
+  <div style="display:flex; flex-direction:column; gap:2px;">
+    <span id="duoCpFloatLabel" style="font-size:11px; font-weight:700; color:#38bdf8;">📱 Cloud Phone (CK #1)</span>
+    <div style="display:flex; align-items:center; gap:6px;">
+      <span style="font-size:13px;">⏱️</span>
+      <span id="duoCpFloatClock" style="font-size:14px; font-weight:800; font-family:monospace; color:#fff;">00:00 / 10:00</span>
+    </div>
+  </div>
+  <div style="display:flex; align-items:center; gap:5px;">
+    <button class="btn btn-xs" id="btnDuoCpFloatMute" onclick="muteDuoCpAlarmCurrentCycle()" style="display:none; background:#ef4444; color:#fff; border:none; font-weight:700; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer;">
+      🔕 Tắt chuông
+    </button>
+    <button class="btn btn-xs btn-ghost" onclick="resetDuoCpUsageTimer()" title="Reset 10 phút" style="border:1px solid var(--border); font-size:11px; padding:3px 6px; border-radius:4px;">
+      🔄
+    </button>
+    <button class="btn btn-xs btn-ghost" onclick="stopDuoCpUsageTimer()" title="Tắt bộ đếm" style="color:#f87171; border:1px solid rgba(239,68,68,0.3); font-size:11px; padding:3px 6px; border-radius:4px;">
+      ✕
+    </button>
   </div>
 </div>
 
