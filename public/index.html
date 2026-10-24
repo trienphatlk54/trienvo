@@ -1215,6 +1215,9 @@
       <div class="nav-item" onclick="switchTab('hotmail')">
         <span class="icon">📬</span> Hotmail Accounts
       </div>
+      <div class="nav-item" onclick="switchTab('duoplus')">
+        <span class="icon">☁️</span> DuoPlus
+      </div>
       <div class="nav-break"></div>
       <div class="nav-item" onclick="switchTab('phone')">
         <span class="icon">📱</span> Phone Sessions
@@ -2179,6 +2182,106 @@
                 <tr><td colspan="9" style="text-align:center; padding:12px; color:var(--text-muted);">Đang tải dữ liệu...</td></tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ☁️ DUOPLUS INDEPENDENT TAB ☁️ -->
+    <div id="tab-duoplus" class="tab-pane">
+      <div class="main-card" style="max-width: 100%;">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h2>☁️ DuoPlus Management</h2>
+            <p>Quản lý độc lập tài khoản DuoPlus (chỉ liên kết với bảng Hotmail Accounts), tách riêng từng cột chức năng Proxy, Tạo GPM, API Key, Cloud Phone.</p>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="duoplusTableSearch" class="proxy-input" placeholder="🔍 Tìm kiếm Hotmail, Key, Profile..." onkeyup="renderDuoplusTable()" style="max-width: 210px; padding: 6px 12px; font-size: 12px; height: 32px; box-sizing: border-box;">
+            <button class="btn btn-secondary btn-sm" onclick="zoomDuoplusTable(0.1)" title="Phóng to">🔍 +</button>
+            <button class="btn btn-secondary btn-sm" onclick="zoomDuoplusTable(-0.1)" title="Thu nhỏ">🔍 -</button>
+            <button class="btn btn-ghost btn-sm" onclick="configureGpmPort()" style="height: 32px; padding: 6px 10px; font-size: 11px; border: 1px solid var(--border);" title="Cấu hình Port GPMLogin Local API (Mặc định: 9495)">⚙️ GPM Port: <span id="gpmPortBadgeDuo">9495</span></button>
+            <button class="btn btn-primary" onclick="openCreateDuoplusFromHotmail()" style="height: 32px; padding: 6px 12px; font-size: 12px; background: linear-gradient(135deg, #0284c7, #0078d4); border:none; font-weight:700;">📬 + Tạo từ Hotmail</button>
+            <button class="btn btn-primary" onclick="addBlankDuoplusRow()" style="height: 32px; padding: 6px 12px; font-size: 12px; background: linear-gradient(135deg, #10b981, #059669); border:none; font-weight:700;">➕ Thêm dòng trống</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadDuoplusData(true)" style="height: 32px; padding: 6px 10px; font-size: 12px; border: 1px solid var(--border);">🔄 Làm mới</button>
+          </div>
+        </div>
+
+        <style>
+          #duoplusDataTable {
+            border: 1px solid var(--border);
+          }
+          #duoplusDataTable th,
+          #duoplusDataTable td {
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            padding: 7px 8px !important;
+            vertical-align: middle;
+          }
+          #duoplusDataTable thead tr {
+            background-color: var(--surface2);
+          }
+          #duoplusTableBody tr:nth-child(odd) {
+            background-color: var(--surface);
+          }
+          #duoplusTableBody tr:nth-child(even) {
+            background-color: rgba(255, 255, 255, 0.045);
+          }
+          #duoplusTableBody tr:hover {
+            background-color: rgba(2, 132, 199, 0.08);
+          }
+        </style>
+
+        <div class="card-body" style="display: block; padding: 0;">
+          <div class="tiktok-page-bar">
+            <span id="duoplusPageInfo" class="tiktok-page-info-badge">Trang 1 / 1 (0 dòng)</span>
+            <div style="display: flex; gap: 10px;">
+              <button class="tiktok-page-btn btn-prev-page" id="btnPrevDuoplus" onclick="changeDuoplusPage(-1)" disabled>⬅️ Trang trước</button>
+              <button class="tiktok-page-btn btn-next-page" id="btnNextDuoplus" onclick="changeDuoplusPage(1)" disabled>Trang sau ➡️</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto; max-height: calc(100vh - 320px); overflow-y: auto;">
+            <table id="duoplusDataTable" class="compact-table" style="min-width: 1450px; width: 100%; border-collapse: collapse; text-align: left; font-size: 12px;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                  <th style="width: 42px; text-align: center;">#</th>
+                  <th style="width: 120px;">Thời gian</th>
+                  <th style="min-width: 210px;">📬 Hotmail Liên kết</th>
+                  <th style="min-width: 210px;">🌐 Proxy GPM (Tạo Profile)</th>
+                  <th style="min-width: 210px; text-align: center;">💻 Tạo & Mở GPM Profile</th>
+                  <th style="min-width: 195px;">🔑 DuoPlus API Key</th>
+                  <th style="min-width: 195px;">☁️ Proxy Cloud Phone (Socks5)</th>
+                  <th style="min-width: 165px; text-align: center;">📱 API DuoPlus (CloudPhone)</th>
+                  <th style="min-width: 170px;">🎵 Liên kết TikTok / Ghi chú</th>
+                  <th style="width: 70px; text-align: center;">Xóa</th>
+                </tr>
+              </thead>
+              <tbody id="duoplusTableBody">
+                <tr><td colspan="10" style="text-align:center; padding:16px; color:var(--text-muted);">Đang tải dữ liệu DuoPlus...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 🐼 Tiện ích PandaProxys (DuoPlus) -->
+        <div style="padding: 16px; background: rgba(255, 165, 0, 0.02); border-top: 1px solid var(--border);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="font-size: 15px; margin: 0; font-weight: 600; color: orange; display: flex; align-items: center; gap: 8px;">
+              <span>🐼</span> Tiện ích PandaProxys
+            </h3>
+            <button class="btn btn-secondary btn-sm" onclick="loadPandaProxies()" style="padding: 4px 10px; font-size: 12px; border-color: orange; color: orange; font-weight: bold;">🔄 Làm mới</button>
+          </div>
+          <style>
+            #pandaProxyContainer_duo {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 16px;
+            }
+            #pandaProxyContainer_duo > div {
+              flex: 1 1 calc(33.333% - 16px);
+              box-sizing: border-box;
+            }
+          </style>
+          <div id="pandaProxyContainer_duo">
+            <div style="font-size: 13px; color: var(--text-muted);">Đang tải danh sách Proxy...</div>
           </div>
         </div>
       </div>
@@ -4585,10 +4688,18 @@ function getTiktokResultColor(result) {
 
 async function loadTiktokData() {
   try {
+    // Luôn đảm bảo tải đồng thời dữ liệu bảng DuoPlus độc lập để hiển thị danh sách chọn liên kết
+    if (!window.duoplusData || Object.keys(window.duoplusData).length === 0) {
+      try {
+        const dRes = await fetch('/api/duoplus-accounts/all');
+        window.duoplusData = (await dRes.json()) || {};
+      } catch (de) {}
+    }
     const res = await fetch('/api/tiktok/all');
     const data = await res.json();
     tiktokData = data || {};
     renderTiktokTable();
+    if (typeof renderDuoplusTable === 'function') renderDuoplusTable();
   } catch (e) {
     console.error(e);
   }
@@ -4699,59 +4810,7 @@ function renderTiktokTable() {
         <input type="text" class="proxy-input" value="${escapeHtml(item.notes || '')}" placeholder="Ghi chú..." oninput="autoSaveTiktokNote('${id}', this.value)" onclick="event.stopPropagation()" style="width:100%; min-width:110px; padding:4px 8px; font-size:11px; height:26px; box-sizing:border-box;">
       </td>
       <td style="padding:6px; text-align:center; white-space:nowrap;">
-        <!-- Area Proxy chọn / nhập cho dòng này -->
-        <div style="margin-bottom: 5px; max-width: 230px; margin-left: auto; margin-right: auto;">
-          <div style="display: flex; gap: 3px; align-items: center;">
-            <input type="text" id="gpmProxy_${id}" class="proxy-input"
-              value="${escapeHtml(item.gpmProxy || '')}"
-              placeholder="Proxy GPM: ip:port..."
-              list="gpmProxyDatalist"
-              oninput="autoSaveTiktokGpmProxy('${id}', this.value)"
-              onfocus="prepareGpmProxySuggestions()"
-              onclick="event.stopPropagation()"
-              title="Nhập hoặc chọn Proxy áp dụng khi tạo profile GPM (Click 🎯 để chọn nhanh)"
-              style="flex: 1; min-width: 135px; font-size: 11px; font-family: monospace; padding: 2px 6px; height: 24px; border-radius: 4px; box-sizing: border-box; background: var(--surface); color: var(--text);">
-            <select class="proxy-quick-select" onchange="applyQuickProxyToRow('${id}', this.value); this.value='';" title="Chọn nhanh Proxy từ danh sách" style="width: 26px; height: 24px; padding: 0; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; text-align: center;">
-              <option value="" disabled selected>🎯</option>
-              ${renderQuickProxySelectOptions(item.gpmProxy || '')}
-            </select>
-            ${item.gpmProxy ? `
-              <button type="button" class="btn btn-ghost" onclick="copyText('${escapeHtml(item.gpmProxy)}')" title="Copy Proxy GPM" style="padding: 1px 4px; height: 24px; font-size: 11px; color: var(--text-muted);">📋</button>
-            ` : ''}
-          </div>
-        </div>
-        <div style="display:inline-flex; align-items:center; justify-content:center; gap:5px;">
-          <button class="btn btn-sm btn-gpm" id="btnGpm_${id}" onclick="createGpmProfileForTiktok('${id}', this)" title="Tạo profile trên GPMLogin với liên kết Duoplus.net" style="padding:3px 8px; font-size:11px; height:25px; background:linear-gradient(135deg, #0284c7, #0078d4); color:#fff; border:none; font-weight:700; white-space:nowrap; border-radius:4px; cursor:pointer;">
-            ${item.duoplusProfileId ? '🔄 Tạo lại' : '📱 Tạo Duoplus GPM'}
-          </button>
-          <span id="gpmStatus_${id}" class="gpm-profile-badge" onclick="if(this.innerText && this.innerText !== '---') copyText(this.innerText)" title="${item.duoplusProfileId ? 'Profile ID: ' + item.duoplusProfileId + ' (Click để copy)' : 'Chưa có profile'}" style="font-family:monospace; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; ${item.duoplusProfileId ? 'background:rgba(16,185,129,0.2); color:#34d399; border:1px solid rgba(16,185,129,0.4); cursor:pointer;' : 'color:var(--text-muted);'}">
-            ${item.duoplusProfileId || '---'}
-          </span>
-          ${item.duoplusProfileId ? `<button class="btn btn-ghost btn-sm" onclick="openGpmProfile('${item.duoplusProfileId}')" title="Mở Profile trong GPMLogin" style="padding:2px 5px; font-size:11px; height:24px; color:#38bdf8;">🚀</button><button class="btn btn-ghost btn-sm" onclick="retryDuoplusRegistration('${id}')" title="Chạy tự động đăng ký DuoPlus" style="padding:2px 5px; font-size:11px; height:24px; color:#c084fc;">🤖</button>` : ''}
-          ${(item.duoplusProfileId || item.duoplusHotmail || item.duoplusApiKey || item.gpmProxy || item.duoplusProxy) ? `
-            <button class="btn btn-ghost btn-sm" onclick="clearRowDuoplus('${id}')" title="Xóa toàn bộ dữ liệu ô Duoplus của dòng này (Profile, Mail, Key, Proxy)" style="padding:2px 5px; font-size:11px; height:24px; color:#ef4444; opacity:0.8;" onmouseenter="this.style.opacity='1'; this.style.color='#dc2626';" onmouseleave="this.style.opacity='0.8'; this.style.color='#ef4444';">🗑️</button>
-          ` : ''}
-        </div>
-        ${item.duoplusHotmail ? `
-          <div style="font-size:11px; color:#38bdf8; margin-top:3px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; font-family:monospace;" onclick="copyText('${escapeHtml(item.duoplusHotmail)}')" title="Hotmail đã liên kết: ${escapeHtml(item.duoplusHotmail)} (Click để copy)">
-            ✉️ ${escapeHtml(item.duoplusHotmail)}
-          </div>
-        ` : ''}
-        <div style="margin-top:4px; display:flex; align-items:center; justify-content:center; gap:4px; flex-wrap:wrap;">
-          <button class="btn btn-xs btn-duoplus-api" onclick="openDuoplusApiModal('${id}')" title="Mở danh sách Cloud Phone và điều khiển qua DuoPlus API" style="font-size:11px; font-weight:700; padding:2px 8px; height:24px; border-radius:4px; background:linear-gradient(135deg, #0284c7, #0369a1); color:#fff; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 5px rgba(2,132,199,0.35);">
-            ⚡ API Duoplus
-          </button>
-          ${item.duoplusProxy ? `
-            <div style="font-size:10px; color:#38bdf8; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; font-family:monospace; background:rgba(56,189,248,0.1); padding:1px 5px; border-radius:3px; border:1px solid rgba(56,189,248,0.25);" onclick="copyText('${escapeHtml(item.duoplusProxy)}')" title="Proxy Cloud Phone: ${escapeHtml(item.duoplusProxy)} (Click để copy)">
-              ☁️ CP: ${escapeHtml(item.duoplusProxy)}
-            </div>
-          ` : ''}
-          ${item.duoplusApiKey ? `
-            <div style="font-size:11px; color:#10b981; max-width:115px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; font-family:monospace; background:rgba(16,185,129,0.12); padding:1px 5px; border-radius:4px; border:1px solid rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:3px;" onclick="copyText('${escapeHtml(item.duoplusApiKey)}')" title="DuoPlus API Key: ${escapeHtml(item.duoplusApiKey)} (Click để copy)">
-              <span>🔑</span> <span style="font-weight:700;">${escapeHtml(item.duoplusApiKey.slice(0, 4) + '...' + item.duoplusApiKey.slice(-4))}</span>
-            </div>
-          ` : ''}
-        </div>
+        ${renderTiktokDuoplusCell(id, item)}
       </td>
       <td style="padding:6px; text-align:center;">
         <input type="text" class="proxy-input" value="${escapeHtml(item.bitcloud || '')}" placeholder="BitCloud ID/Acc..." oninput="autoSaveTiktokBitCloud('${id}', this.value)" onclick="event.stopPropagation()" style="width:100%; min-width:110px; padding:4px 6px; font-size:11px; height:26px; box-sizing:border-box;">
@@ -4896,34 +4955,531 @@ function autoSaveTiktokBitCloud(id, val) {
   }, 400);
 }
 
-// 🗑️ Clear Duoplus Data Functions 🗑️
-async function clearRowDuoplus(id) {
-  const item = tiktokData[id];
+// ☁️ BẢNG DỮ LIỆU DUOPLUS ĐỘC LẬP & LIÊN KẾT VỚI BẢNG TIKTOK / HOTMAIL ☁️
+window.duoplusData = window.duoplusData || {};
+let duoplusCurrentPage = 1;
+const DUOPLUS_PAGE_SIZE = 15;
+let duoplusTableZoom = 1;
+let duoplusRowSaveTimeouts = {};
+
+async function loadDuoplusData(showToast = false) {
+  try {
+    if (!hotmailData || Object.keys(hotmailData).length === 0) {
+      loadHotmailData().catch(() => {});
+    }
+    const res = await fetch('/api/duoplus-accounts/all');
+    const data = await res.json();
+    window.duoplusData = data || {};
+    renderDuoplusTable();
+    renderTiktokTable();
+    if (showToast) toast(`✅ Đã tải ${Object.keys(window.duoplusData).length} dòng dữ liệu DuoPlus!`, 'success', 2000);
+  } catch (e) {
+    console.error('Lỗi tải dữ liệu DuoPlus:', e);
+    if (showToast) toast('❌ Lỗi tải dữ liệu DuoPlus: ' + e.message, 'error');
+  }
+}
+
+function changeDuoplusPage(delta) {
+  duoplusCurrentPage += delta;
+  renderDuoplusTable();
+}
+
+function zoomDuoplusTable(delta) {
+  duoplusTableZoom = Math.min(1.4, Math.max(0.7, +(duoplusTableZoom + delta).toFixed(2)));
+  const tbl = document.getElementById('duoplusDataTable');
+  if (tbl) tbl.style.zoom = duoplusTableZoom;
+}
+
+function formatLinkedDateTime(isoStr) {
+  if (!isoStr) return '---';
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return isoStr;
+  return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString('vi-VN');
+}
+
+// ─── HIỂN THỊ Ô DUOPLUS TRONG BẢNG TIKTOK ACCOUNTS (CHỌN LIÊN KẾT TỪ LIST DUOPLUS) ───
+function renderDuoplusLinkOptionsForTiktok(currentTiktokId) {
+  const entries = Object.entries(window.duoplusData || {});
+  if (entries.length === 0) {
+    return '<option value="" disabled>-- Chưa có dòng nào bên tab DuoPlus --</option>';
+  }
+
+  // Tìm xem mỗi duoId đang được gắn với những TikTok nào
+  const linkedMap = {};
+  Object.entries(tiktokData || {}).forEach(([tId, tItem]) => {
+    if (tItem && tItem.linkedDuoplusId) {
+      if (!linkedMap[tItem.linkedDuoplusId]) linkedMap[tItem.linkedDuoplusId] = [];
+      linkedMap[tItem.linkedDuoplusId].push(tItem.username || tItem.mail || tId.slice(-4));
+    }
+  });
+
+  return entries.map(([dId, dItem], idx) => {
+    const mailLabel = dItem.hotmail || dItem.notes || ('DuoPlus #' + (idx + 1));
+    const keyBadge = dItem.duoplusApiKey ? '🔑Có Key' : '⚪Chưa Key';
+    const linkedUsers = linkedMap[dId] || [];
+    const linkStatus = linkedUsers.length > 0 ? `(Đang gắn: ${linkedUsers.join(', ')})` : '(Trống)';
+    return `<option value="${escapeHtml(dId)}">☁️ ${escapeHtml(mailLabel)} | ${keyBadge} ${escapeHtml(linkStatus)}</option>`;
+  }).join('');
+}
+
+function renderTiktokDuoplusCell(tiktokId, item) {
+  const linkedId = item.linkedDuoplusId || '';
+  const duoItem = (linkedId && window.duoplusData && window.duoplusData[linkedId]) ? window.duoplusData[linkedId] : null;
+
+  // TRẠNG THÁI 1: CHƯA LIÊN KẾT -> Hiển thị dropdown chọn liên kết từ danh sách bảng DuoPlus
+  if (!linkedId || !duoItem) {
+    const totalDuo = Object.keys(window.duoplusData || {}).length;
+    return `
+      <div style="display:flex; flex-direction:column; gap:5px; align-items:center; justify-content:center; padding:2px 0;">
+        <div style="display:flex; gap:4px; align-items:center; width:100%; max-width:230px;">
+          <select class="proxy-input" onchange="linkDuoplusToTiktok('${tiktokId}', this.value); this.value='';" onclick="event.stopPropagation()" title="Chọn tài khoản từ bảng DuoPlus để liên kết với dòng TikTok này" style="flex:1; height:26px; font-size:11px; padding:2px 6px; border-radius:5px; background:var(--surface2); color:#38bdf8; font-weight:700; border:1px solid rgba(56,189,248,0.4); cursor:pointer;">
+            <option value="" disabled selected>🔗 Chọn liên kết DuoPlus (${totalDuo})...</option>
+            ${renderDuoplusLinkOptionsForTiktok(tiktokId)}
+          </select>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="switchTab('duoplus')" title="Mở tab DuoPlus để tạo hoặc quản lý danh sách" style="height:26px; padding:0 7px; font-size:11px; border:1px solid var(--border); border-radius:5px; background:rgba(2,132,199,0.12); color:#38bdf8; cursor:pointer;">☁️</button>
+        </div>
+      </div>
+    `;
+  }
+
+  // TRẠNG THÁI 2: ĐÃ LIÊN KẾT THÀNH CÔNG -> Hiển thị tên DuoPlus/Hotmail, Bộ đếm số lần mở, Thời gian liên kết, Nút gọi bảng quản lý CloudPhone, Nút hủy liên kết để chọn lại
+  const openCount = parseInt(item.duoplusOpenCount, 10) || 0;
+  const linkedAt = item.duoplusLinkedAt || '';
+  const elapsedLinked = linkedAt ? formatElapsed(linkedAt) : 'Vừa xong';
+  const fullLinkedDate = formatLinkedDateTime(linkedAt);
+  const displayMail = duoItem.hotmail || duoItem.notes || ('DuoPlus #' + linkedId.slice(-5));
+
+  return `
+    <div style="display:flex; flex-direction:column; gap:4px; align-items:center; justify-content:center; background:rgba(2,132,199,0.06); border:1px solid rgba(56,189,248,0.25); border-radius:6px; padding:5px 7px; max-width:240px; margin:0 auto;">
+      <!-- Dòng 1: Tài khoản DuoPlus đang liên kết -->
+      <div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:4px;">
+        <span style="font-size:11px; font-weight:700; color:#38bdf8; font-family:monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="copyText('${escapeHtml(duoItem.hotmail || displayMail)}')" title="Đã liên kết DuoPlus: ${escapeHtml(displayMail)} (Click để copy)">
+          ☁️ ${escapeHtml(displayMail)}
+        </span>
+        ${duoItem.duoplusApiKey ? `<span title="Đã có API Key: ${escapeHtml(duoItem.duoplusApiKey)}" style="font-size:10px; background:rgba(16,185,129,0.2); color:#34d399; padding:1px 4px; border-radius:3px; font-weight:700;">🔑Key</span>` : ''}
+      </div>
+
+      <!-- Dòng 2: Bộ đếm số lần mở & Thời gian liên kết -->
+      <div style="display:flex; align-items:center; justify-content:center; gap:5px; flex-wrap:wrap; width:100%; font-size:10px;">
+        <span style="background:rgba(245,158,11,0.18); color:#fbbf24; border:1px solid rgba(245,158,11,0.35); padding:1px 6px; border-radius:4px; font-weight:700;" title="Tổng số lần đã bấm mở Cloud Phone từ liên kết này">
+          🔢 Mở: <strong>${openCount}</strong> lần
+        </span>
+        <span style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3); padding:1px 6px; border-radius:4px; font-weight:600;" title="Thời điểm liên kết: ${escapeHtml(fullLinkedDate)}">
+          ⏱️ ${elapsedLinked}
+        </span>
+      </div>
+
+      <!-- Dòng 3: Nút gọi bảng quản lý CloudPhone & Nút hủy liên kết để chọn lại -->
+      <div style="display:flex; align-items:center; justify-content:center; gap:5px; width:100%; margin-top:1px;">
+        <button type="button" class="btn btn-xs" onclick="openCloudPhoneFromTiktokRow('${tiktokId}', '${linkedId}')" title="Gọi bảng quản lý CloudPhone của tài khoản DuoPlus này (Tự động +1 bộ đếm số lần mở)" style="flex:1; font-size:11px; font-weight:700; padding:3px 7px; height:24px; border-radius:4px; background:linear-gradient(135deg, #0284c7, #0369a1); color:#fff; border:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:3px; box-shadow:0 2px 5px rgba(2,132,199,0.3);">
+          📱 CloudPhone
+        </button>
+        <button type="button" class="btn btn-ghost btn-xs" onclick="unlinkDuoplusFromTiktokRow('${tiktokId}')" title="Hủy liên kết DuoPlus để chọn lại tài khoản khác" style="font-size:11px; font-weight:700; padding:3px 7px; height:24px; border-radius:4px; color:#f87171; border:1px solid rgba(239,68,68,0.4); background:rgba(239,68,68,0.1); cursor:pointer;">
+          🔗❌ Hủy
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+async function linkDuoplusToTiktok(tiktokId, duoId) {
+  if (!tiktokId || !duoId || !tiktokData[tiktokId]) return;
+  const duoItem = window.duoplusData ? window.duoplusData[duoId] : null;
+  if (!duoItem) {
+    toast('Không tìm thấy dòng dữ liệu DuoPlus này', 'error');
+    return;
+  }
+
+  const nowIso = new Date().toISOString();
+  const item = tiktokData[tiktokId];
+  item.linkedDuoplusId = duoId;
+  item.duoplusLinkedAt = nowIso;
+  item.duoplusOpenCount = parseInt(item.duoplusOpenCount, 10) || 0;
+
+  renderTiktokTable();
+  renderDuoplusTable();
+
+  try {
+    await fetch('/api/tiktok/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...item,
+        id: tiktokId,
+        linkedDuoplusId: duoId,
+        duoplusLinkedAt: nowIso,
+        duoplusOpenCount: item.duoplusOpenCount
+      })
+    });
+    toast(`✅ Đã liên kết TikTok với DuoPlus [${duoItem.hotmail || duoId}]!`, 'success', 2500);
+  } catch (e) {
+    toast('Lỗi lưu liên kết DuoPlus: ' + e.message, 'error');
+  }
+}
+
+async function unlinkDuoplusFromTiktokRow(tiktokId) {
+  const item = tiktokData[tiktokId];
+  if (!item || !item.linkedDuoplusId) return;
+
+  const duoItem = (window.duoplusData && window.duoplusData[item.linkedDuoplusId]) || {};
+  const label = duoItem.hotmail || item.linkedDuoplusId;
+  if (!confirm(`Hủy liên kết DuoPlus [${label}] khỏi dòng TikTok này để chọn lại?\n(Dữ liệu gốc bên tab DuoPlus vẫn được giữ nguyên)`)) {
+    return;
+  }
+
+  item.linkedDuoplusId = '';
+  item.duoplusLinkedAt = '';
+  item.duoplusOpenCount = 0;
+
+  renderTiktokTable();
+  renderDuoplusTable();
+
+  try {
+    await fetch('/api/tiktok/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...item,
+        id: tiktokId,
+        linkedDuoplusId: '',
+        duoplusLinkedAt: '',
+        duoplusOpenCount: 0
+      })
+    });
+    toast('🔄 Đã hủy liên kết DuoPlus. Bạn có thể chọn tài khoản DuoPlus khác từ danh sách!', 'info', 2500);
+  } catch (e) {
+    toast('Lỗi khi hủy liên kết: ' + e.message, 'error');
+  }
+}
+
+async function openCloudPhoneFromTiktokRow(tiktokId, duoId) {
+  const item = tiktokData[tiktokId];
+  if (item) {
+    item.duoplusOpenCount = (parseInt(item.duoplusOpenCount, 10) || 0) + 1;
+    fetch('/api/tiktok/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...item,
+        id: tiktokId,
+        duoplusOpenCount: item.duoplusOpenCount
+      })
+    }).catch(() => {});
+  }
+
+  if (duoId && window.duoplusData && window.duoplusData[duoId]) {
+    const dItem = window.duoplusData[duoId];
+    dItem.openCount = (parseInt(dItem.openCount, 10) || 0) + 1;
+    fetch('/api/duoplus-accounts/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: duoId,
+        openCount: dItem.openCount
+      })
+    }).catch(() => {});
+  }
+
+  renderTiktokTable();
+  renderDuoplusTable();
+  openDuoplusApiModal(duoId, tiktokId, true);
+}
+
+// ─── RENDER & THAO TÁC TRÊN BẢNG DUOPLUS ĐỘC LẬP (TAB DUOPLUS) ───────────────
+function renderDuoplusTable() {
+  const tbody = document.getElementById('duoplusTableBody');
+  if (!tbody) return;
+
+  const search = (document.getElementById('duoplusTableSearch')?.value || '').toLowerCase().trim();
+  const allEntries = Object.entries(window.duoplusData || {});
+
+  // Map xem mỗi dòng DuoPlus đang được những tài khoản TikTok nào liên kết tới
+  const linkedTiktokByDuoId = {};
+  Object.entries(tiktokData || {}).forEach(([tkId, tkItem]) => {
+    if (tkItem && tkItem.linkedDuoplusId) {
+      if (!linkedTiktokByDuoId[tkItem.linkedDuoplusId]) linkedTiktokByDuoId[tkItem.linkedDuoplusId] = [];
+      linkedTiktokByDuoId[tkItem.linkedDuoplusId].push({
+        id: tkId,
+        label: tkItem.username || tkItem.mail || tkItem.identifier || tkId.slice(-5),
+        openCount: parseInt(tkItem.duoplusOpenCount, 10) || 0
+      });
+    }
+  });
+
+  const filtered = allEntries.filter(([dId, dItem]) => {
+    if (!search) return true;
+    const linkedStr = (linkedTiktokByDuoId[dId] || []).map(x => x.label).join(' ');
+    const txt = `${dId} ${dItem.hotmail || ''} ${dItem.gpmProxy || ''} ${dItem.duoplusProfileId || ''} ${dItem.duoplusApiKey || ''} ${dItem.duoplusProxy || ''} ${dItem.notes || ''} ${linkedStr}`.toLowerCase();
+    return txt.includes(search);
+  }).sort((a, b) => {
+    const tA = new Date(a[1].createdAt || 0).getTime() || parseTiktokTimeMs(a[1].time);
+    const tB = new Date(b[1].createdAt || 0).getTime() || parseTiktokTimeMs(b[1].time);
+    return tB - tA;
+  });
+
+  const totalPages = Math.ceil(filtered.length / DUOPLUS_PAGE_SIZE) || 1;
+  if (duoplusCurrentPage > totalPages) duoplusCurrentPage = totalPages;
+  if (duoplusCurrentPage < 1) duoplusCurrentPage = 1;
+
+  const start = (duoplusCurrentPage - 1) * DUOPLUS_PAGE_SIZE;
+  const pageEntries = filtered.slice(start, start + DUOPLUS_PAGE_SIZE);
+
+  const pageInfoEl = document.getElementById('duoplusPageInfo');
+  const btnPrev = document.getElementById('btnPrevDuoplus');
+  const btnNext = document.getElementById('btnNextDuoplus');
+  if (pageInfoEl) pageInfoEl.textContent = `Trang ${duoplusCurrentPage} / ${totalPages} (${filtered.length} dòng)`;
+  if (btnPrev) btnPrev.disabled = (duoplusCurrentPage <= 1);
+  if (btnNext) btnNext.disabled = (duoplusCurrentPage >= totalPages);
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="10" style="text-align:center; padding:28px; color:var(--text-muted);">
+          Chưa có dữ liệu trong bảng DuoPlus.<br>
+          <button class="btn btn-primary btn-sm" onclick="openCreateDuoplusFromHotmail()" style="margin-top:10px; font-size:12px; background:linear-gradient(135deg, #0284c7, #0078d4); border:none;">📬 + Chọn Hotmail tạo dòng DuoPlus đầu tiên</button>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = pageEntries.map(([duoId, item], idx) => {
+    const stt = start + idx + 1;
+    // Tìm thông tin password của Hotmail từ bảng hotmailData
+    let hmPass = '';
+    if (item.hotmail && hotmailData) {
+      const foundHm = Object.values(hotmailData).find(h => h && h.hotmail === item.hotmail);
+      if (foundHm) hmPass = foundHm.password || '';
+    }
+
+    const linkedList = linkedTiktokByDuoId[duoId] || [];
+    const linkedHtml = linkedList.length > 0
+      ? linkedList.map(tk => `<span style="background:rgba(16,185,129,0.16); color:#34d399; border:1px solid rgba(16,185,129,0.35); padding:1px 6px; border-radius:4px; font-size:10px; font-weight:700; display:inline-flex; align-items:center; gap:3px;" title="Đang liên kết với TikTok: ${escapeHtml(tk.label)} (Đã mở ${tk.openCount} lần)">🎵 ${escapeHtml(tk.label)} (${tk.openCount})</span>`).join(' ')
+      : '<span style="font-size:10px; color:var(--text-muted); font-style:italic;">⚪ Chưa gắn TikTok</span>';
+
+    return `
+      <tr>
+        <!-- 1. STT -->
+        <td style="text-align:center; font-weight:700; color:var(--text-muted);">${stt}</td>
+
+        <!-- 2. Thời gian -->
+        <td style="white-space:nowrap;">
+          <div style="font-size:11px; color:var(--text);">${escapeHtml(item.time || '')}</div>
+          <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">⏱️ ${formatElapsed(item.createdAt || item.time)}</div>
+        </td>
+
+        <!-- 3. Ô Hotmail Liên kết (Chỉ liên kết với bảng Hotmail) -->
+        <td>
+          ${item.hotmail ? `
+            <div style="display:flex; flex-direction:column; gap:3px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:4px;">
+                <span style="font-family:monospace; font-size:12px; font-weight:700; color:#38bdf8; cursor:pointer;" onclick="copyText('${escapeHtml(item.hotmail)}')" title="Click để copy Hotmail: ${escapeHtml(item.hotmail)}">
+                  📬 ${escapeHtml(item.hotmail)}
+                </span>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="openHotmailPickerForDuoplusRow('${duoId}', false)" title="Đổi liên kết sang Hotmail khác" style="padding:1px 5px; font-size:10px; border:1px solid var(--border); border-radius:4px;">🔄 Đổi</button>
+              </div>
+              ${hmPass ? `
+                <div style="font-family:monospace; font-size:10px; color:var(--text-muted); cursor:pointer;" onclick="copyText('${escapeHtml(hmPass)}')" title="Click để copy mật khẩu Hotmail">
+                  🔑 Pass: <span style="color:var(--text);">${escapeHtml(hmPass)}</span>
+                </div>
+              ` : ''}
+            </div>
+          ` : `
+            <button type="button" class="btn btn-sm btn-primary" onclick="openHotmailPickerForDuoplusRow('${duoId}', false)" style="width:100%; height:28px; font-size:11px; font-weight:700; background:linear-gradient(135deg, #0284c7, #0078d4); border:none; border-radius:5px; cursor:pointer;">
+              📬 Chọn Hotmail liên kết
+            </button>
+          `}
+        </td>
+
+        <!-- 4. Ô Proxy GPM (Dành riêng tạo/mở Profile GPM) -->
+        <td>
+          <div style="display:flex; gap:4px; align-items:center;">
+            <input type="text" id="gpmProxy_duo_${duoId}" class="proxy-input"
+              value="${escapeHtml(item.gpmProxy || '')}"
+              placeholder="Proxy GPM: ip:port:user:pass..."
+              list="gpmProxyDatalist"
+              oninput="autoSaveDuoplusGpmProxy('${duoId}', this.value)"
+              onfocus="prepareGpmProxySuggestions()"
+              style="flex:1; min-width:140px; font-size:11px; font-family:monospace; padding:3px 7px; height:26px; border-radius:4px; background:var(--surface); color:var(--text);">
+            <select class="proxy-quick-select" onchange="applyQuickProxyToDuoplusRow('${duoId}', this.value); this.value='';" title="Chọn nhanh Proxy GPM" style="width:26px; height:26px; padding:0; font-size:11px; border-radius:4px; border:1px solid var(--border); background:var(--surface2); color:var(--text); cursor:pointer; text-align:center;">
+              <option value="" disabled selected>🎯</option>
+              ${renderQuickProxySelectOptions(item.gpmProxy || '')}
+            </select>
+            ${item.gpmProxy ? `
+              <button type="button" class="btn btn-ghost btn-xs" onclick="copyText('${escapeHtml(item.gpmProxy)}')" title="Copy Proxy GPM" style="padding:2px 5px; height:26px; font-size:11px;">📋</button>
+            ` : ''}
+          </div>
+        </td>
+
+        <!-- 5. Ô Tạo & Mở GPM Profile + Tự động ĐK DuoPlus -->
+        <td style="text-align:center; white-space:nowrap;">
+          <div style="display:inline-flex; align-items:center; justify-content:center; gap:5px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-sm btn-gpm" id="btnGpm_duo_${duoId}" onclick="createGpmProfileForDuoplusRow('${duoId}', this)" title="Tạo profile trên GPMLogin & tự động đăng ký DuoPlus.net" style="padding:3px 9px; font-size:11px; height:26px; background:linear-gradient(135deg, #0284c7, #0078d4); color:#fff; border:none; font-weight:700; border-radius:4px; cursor:pointer;">
+              ${item.duoplusProfileId ? '🔄 Tạo lại GPM' : '📱 Tạo Duoplus GPM'}
+            </button>
+            <span id="gpmStatus_duo_${duoId}" onclick="if(this.innerText && this.innerText !== '---') copyText(this.innerText)" title="${item.duoplusProfileId ? 'Profile ID: ' + item.duoplusProfileId + ' (Click để copy)' : 'Chưa có profile GPM'}" style="font-family:monospace; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; max-width:95px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; ${item.duoplusProfileId ? 'background:rgba(16,185,129,0.2); color:#34d399; border:1px solid rgba(16,185,129,0.4); cursor:pointer;' : 'color:var(--text-muted);'}">
+              ${escapeHtml(item.duoplusProfileId || '---')}
+            </span>
+            ${item.duoplusProfileId ? `
+              <button type="button" class="btn btn-ghost btn-sm" onclick="openGpmProfile('${escapeHtml(item.duoplusProfileId)}')" title="Mở Profile trong GPMLogin" style="padding:2px 6px; font-size:12px; height:26px; color:#38bdf8; border:1px solid rgba(56,189,248,0.3); border-radius:4px;">🚀</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="retryDuoplusRegistration('${duoId}')" title="Chạy tự động đăng ký DuoPlus 9 bước lấy API Key" style="padding:2px 6px; font-size:12px; height:26px; color:#c084fc; border:1px solid rgba(192,132,252,0.3); border-radius:4px;">🤖</button>
+            ` : ''}
+          </div>
+        </td>
+
+        <!-- 6. Ô DuoPlus API Key riêng biệt -->
+        <td>
+          <div style="display:flex; gap:4px; align-items:center;">
+            <input type="text" class="proxy-input"
+              value="${escapeHtml(item.duoplusApiKey || '')}"
+              placeholder="🔑 Nhập / Tự động lấy API Key..."
+              oninput="autoSaveDuoplusRowField('${duoId}', 'duoplusApiKey', this.value)"
+              style="flex:1; min-width:140px; font-size:11px; font-family:monospace; padding:3px 7px; height:26px; border-radius:4px; background:var(--surface); color:#10b981; font-weight:700; border-color:${item.duoplusApiKey ? 'rgba(16,185,129,0.45)' : 'var(--border)'};">
+            ${item.duoplusApiKey ? `
+              <button type="button" class="btn btn-ghost btn-xs" onclick="copyText('${escapeHtml(item.duoplusApiKey)}')" title="Copy API Key" style="padding:2px 5px; height:26px; font-size:11px;">📋</button>
+            ` : ''}
+          </div>
+        </td>
+
+        <!-- 7. Ô Proxy Cloud Phone (Socks5) riêng biệt -->
+        <td>
+          <div style="display:flex; gap:4px; align-items:center;">
+            <input type="text" class="proxy-input"
+              value="${escapeHtml(item.duoplusProxy || '')}"
+              placeholder="☁️ Socks5: ip:port:user:pass..."
+              oninput="autoSaveDuoplusRowField('${duoId}', 'duoplusProxy', this.value)"
+              style="flex:1; min-width:140px; font-size:11px; font-family:monospace; padding:3px 7px; height:26px; border-radius:4px; background:var(--surface); color:#38bdf8; font-weight:600;">
+            ${item.duoplusProxy ? `
+              <button type="button" class="btn btn-ghost btn-xs" onclick="copyText('${escapeHtml(item.duoplusProxy)}')" title="Copy Proxy Cloud Phone" style="padding:2px 5px; height:26px; font-size:11px;">📋</button>
+            ` : ''}
+          </div>
+        </td>
+
+        <!-- 8. Ô API DuoPlus / Quản lý Cloud Phone -->
+        <td style="text-align:center; white-space:nowrap;">
+          <div style="display:flex; flex-direction:column; gap:4px; align-items:center; justify-content:center;">
+            <button type="button" class="btn btn-xs btn-duoplus-api" onclick="openDuoplusApiModal('${duoId}')" title="Mở bảng DuoPlus Cloud Phone Management" style="font-size:11px; font-weight:700; padding:4px 10px; height:26px; border-radius:5px; background:linear-gradient(135deg, #0284c7, #0369a1); color:#fff; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 6px rgba(2,132,199,0.35);">
+              ⚡ API Duoplus
+            </button>
+            <div style="display:flex; gap:4px; align-items:center; font-size:10px;">
+              <span style="color:#fbbf24; font-weight:700;">👁️ Mở: ${parseInt(item.openCount, 10) || 0}</span>
+              ${item.duoplus_initialized ? `<span style="color:#34d399; font-weight:700;" title="Đã cấu hình khởi tạo">✅ Init</span>` : ''}
+            </div>
+          </div>
+        </td>
+
+        <!-- 9. Ô Liên kết TikTok & Ghi chú -->
+        <td>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <div>${linkedHtml}</div>
+            <input type="text" class="proxy-input"
+              value="${escapeHtml(item.notes || '')}"
+              placeholder="Ghi chú..."
+              oninput="autoSaveDuoplusRowField('${duoId}', 'notes', this.value)"
+              style="width:100%; font-size:11px; padding:2px 6px; height:23px; border-radius:4px;">
+          </div>
+        </td>
+
+        <!-- 10. Hành động -->
+        <td style="text-align:center;">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="deleteDuoplusRow('${duoId}')" title="Xóa dòng DuoPlus này" style="color:var(--error); padding:3px 7px; font-size:12px;">🗑️</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function addBlankDuoplusRow() {
+  try {
+    const res = await fetch('/api/duoplus-accounts/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: '' })
+    });
+    const data = await res.json();
+    if (data && data.success && data.id) {
+      window.duoplusData[data.id] = data.item;
+      duoplusCurrentPage = 1;
+      renderDuoplusTable();
+      renderTiktokTable();
+      toast('➕ Đã thêm dòng DuoPlus mới! Hãy chọn Hotmail hoặc nhập API Key.', 'success', 2000);
+    }
+  } catch (e) {
+    toast('❌ Lỗi thêm dòng DuoPlus: ' + e.message, 'error');
+  }
+}
+
+function autoSaveDuoplusRowField(duoId, field, val) {
+  val = (val || '').trim();
+  if (!window.duoplusData[duoId]) return;
+  window.duoplusData[duoId][field] = val;
+
+  const key = `${duoId}_${field}`;
+  if (duoplusRowSaveTimeouts[key]) clearTimeout(duoplusRowSaveTimeouts[key]);
+  duoplusRowSaveTimeouts[key] = setTimeout(async () => {
+    try {
+      await fetch('/api/duoplus-accounts/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: duoId, [field]: val })
+      });
+      renderTiktokTable();
+    } catch (e) {}
+  }, 450);
+}
+
+function autoSaveDuoplusGpmProxy(duoId, val) {
+  val = (val || '').trim();
+  if (!window.duoplusData[duoId]) return;
+  window.duoplusData[duoId].gpmProxy = val;
+
+  const key = `${duoId}_gpmProxy`;
+  if (duoplusRowSaveTimeouts[key]) clearTimeout(duoplusRowSaveTimeouts[key]);
+  duoplusRowSaveTimeouts[key] = setTimeout(async () => {
+    if (val) recordRecentProxy(val);
+    try {
+      await fetch('/api/duoplus-accounts/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: duoId, gpmProxy: val })
+      });
+      if (window.duoplusData[duoId].duoplusProfileId) {
+        updateGpmProfileProxy(window.duoplusData[duoId].duoplusProfileId, val);
+      }
+    } catch (e) {}
+  }, 500);
+}
+
+function applyQuickProxyToDuoplusRow(duoId, val) {
+  if (!val || !window.duoplusData[duoId]) return;
+  val = val.trim();
+  const inp = document.getElementById('gpmProxy_duo_' + duoId);
+  if (inp) inp.value = val;
+  window.duoplusData[duoId].gpmProxy = val;
+  recordRecentProxy(val);
+
+  fetch('/api/duoplus-accounts/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: duoId, gpmProxy: val })
+  }).then(() => {
+    toast('✅ Đã áp dụng Proxy GPM cho dòng DuoPlus!', 'success', 2000);
+    if (window.duoplusData[duoId].duoplusProfileId) {
+      updateGpmProfileProxy(window.duoplusData[duoId].duoplusProfileId, val);
+    }
+    renderDuoplusTable();
+  }).catch(() => {});
+}
+
+async function deleteDuoplusRow(duoId) {
+  const item = window.duoplusData[duoId];
   if (!item) return;
-  
-  const hasData = item.duoplusProfileId || item.duoplusHotmail || item.duoplusApiKey || item.gpmProxy || item.duoplusProxy || item.duoplus;
-  if (!hasData) {
-    toast('Dòng này chưa có dữ liệu Duoplus để xóa', 'info', 2000);
-    return;
-  }
-  
-  const accName = item.username || item.mail || item.identifier || id;
-  if (!confirm(`Bạn có chắc chắn muốn xóa toàn bộ dữ liệu ô Duoplus của tài khoản [${accName}]?\n\nThao tác này sẽ xóa:\n- Profile GPM ID\n- Hotmail đã liên kết\n- DuoPlus API Key\n- Proxy SOCKS5/HTTP đã cấu hình`)) {
-    return;
-  }
-  
-  const linkedMail = item.duoplusHotmail;
-  item.duoplusProfileId = '';
-  item.duoplusHotmail = '';
-  item.duoplusApiKey = '';
-  item.gpmProxy = '';
-  item.duoplusProxy = '';
-  item.duoplus = '';
-  item.duoplus_initialized = false;
-  
-  // Giải phóng Hotmail nếu đang được liên kết
-  if (linkedMail && hotmailData) {
-    const matched = Object.entries(hotmailData).find(([hId, h]) => h.hotmail === linkedMail);
+  const label = item.hotmail || item.duoplusProfileId || duoId;
+  if (!confirm(`Bạn có chắc chắn muốn xóa dòng DuoPlus [${label}]?`)) return;
+
+  // Giải phóng Hotmail nếu đang liên kết
+  if (item.hotmail && hotmailData) {
+    const matched = Object.entries(hotmailData).find(([hId, h]) => h.hotmail === item.hotmail);
     if (matched) {
       const [hId, hItem] = matched;
       if (hItem.service === 'Duoplus') {
@@ -4937,28 +5493,39 @@ async function clearRowDuoplus(id) {
       }
     }
   }
-  
+
+  // Hủy liên kết trên các dòng TikTok đang trỏ tới duoId này
+  Object.entries(tiktokData || {}).forEach(([tkId, tkItem]) => {
+    if (tkItem && tkItem.linkedDuoplusId === duoId) {
+      tkItem.linkedDuoplusId = '';
+      tkItem.duoplusLinkedAt = '';
+      tkItem.duoplusOpenCount = 0;
+      fetch('/api/tiktok/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...tkItem, id: tkId, linkedDuoplusId: '', duoplusLinkedAt: '', duoplusOpenCount: 0 })
+      }).catch(() => {});
+    }
+  });
+
   try {
-    await fetch('/api/tiktok/save', {
+    await fetch('/api/duoplus-accounts/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...item,
-        id,
-        duoplusProfileId: '',
-        duoplusHotmail: '',
-        duoplusApiKey: '',
-        gpmProxy: '',
-        duoplusProxy: '',
-        duoplus: '',
-        duoplus_initialized: false
-      })
+      body: JSON.stringify({ id: duoId })
     });
-    toast(`✅ Đã xóa toàn bộ dữ liệu ô Duoplus của tài khoản [${accName}]!`, 'success', 2500);
+    delete window.duoplusData[duoId];
+    renderDuoplusTable();
     renderTiktokTable();
-  } catch(e) {
-    toast('❌ Lỗi khi xóa dữ liệu: ' + e.message, 'error');
+    toast(`🗑️ Đã xóa dòng DuoPlus [${label}]`, 'success', 2000);
+  } catch (e) {
+    toast('❌ Lỗi xóa dòng DuoPlus: ' + e.message, 'error');
   }
+}
+
+// 🗑️ Clear All Links in TikTok Table 🗑️
+async function clearRowDuoplus(id) {
+  return unlinkDuoplusFromTiktokRow(id);
 }
 
 async function clearAllTiktokDuoplus() {
@@ -4969,19 +5536,17 @@ async function clearAllTiktokDuoplus() {
   }
   
   const affected = entries.filter(([id, item]) => 
-    item.duoplusProfileId || item.duoplusHotmail || item.duoplusApiKey || item.gpmProxy || item.duoplusProxy || item.duoplus
+    item.linkedDuoplusId || item.duoplusProfileId || item.duoplusHotmail || item.duoplusApiKey
   );
   
   if (affected.length === 0) {
-    toast('Tất cả các ô Duoplus đều đang trống!', 'info', 2500);
+    toast('Tất cả các ô Duoplus trong bảng TikTok đều đang chưa liên kết!', 'info', 2500);
     return;
   }
   
-  if (!confirm(`⚠️ CẢNH BÁO XÓA DỮ LIỆU:\nBạn có chắc chắn muốn xóa toàn bộ dữ liệu ô Duoplus của TẤT CẢ ${affected.length} tài khoản TikTok?\n\nThao tác này sẽ xóa sạch:\n- Profile ID GPMLogin đã liên kết\n- Hotmail đã gán cho Duoplus\n- DuoPlus API Key\n- Proxy SOCKS5/HTTP đã lưu\n\nHành động này không thể hoàn tác!`)) {
+  if (!confirm(`⚠️ HỦY TOÀN BỘ LIÊN KẾT DUOPLUS:\nBạn có chắc chắn muốn hủy liên kết DuoPlus của TẤT CẢ ${affected.length} tài khoản TikTok để chọn lại?\n(Dữ liệu gốc bên tab DuoPlus vẫn được giữ nguyên)`)) {
     return;
   }
-  
-  toast(`Đang xóa dữ liệu Duoplus của ${affected.length} tài khoản...`, 'info', 3000);
   
   try {
     const res = await fetch('/api/tiktok/clear-all-duoplus', {
@@ -4991,61 +5556,16 @@ async function clearAllTiktokDuoplus() {
     const data = await res.json();
     if (data.success) {
       entries.forEach(([id, item]) => {
-        item.duoplusProfileId = '';
-        item.duoplusHotmail = '';
-        item.duoplusApiKey = '';
-        item.gpmProxy = '';
-        item.duoplusProxy = '';
-        item.duoplus = '';
-        item.duoplus_initialized = false;
+        item.linkedDuoplusId = '';
+        item.duoplusLinkedAt = '';
+        item.duoplusOpenCount = 0;
       });
-      // Giải phóng tất cả hotmail gắn mác Duoplus
-      if (hotmailData) {
-        Object.entries(hotmailData).forEach(([hId, hItem]) => {
-          if (hItem.service === 'Duoplus') {
-            hItem.service = '';
-            fetch('/api/hm/save', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ...hItem, id: hId, service: '' })
-            }).catch(() => {});
-          }
-        });
-        renderHotmailTable();
-      }
-      toast(`🎉 Đã xóa thành công toàn bộ dữ liệu ô Duoplus của ${data.count || affected.length} tài khoản!`, 'success', 3500);
+      toast(`🎉 Đã hủy liên kết DuoPlus của ${data.count || affected.length} tài khoản TikTok!`, 'success', 3500);
       renderTiktokTable();
+      renderDuoplusTable();
       return;
     }
   } catch(e) {}
-  
-  // Fallback nếu API gặp lỗi
-  for (const [id, item] of affected) {
-    item.duoplusProfileId = '';
-    item.duoplusHotmail = '';
-    item.duoplusApiKey = '';
-    item.gpmProxy = '';
-    item.duoplusProxy = '';
-    item.duoplus = '';
-    item.duoplus_initialized = false;
-    fetch('/api/tiktok/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...item,
-        id,
-        duoplusProfileId: '',
-        duoplusHotmail: '',
-        duoplusApiKey: '',
-        gpmProxy: '',
-        duoplusProxy: '',
-        duoplus: '',
-        duoplus_initialized: false
-      })
-    }).catch(() => {});
-  }
-  toast(`🎉 Đã xóa dữ liệu ô Duoplus của ${affected.length} tài khoản!`, 'success', 3500);
-  renderTiktokTable();
 }
 
 // 🌐 TikTok GPM Proxy Helpers & Auto-Save 🌐
@@ -5072,7 +5592,14 @@ function getKnownProxies() {
     }
   } catch(e) {}
 
-  // 2. Từ dữ liệu tất cả tài khoản tiktokData
+  // 2. Từ dữ liệu tất cả dòng duoplusData & tiktokData
+  if (typeof window.duoplusData === 'object' && window.duoplusData) {
+    Object.values(window.duoplusData).forEach(item => {
+      if (!item) return;
+      if (item.gpmProxy && typeof item.gpmProxy === 'string' && item.gpmProxy.trim()) set.add(item.gpmProxy.trim());
+      if (item.duoplusProxy && typeof item.duoplusProxy === 'string' && item.duoplusProxy.trim()) set.add(item.duoplusProxy.trim());
+    });
+  }
   if (typeof tiktokData === 'object' && tiktokData) {
     Object.values(tiktokData).forEach(item => {
       const p = item.gpmProxy || item.duoplusProxy || item.proxy;
@@ -5233,30 +5760,41 @@ async function updateGpmProfileProxy(profileId, proxyStr) {
 }
 
 let currentPickerTiktokId = null;
+let currentPickerDuoId = null;
+let currentPickerAutoCreateGpm = false;
 
-async function createGpmProfileForTiktok(id, btn) {
-  const item = tiktokData[id];
-  if (!item) {
-    toast('Không tìm thấy tài khoản Tiktok', 'error');
-    return;
-  }
-  currentPickerTiktokId = id;
-  
-  // Ensure hotmail data is loaded
+async function openCreateDuoplusFromHotmail() {
+  currentPickerDuoId = '__NEW_DUOPLUS_ROW__';
+  currentPickerTiktokId = null;
+  currentPickerAutoCreateGpm = false;
   if (!hotmailData || Object.keys(hotmailData).length === 0) {
     await loadHotmailData();
   }
-  
-  openSelectHotmailModal(id);
+  openSelectHotmailModalForDuoplus('__NEW_DUOPLUS_ROW__', false);
 }
 
-function openSelectHotmailModal(tiktokId) {
-  currentPickerTiktokId = tiktokId;
-  const item = tiktokData[tiktokId] || {};
+async function openHotmailPickerForDuoplusRow(duoId, autoCreateGpm = false) {
+  currentPickerDuoId = duoId;
+  currentPickerTiktokId = null;
+  currentPickerAutoCreateGpm = !!autoCreateGpm;
+  if (!hotmailData || Object.keys(hotmailData).length === 0) {
+    await loadHotmailData();
+  }
+  openSelectHotmailModalForDuoplus(duoId, autoCreateGpm);
+}
+
+function openSelectHotmailModalForDuoplus(duoId, autoCreateGpm = false) {
+  currentPickerDuoId = duoId;
+  currentPickerAutoCreateGpm = !!autoCreateGpm;
+  const isNew = (duoId === '__NEW_DUOPLUS_ROW__');
+  const item = (!isNew && window.duoplusData && window.duoplusData[duoId]) ? window.duoplusData[duoId] : {};
+
   const userEl = document.getElementById('pickerTiktokUser');
-  if (userEl) userEl.innerText = item.username || item.mail || item.identifier || tiktokId;
-  
-  const rowInput = document.getElementById('gpmProxy_' + tiktokId);
+  if (userEl) {
+    userEl.innerText = isNew ? '➕ Tạo dòng DuoPlus mới từ Hotmail' : (item.hotmail || `DuoPlus #${duoId.slice(-5)}`);
+  }
+
+  const rowInput = !isNew ? document.getElementById('gpmProxy_duo_' + duoId) : null;
   const pStr = ((rowInput ? rowInput.value : '') || item.gpmProxy || '').trim();
   const proxyEl = document.getElementById('pickerTiktokProxy');
   if (proxyEl) {
@@ -5269,11 +5807,45 @@ function openSelectHotmailModal(tiktokId) {
 
   const searchInput = document.getElementById('pickerHotmailSearch');
   if (searchInput) searchInput.value = '';
-  
+
   renderHotmailPickerList();
-  
+
   const modal = document.getElementById('selectHotmailModal');
   if (modal) modal.classList.add('active');
+}
+
+async function createGpmProfileForDuoplusRow(duoId, btn) {
+  const item = window.duoplusData ? window.duoplusData[duoId] : null;
+  if (!item) {
+    toast('Không tìm thấy dòng dữ liệu DuoPlus', 'error');
+    return;
+  }
+  if (!hotmailData || Object.keys(hotmailData).length === 0) {
+    await loadHotmailData();
+  }
+  if (!item.hotmail) {
+    openHotmailPickerForDuoplusRow(duoId, true);
+    return;
+  }
+  let hotmailId = item.hotmailId || null;
+  if (!hotmailId && hotmailData) {
+    const found = Object.entries(hotmailData).find(([hId, h]) => h && h.hotmail === item.hotmail);
+    if (found) hotmailId = found[0];
+  }
+  await executeGpmProfileCreationForDuoplus(duoId, item.hotmail, hotmailId);
+}
+
+async function createGpmProfileForTiktok(id, btn) {
+  const item = tiktokData[id];
+  if (item && item.linkedDuoplusId && window.duoplusData && window.duoplusData[item.linkedDuoplusId]) {
+    return createGpmProfileForDuoplusRow(item.linkedDuoplusId, btn);
+  }
+  switchTab('duoplus');
+  openCreateDuoplusFromHotmail();
+}
+
+function openSelectHotmailModal(duoOrTiktokId) {
+  return openSelectHotmailModalForDuoplus(duoOrTiktokId, false);
 }
 
 function closeSelectHotmailModal() {
@@ -5305,7 +5877,6 @@ function renderHotmailPickerList() {
     const txt = `${item.hotmail || ''} ${item.password || ''} ${item.service || ''}`.toLowerCase();
     return txt.includes(query);
   }).sort((a, b) => {
-    // Ưu tiên tài khoản chưa dùng Duoplus lên trước
     const sA = (a[1].service || '').includes('Duoplus') ? 1 : 0;
     const sB = (b[1].service || '').includes('Duoplus') ? 1 : 0;
     return sA - sB;
@@ -5320,8 +5891,8 @@ function renderHotmailPickerList() {
     return;
   }
   
-  const tiktokItem = tiktokData[currentPickerTiktokId] || {};
-  const currentLinkedHotmail = tiktokItem.duoplusHotmail || '';
+  const duoItem = (currentPickerDuoId && currentPickerDuoId !== '__NEW_DUOPLUS_ROW__' && window.duoplusData) ? (window.duoplusData[currentPickerDuoId] || {}) : {};
+  const currentLinkedHotmail = duoItem.hotmail || '';
   
   let html = '';
   filtered.forEach(([hId, hItem]) => {
@@ -5363,18 +5934,10 @@ function renderHotmailPickerList() {
 }
 
 async function confirmSelectHotmailForGpm(hotmailId, hotmailEmail) {
-  const tiktokId = currentPickerTiktokId;
-  const item = tiktokData[tiktokId];
-  if (!item) {
-    toast('Không tìm thấy tài khoản TikTok', 'error');
-    closeSelectHotmailModal();
-    return;
-  }
-  
   closeSelectHotmailModal();
-  
+
   // 1. Tự động cập nhật ô Service ở tab Hotmail Accounts là Duoplus
-  if (hotmailData[hotmailId]) {
+  if (hotmailData && hotmailData[hotmailId]) {
     hotmailData[hotmailId].service = 'Duoplus';
     fetch('/api/hm/save', {
       method: 'POST',
@@ -5383,69 +5946,96 @@ async function confirmSelectHotmailForGpm(hotmailId, hotmailEmail) {
     }).catch(() => {});
     renderHotmailTable();
   }
-  
-  // 2. Lưu hotmail vào item TikTok
-  item.duoplusHotmail = hotmailEmail;
-  
-  // 3. Tiến hành tạo profile GPM
-  await executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId);
+
+  let duoId = currentPickerDuoId;
+
+  // Trường hợp tạo dòng DuoPlus mới từ Hotmail
+  if (!duoId || duoId === '__NEW_DUOPLUS_ROW__') {
+    try {
+      const res = await fetch('/api/duoplus-accounts/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hotmail: hotmailEmail, hotmailId })
+      });
+      const data = await res.json();
+      if (data && data.success && data.id) {
+        duoId = data.id;
+        window.duoplusData[duoId] = data.item;
+        duoplusCurrentPage = 1;
+        renderDuoplusTable();
+        renderTiktokTable();
+        toast(`✅ Đã tạo dòng DuoPlus mới liên kết với Hotmail [${hotmailEmail}]!`, 'success', 2500);
+      }
+    } catch (e) {
+      toast('❌ Lỗi tạo dòng DuoPlus: ' + e.message, 'error');
+      return;
+    }
+  } else if (window.duoplusData && window.duoplusData[duoId]) {
+    // Cập nhật Hotmail cho dòng DuoPlus hiện có
+    window.duoplusData[duoId].hotmail = hotmailEmail;
+    window.duoplusData[duoId].hotmailId = hotmailId;
+    try {
+      await fetch('/api/duoplus-accounts/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: duoId, hotmail: hotmailEmail, hotmailId })
+      });
+      renderDuoplusTable();
+      renderTiktokTable();
+      toast(`✅ Đã liên kết Hotmail [${hotmailEmail}] vào dòng DuoPlus!`, 'success', 2000);
+    } catch (e) {}
+  }
+
+  // Nếu được mở từ nút "📱 Tạo Duoplus GPM", tự động tạo GPM profile ngay sau khi chọn Hotmail
+  if (currentPickerAutoCreateGpm && duoId && window.duoplusData[duoId]) {
+    await executeGpmProfileCreationForDuoplus(duoId, hotmailEmail, hotmailId);
+  }
 }
 
-async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = null) {
-  const item = tiktokData[tiktokId];
+async function executeGpmProfileCreationForDuoplus(duoId, hotmailEmail, hotmailId = null) {
+  const item = window.duoplusData ? window.duoplusData[duoId] : null;
   if (!item) return;
-  
+
   const port = localStorage.getItem('gpm_api_port') || '9495';
   const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
-  
-  // Tên profile: dữ liệu ô Username + Hotmail name
-  const username = (item.username || item.mail || item.identifier || 'User').trim();
-  const hotmailName = (hotmailEmail || '').trim();
-  const profileName = username ? `${username}_${hotmailName}` : hotmailName;
 
-  // Lấy Proxy cấu hình từ ô của dòng này
-  const rowInput = document.getElementById('gpmProxy_' + tiktokId);
+  const hotmailName = (hotmailEmail || item.hotmail || 'DuoPlus').trim();
+  const profileName = `DuoPlus_${hotmailName}`;
+
+  const rowInput = document.getElementById('gpmProxy_duo_' + duoId);
   const rawProxyStr = ((rowInput ? rowInput.value : '') || item.gpmProxy || '').trim();
   const formattedProxy = rawProxyStr ? formatProxyForGpm(rawProxyStr) : '';
-  
-  const btn = document.getElementById('btnGpm_' + tiktokId);
+
+  const btn = document.getElementById('btnGpm_duo_' + duoId);
   const origBtnText = btn ? btn.innerHTML : '📱 Tạo Duoplus GPM';
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '⏳ Đang tạo...';
   }
-  
+
   toast(`Đang tạo profile GPMLogin: ${profileName}${formattedProxy ? ' (Proxy: ' + formattedProxy + ')' : ''}...`, 'info', 2500);
-  
-  // Cấu hình profile GPM mới:
-  // - Link mặc định: https://my.duoplus.net/sign-up
-  // - Trình duyệt: Chrome
-  // - Phiên bản: 154 (154.0.8037.98)
-  // - OS: Windows
-  // - Thông số ngẫu nhiên tránh trùng: canvas noise, audio noise, webgl noise, font masked, client_rect noise
-  // - Áp dụng Proxy đã chọn/nhập
+
   const payload = {
     name: profileName,
-    note: `TikTok: ${username} | Hotmail: ${hotmailName} | Duoplus.net${formattedProxy ? ' | Proxy: ' + formattedProxy : ''}`,
+    note: `DuoPlus Account | Hotmail: ${hotmailName} | Duoplus.net${formattedProxy ? ' | Proxy: ' + formattedProxy : ''}`,
     startup_urls: "https://my.duoplus.net/sign-up",
     raw_proxy: formattedProxy,
-    browser_type: 1, // Chrome
-    browser_version: "154.0.8037.98", // Phiên bản 154
-    os: "windows", // OS: Windows
-    canvas_mode: 2, // Noise (Ngẫu nhiên thông số)
-    audio_mode: 2,  // Noise
-    webgl_mode: 2,  // Noise
-    client_rect_mode: 2, // Noise
-    font_mode: 2,   // Masked
+    browser_type: 1,
+    browser_version: "154.0.8037.98",
+    os: "windows",
+    canvas_mode: 2,
+    audio_mode: 2,
+    webgl_mode: 2,
+    client_rect_mode: 2,
+    font_mode: 2,
     timezone_base_on_ip: true,
     is_language_base_on_ip: true
   };
-  
+
   let profileId = null;
   let success = false;
   let errorMsg = '';
-  
-  // Tier 1: Local Bridge (Port 9497) - Auto-Recover GPM khi tắt/mở lại
+
   const bridgeUrls = [
     `http://localhost:${bridgePort}/api/v1/profiles/create`,
     `http://127.0.0.1:${bridgePort}/api/v1/profiles/create`
@@ -5470,14 +6060,13 @@ async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = nul
       }
     } catch(e) {}
   }
-  
-  // Tier 2: Server Proxy
+
   if (!success) {
     try {
       const proxyRes = await fetch('/api/gpm/create-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ port, payload, id: tiktokId }),
+        body: JSON.stringify({ port, payload, id: duoId }),
         signal: AbortSignal.timeout(20000)
       });
       const proxyData = await proxyRes.json();
@@ -5489,8 +6078,7 @@ async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = nul
       }
     } catch(e) {}
   }
-  
-  // Tier 3: Direct GPM API
+
   if (!success) {
     const directUrls = [
       `http://127.0.0.1:${port}/api/v1/profiles/create`,
@@ -5515,31 +6103,28 @@ async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = nul
       } catch(e) {}
     }
   }
-  
+
   if (success && profileId) {
     item.duoplusProfileId = profileId;
-    item.duoplus = profileId;
-    item.duoplusHotmail = hotmailEmail;
-    
-    // Save to Firebase backend
-    fetch('/api/tiktok/save', {
+    item.hotmail = hotmailEmail;
+
+    fetch('/api/duoplus-accounts/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...item,
-        id: tiktokId,
+        id: duoId,
         duoplusProfileId: profileId,
-        duoplus: profileId,
-        duoplusHotmail: hotmailEmail
+        hotmail: hotmailEmail,
+        gpmProxy: rawProxyStr
       })
     }).catch(() => {});
-    
+
     toast(`✅ Đã tạo profile GPMLogin: ${profileName}! ID: ${profileId}`, 'success', 3500);
+    renderDuoplusTable();
     renderTiktokTable();
 
-    // Tự động khởi chạy luồng đăng ký tài khoản DuoPlus
     startDuoplusAutomationFlow({
-      tiktokId,
+      duoId,
       hotmailId,
       hotmailEmail,
       profileId,
@@ -5550,7 +6135,7 @@ async function executeGpmProfileCreation(tiktokId, hotmailEmail, hotmailId = nul
     const msg = errorMsg || `Không kết nối được GPMLogin (Port ${port})`;
     toast(`⚠️ ${msg}. Hãy đảm bảo GPMLogin hoặc file 'start-gpm-bridge.bat' đang chạy trên máy tính!`, 'warning', 6000);
   }
-  
+
   if (btn) btn.disabled = false;
 }
 
@@ -5605,21 +6190,23 @@ async function openGpmProfile(profileId) {
 
 // ─── DUOPLUS AUTOMATION FRONTEND LOGIC ────────────────────────────────
 let duoplusCurrentTaskId = null;
+let duoplusCurrentDuoId = null;
 let duoplusCurrentTiktokId = null;
 let duoplusPollInterval = null;
 let duoplusCurrentTaskParams = null;
 
-async function startDuoplusAutomationFlow({ tiktokId, hotmailId, hotmailEmail, profileId, profileName, startFromStep = 1 }) {
-  duoplusCurrentTiktokId = tiktokId;
-  duoplusCurrentTaskParams = { tiktokId, hotmailId, hotmailEmail, profileId, profileName };
+async function startDuoplusAutomationFlow({ duoId, tiktokId, hotmailId, hotmailEmail, profileId, profileName, startFromStep = 1 }) {
+  duoplusCurrentDuoId = duoId || tiktokId || null;
+  duoplusCurrentTiktokId = tiktokId || null;
+  duoplusCurrentTaskParams = { duoId: duoplusCurrentDuoId, tiktokId, hotmailId, hotmailEmail, profileId, profileName };
   const modal = document.getElementById('duoplusProgressModal');
   if (modal) modal.classList.add('active');
 
-  const tiktokItem = tiktokData[tiktokId] || {};
+  const duoItem = (duoplusCurrentDuoId && window.duoplusData && window.duoplusData[duoplusCurrentDuoId]) ? window.duoplusData[duoplusCurrentDuoId] : {};
+  const tiktokItem = (tiktokId && tiktokData && tiktokData[tiktokId]) ? tiktokData[tiktokId] : {};
   let hotmailAccount = (hotmailId && hotmailData[hotmailId]) ? hotmailData[hotmailId] : null;
   
   if (!hotmailAccount) {
-    // Tìm trong hotmailData theo email
     for (const [hId, h] of Object.entries(hotmailData || {})) {
       if (h.hotmail === hotmailEmail) {
         hotmailAccount = h;
@@ -5635,7 +6222,7 @@ async function startDuoplusAutomationFlow({ tiktokId, hotmailId, hotmailEmail, p
 
   // Cập nhật thông tin Header
   const userEl = document.getElementById('duoProgUser');
-  if (userEl) userEl.innerText = tiktokItem.username || tiktokItem.mail || tiktokItem.identifier || tiktokId;
+  if (userEl) userEl.innerText = duoItem.hotmail || hotmailEmail || tiktokItem.username || duoplusCurrentDuoId;
   const mailEl = document.getElementById('duoProgMail');
   if (mailEl) mailEl.innerText = hotmailEmail;
   const footerEl = document.getElementById('duoTaskFooterInfo');
@@ -5746,18 +6333,18 @@ function startDuoplusTaskPolling(taskId, hotmailId) {
       if (keyAlert) keyAlert.style.display = 'block';
       if (keyDisp) keyDisp.innerText = task.apiKey;
 
-      if (duoplusCurrentTiktokId && tiktokData[duoplusCurrentTiktokId]) {
-        if (tiktokData[duoplusCurrentTiktokId].duoplusApiKey !== task.apiKey) {
-          tiktokData[duoplusCurrentTiktokId].duoplusApiKey = task.apiKey;
-          fetch('/api/tiktok/save', {
+      if (duoplusCurrentDuoId && window.duoplusData && window.duoplusData[duoplusCurrentDuoId]) {
+        if (window.duoplusData[duoplusCurrentDuoId].duoplusApiKey !== task.apiKey) {
+          window.duoplusData[duoplusCurrentDuoId].duoplusApiKey = task.apiKey;
+          fetch('/api/duoplus-accounts/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              ...tiktokData[duoplusCurrentTiktokId],
-              id: duoplusCurrentTiktokId,
+              id: duoplusCurrentDuoId,
               duoplusApiKey: task.apiKey
             })
           }).catch(() => {});
+          renderDuoplusTable();
           renderTiktokTable();
         }
       }
@@ -5974,25 +6561,27 @@ function resetDuoplusModalUI(fromStep = 1) {
 }
 
 async function retryDuoplusFromStep(stepNum) {
-  if (!duoplusCurrentTaskParams || !duoplusCurrentTaskParams.tiktokId) {
-    if (duoplusCurrentTiktokId && tiktokData[duoplusCurrentTiktokId]) {
-      const item = tiktokData[duoplusCurrentTiktokId];
-      let hotmailId = null;
-      for (const [hId, h] of Object.entries(hotmailData || {})) {
-        if (h.hotmail === item.duoplusHotmail) {
-          hotmailId = hId;
-          break;
+  if (!duoplusCurrentTaskParams || (!duoplusCurrentTaskParams.duoId && !duoplusCurrentTaskParams.tiktokId)) {
+    if (duoplusCurrentDuoId && window.duoplusData && window.duoplusData[duoplusCurrentDuoId]) {
+      const item = window.duoplusData[duoplusCurrentDuoId];
+      let hotmailId = item.hotmailId || null;
+      if (!hotmailId) {
+        for (const [hId, h] of Object.entries(hotmailData || {})) {
+          if (h.hotmail === item.hotmail) {
+            hotmailId = hId;
+            break;
+          }
         }
       }
       duoplusCurrentTaskParams = {
-        tiktokId: duoplusCurrentTiktokId,
+        duoId: duoplusCurrentDuoId,
         hotmailId,
-        hotmailEmail: item.duoplusHotmail || '',
+        hotmailEmail: item.hotmail || '',
         profileId: item.duoplusProfileId || '',
         profileName: item.duoplusProfileId || ''
       };
     } else {
-      toast('Chưa có thông tin tài khoản đang chạy', 'warning');
+      toast('Chưa có thông tin dòng DuoPlus đang chạy', 'warning');
       return;
     }
   }
@@ -6156,28 +6745,29 @@ function copyDuoplusOtp() {
   }
 }
 
-async function retryDuoplusRegistration(tiktokId) {
-  const item = tiktokData[tiktokId];
+async function retryDuoplusRegistration(duoId) {
+  const item = (window.duoplusData && window.duoplusData[duoId]) ? window.duoplusData[duoId] : null;
   if (!item || !item.duoplusProfileId) {
-    toast('Tài khoản chưa có profile GPMLogin', 'warning');
+    toast('Dòng DuoPlus này chưa có profile GPMLogin', 'warning');
     return;
   }
-  if (!item.duoplusHotmail) {
-    currentPickerTiktokId = tiktokId;
-    openSelectHotmailModal(tiktokId);
+  if (!item.hotmail) {
+    openHotmailPickerForDuoplusRow(duoId, true);
     return;
   }
-  let hotmailId = null;
-  for (const [hId, h] of Object.entries(hotmailData || {})) {
-    if (h.hotmail === item.duoplusHotmail) {
-      hotmailId = hId;
-      break;
+  let hotmailId = item.hotmailId || null;
+  if (!hotmailId) {
+    for (const [hId, h] of Object.entries(hotmailData || {})) {
+      if (h.hotmail === item.hotmail) {
+        hotmailId = hId;
+        break;
+      }
     }
   }
   duoplusCurrentTaskParams = {
-    tiktokId,
+    duoId,
     hotmailId,
-    hotmailEmail: item.duoplusHotmail,
+    hotmailEmail: item.hotmail,
     profileId: item.duoplusProfileId,
     profileName: item.duoplusProfileId
   };
@@ -6188,6 +6778,7 @@ async function retryDuoplusRegistration(tiktokId) {
 }
 
 // ─── DUOPLUS CLOUD PHONE API CONTROLLER ─────────────────────────────
+let duoplusCurrentCloudPhoneDuoId = null;
 let duoplusCurrentCloudPhoneTiktokId = null;
 let duoplusCurrentPhonesList = [];
 
@@ -6308,29 +6899,57 @@ async function callDuoplusGenericApi(subPath, payload) {
   return resData;
 }
 
-function openDuoplusApiModal(tiktokId) {
-  duoplusCurrentCloudPhoneTiktokId = tiktokId;
-  const item = tiktokData[tiktokId] || {};
-  
+function openDuoplusApiModal(duoOrTiktokId, linkedTiktokId = null, skipOpenCountIncrement = false) {
+  let duoId = duoOrTiktokId;
+  let tkId = linkedTiktokId;
+
+  if (window.duoplusData && !window.duoplusData[duoId] && tiktokData && tiktokData[duoId]) {
+    tkId = duoId;
+    duoId = tiktokData[tkId].linkedDuoplusId || duoId;
+  }
+
+  duoplusCurrentCloudPhoneDuoId = duoId;
+  duoplusCurrentCloudPhoneTiktokId = tkId;
+
+  const duoItem = (window.duoplusData && window.duoplusData[duoId]) ? window.duoplusData[duoId] : {};
+  const tkItem = (tkId && tiktokData && tiktokData[tkId]) ? tiktokData[tkId] : null;
+
+  // Nếu bấm mở trực tiếp từ bảng DuoPlus (skipOpenCountIncrement === false), tự động +1 bộ đếm mở của dòng DuoPlus
+  if (!skipOpenCountIncrement && window.duoplusData && window.duoplusData[duoId]) {
+    duoItem.openCount = (parseInt(duoItem.openCount, 10) || 0) + 1;
+    fetch('/api/duoplus-accounts/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: duoId, openCount: duoItem.openCount })
+    }).catch(() => {});
+    renderDuoplusTable();
+  }
+
   const modal = document.getElementById('duoplusCloudPhoneModal');
   if (!modal) return;
   modal.classList.add('active');
 
   const userEl = document.getElementById('duoCpUserDisplay');
-  if (userEl) userEl.innerText = item.username || item.mail || item.identifier || tiktokId;
-  
+  if (userEl) {
+    if (tkItem) {
+      userEl.innerText = `${tkItem.username || tkItem.mail || tkId} (Liên kết: ${duoItem.hotmail || duoId})`;
+    } else {
+      userEl.innerText = duoItem.hotmail || duoItem.notes || `DuoPlus #${(duoId || '').slice(-5)}`;
+    }
+  }
+
   const mailEl = document.getElementById('duoCpMailDisplay');
-  if (mailEl) mailEl.innerText = item.duoplusHotmail || 'Chưa liên kết Hotmail';
+  if (mailEl) mailEl.innerText = duoItem.hotmail || 'Chưa liên kết Hotmail';
 
   const keyInput = document.getElementById('duoCpApiKeyInput');
-  const apiKey = (item.duoplusApiKey || '').trim();
+  const apiKey = (duoItem.duoplusApiKey || '').trim();
   if (keyInput) keyInput.value = apiKey;
 
-  // TÁCH BIỆT: Điền proxy cho Cloud Phone CHỈ lấy từ item.duoplusProxy
+  // Điền proxy cho Cloud Phone từ duoItem.duoplusProxy
   const proxyInput = document.getElementById('duoCpProxyInput');
-  const currentProxy = item.duoplusProxy || '';
+  const currentProxy = duoItem.duoplusProxy || '';
   if (proxyInput) proxyInput.value = currentProxy;
-  
+
   // Tải danh sách proxy từ PandaProxy API vào dropdown
   loadDuoCpPandaProxies();
 
@@ -6340,7 +6959,7 @@ function openDuoplusApiModal(tiktokId) {
   // Kiểm tra trạng thái nút Cấu hình khởi tạo
   const btnInit = document.getElementById('btnDuoInitConfig');
   if (btnInit) {
-    if (item.duoplus_initialized) {
+    if (duoItem.duoplus_initialized) {
       btnInit.style.display = 'none';
     } else {
       btnInit.style.display = 'inline-flex';
@@ -6356,7 +6975,7 @@ function openDuoplusApiModal(tiktokId) {
     if (emptyState) emptyState.style.display = 'none';
     if (errAlert) {
       errAlert.style.display = 'block';
-      errAlert.innerHTML = '⚠️ <strong>Tài khoản chưa có API Key DuoPlus.</strong> Vui lòng nhập API Key vào ô bên trên rồi bấm [Lưu Key], hoặc dùng tính năng tự động đăng ký DuoPlus để hệ thống tự tạo và lấy key.';
+      errAlert.innerHTML = '⚠️ <strong>Dòng DuoPlus này chưa có API Key.</strong> Vui lòng nhập API Key vào ô bên trên rồi bấm [Lưu Key], hoặc dùng tính năng tự động đăng ký DuoPlus bên tab DuoPlus để hệ thống tự lấy key.';
     }
   }
 }
@@ -6371,27 +6990,25 @@ function closeDuoplusCloudPhoneModal() {
 }
 
 async function saveDuoplusApiKeyFromModal() {
-  if (!duoplusCurrentCloudPhoneTiktokId) return;
+  const duoId = duoplusCurrentCloudPhoneDuoId;
+  if (!duoId) return;
   const keyInput = document.getElementById('duoCpApiKeyInput');
   const keyVal = (keyInput ? keyInput.value : '').trim();
   if (!keyVal) {
     toast('Vui lòng nhập API Key hợp lệ', 'warning');
     return;
   }
-  
-  if (tiktokData[duoplusCurrentCloudPhoneTiktokId]) {
-    tiktokData[duoplusCurrentCloudPhoneTiktokId].duoplusApiKey = keyVal;
+
+  if (window.duoplusData && window.duoplusData[duoId]) {
+    window.duoplusData[duoId].duoplusApiKey = keyVal;
     try {
-      await fetch('/api/tiktok/save', {
+      await fetch('/api/duoplus-accounts/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...tiktokData[duoplusCurrentCloudPhoneTiktokId],
-          id: duoplusCurrentCloudPhoneTiktokId,
-          duoplusApiKey: keyVal
-        })
+        body: JSON.stringify({ id: duoId, duoplusApiKey: keyVal })
       });
       toast('✅ Đã lưu API Key DuoPlus!', 'success', 2000);
+      renderDuoplusTable();
       renderTiktokTable();
       fetchDuoplusCloudPhones();
     } catch(e) {
@@ -6469,8 +7086,8 @@ function renderDuoplusCloudPhonesTable(list) {
   // Quản lý hiển thị nút Cấu hình khởi tạo:
   // Nếu máy đã khởi tạo (status !== 0) hoặc cờ duoplus_initialized = true -> ẩn nút vĩnh viễn
   const btnInit = document.getElementById('btnDuoInitConfig');
-  const tiktokId = duoplusCurrentCloudPhoneTiktokId;
-  const item = (tiktokId && tiktokData[tiktokId]) ? tiktokData[tiktokId] : {};
+  const duoId = duoplusCurrentCloudPhoneDuoId;
+  const item = (duoId && window.duoplusData && window.duoplusData[duoId]) ? window.duoplusData[duoId] : {};
   const hasUnconfiguredPhone = list.some(p => p.status === 0);
   const isAlreadyInitialized = item.duoplus_initialized || (list.length > 0 && !hasUnconfiguredPhone);
 
@@ -6694,18 +7311,17 @@ function applyPandaProxyToDuoCp(proxyStr) {
     if (pid) window.duoCpSelectedPandaId = parseInt(pid, 10) || pid;
   }
   
-  // Lưu riêng vào duoplusProxy (tách biệt hoàn toàn với gpmProxy)
-  if (duoplusCurrentCloudPhoneTiktokId && tiktokData[duoplusCurrentCloudPhoneTiktokId]) {
-    tiktokData[duoplusCurrentCloudPhoneTiktokId].duoplusProxy = proxyStr;
-    fetch('/api/tiktok/save', {
+  // Lưu riêng vào duoplusProxy của dòng DuoPlus
+  if (duoplusCurrentCloudPhoneDuoId && window.duoplusData && window.duoplusData[duoplusCurrentCloudPhoneDuoId]) {
+    window.duoplusData[duoplusCurrentCloudPhoneDuoId].duoplusProxy = proxyStr;
+    fetch('/api/duoplus-accounts/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...tiktokData[duoplusCurrentCloudPhoneTiktokId],
-        id: duoplusCurrentCloudPhoneTiktokId,
+        id: duoplusCurrentCloudPhoneDuoId,
         duoplusProxy: proxyStr
       })
-    }).then(() => renderTiktokTable()).catch(() => {});
+    }).then(() => { renderDuoplusTable(); renderTiktokTable(); }).catch(() => {});
   }
   toast(`✅ Đã chọn Proxy từ PandaProxy: ${proxyStr}. Bạn có thể bấm [🔄 Xoay Proxy] hoặc [🚀 Áp dụng].`, 'success', 2500);
 }
@@ -6853,19 +7469,18 @@ async function rotateDuoCpPandaProxy() {
 
 function autoSaveDuoCpProxy(val) {
   val = (val || '').trim();
-  if (!duoplusCurrentCloudPhoneTiktokId || !tiktokData[duoplusCurrentCloudPhoneTiktokId]) return;
-  tiktokData[duoplusCurrentCloudPhoneTiktokId].duoplusProxy = val;
+  if (!duoplusCurrentCloudPhoneDuoId || !window.duoplusData || !window.duoplusData[duoplusCurrentCloudPhoneDuoId]) return;
+  window.duoplusData[duoplusCurrentCloudPhoneDuoId].duoplusProxy = val;
   if (window._duoCpProxySaveTimeout) clearTimeout(window._duoCpProxySaveTimeout);
   window._duoCpProxySaveTimeout = setTimeout(() => {
-    fetch('/api/tiktok/save', {
+    fetch('/api/duoplus-accounts/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...tiktokData[duoplusCurrentCloudPhoneTiktokId],
-        id: duoplusCurrentCloudPhoneTiktokId,
+        id: duoplusCurrentCloudPhoneDuoId,
         duoplusProxy: val
       })
-    }).then(() => renderTiktokTable()).catch(() => {});
+    }).then(() => { renderDuoplusTable(); renderTiktokTable(); }).catch(() => {});
   }, 500);
 }
 
@@ -7048,18 +7663,17 @@ async function applyDuoplusProxyToCloudPhones(targetImageId) {
     if (result && (result.code === 200 || result.success)) {
       toast(`✅ Đã áp dụng Proxy Socks5 thành công cho Cloud Phone [${phone.id}]!`, 'success', 3500);
       
-      // Lưu thông tin proxy vào tiktokData
-      if (duoplusCurrentCloudPhoneTiktokId && tiktokData[duoplusCurrentCloudPhoneTiktokId]) {
-        tiktokData[duoplusCurrentCloudPhoneTiktokId].duoplusProxy = proxyStr;
-        fetch('/api/tiktok/save', {
+      // Lưu thông tin proxy vào duoplusData
+      if (duoplusCurrentCloudPhoneDuoId && window.duoplusData && window.duoplusData[duoplusCurrentCloudPhoneDuoId]) {
+        window.duoplusData[duoplusCurrentCloudPhoneDuoId].duoplusProxy = proxyStr;
+        fetch('/api/duoplus-accounts/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ...tiktokData[duoplusCurrentCloudPhoneTiktokId],
-            id: duoplusCurrentCloudPhoneTiktokId,
+            id: duoplusCurrentCloudPhoneDuoId,
             duoplusProxy: proxyStr
           })
-        }).catch(() => {});
+        }).then(() => renderDuoplusTable()).catch(() => {});
       }
 
       setTimeout(fetchDuoplusCloudPhones, 1500);
@@ -7087,8 +7701,8 @@ async function duoplusTriggerInitConfig() {
     return;
   }
 
-  const tiktokId = duoplusCurrentCloudPhoneTiktokId;
-  const item = (tiktokId && tiktokData[tiktokId]) ? tiktokData[tiktokId] : {};
+  const duoId = duoplusCurrentCloudPhoneDuoId;
+  const item = (duoId && window.duoplusData && window.duoplusData[duoId]) ? window.duoplusData[duoId] : {};
   if (item.duoplus_initialized) {
     toast('Thiết bị đã hoàn tất Cấu hình khởi tạo trước đó!', 'info');
     const btn = document.getElementById('btnDuoInitConfig');
@@ -7245,31 +7859,30 @@ async function duoplusTriggerInitConfig() {
       // ẨN NÚT VĨNH VIỄN KHÔNG CHO CLICK LẦN 2
       if (btn) btn.style.display = 'none';
 
-      // Lưu trạng thái đã khởi tạo vào tiktokData và localStorage
-      if (tiktokId && tiktokData[tiktokId]) {
-        tiktokData[tiktokId].duoplus_initialized = true;
-        tiktokData[tiktokId].duoplus_initialized_time = new Date().toISOString();
-        tiktokData[tiktokId].duoplus_brand = 'Oppo';
-        tiktokData[tiktokId].duoplus_model = chosenModel.name;
-        tiktokData[tiktokId].duoplus_network_mode = 'Mobile Network';
-        tiktokData[tiktokId].duoplus_sim = 'Vietnam (VN)';
-        if (proxyStr) tiktokData[tiktokId].duoplusProxy = proxyStr;
+      // Lưu trạng thái đã khởi tạo vào duoplusData và localStorage
+      if (duoId && window.duoplusData && window.duoplusData[duoId]) {
+        window.duoplusData[duoId].duoplus_initialized = true;
+        window.duoplusData[duoId].duoplus_initialized_time = new Date().toISOString();
+        window.duoplusData[duoId].duoplus_brand = 'Oppo';
+        window.duoplusData[duoId].duoplus_model = chosenModel.name;
+        window.duoplusData[duoId].duoplus_network_mode = 'Mobile Network';
+        window.duoplusData[duoId].duoplus_sim = 'Vietnam (VN)';
+        if (proxyStr) window.duoplusData[duoId].duoplusProxy = proxyStr;
 
-        fetch('/api/tiktok/save', {
+        fetch('/api/duoplus-accounts/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ...tiktokData[tiktokId],
-            id: tiktokId,
+            id: duoId,
             duoplus_initialized: true,
-            duoplus_initialized_time: tiktokData[tiktokId].duoplus_initialized_time,
+            duoplus_initialized_time: window.duoplusData[duoId].duoplus_initialized_time,
             duoplus_brand: 'Oppo',
             duoplus_model: chosenModel.name,
             duoplus_network_mode: 'Mobile Network',
             duoplus_sim: 'Vietnam (VN)',
             duoplusProxy: proxyStr || ''
           })
-        }).catch(() => {});
+        }).then(() => renderDuoplusTable()).catch(() => {});
       }
 
       localStorage.setItem('duoplus_init_' + phone.id, 'true');
@@ -7774,7 +8387,9 @@ function updateDuoCpTimerUI() {
 
 async function openDuoplusWebConsole(imageId, imageName) {
   ensureDuoCpAudioUnlocked();
-  const item = duoplusCurrentCloudPhoneTiktokId ? (tiktokData[duoplusCurrentCloudPhoneTiktokId] || {}) : {};
+  const item = (duoplusCurrentCloudPhoneDuoId && window.duoplusData && window.duoplusData[duoplusCurrentCloudPhoneDuoId])
+    ? window.duoplusData[duoplusCurrentCloudPhoneDuoId]
+    : (duoplusCurrentCloudPhoneTiktokId ? (tiktokData[duoplusCurrentCloudPhoneTiktokId] || {}) : {});
   const bridgePort = localStorage.getItem('gpm_bridge_port') || '9497';
   const devName = imageName || (imageId ? ('snap_' + imageId) : '');
   const targetUrl = imageId
@@ -7785,9 +8400,10 @@ async function openDuoplusWebConsole(imageId, imageName) {
     imageId: imageId || '',
     imageName: devName,
     url: targetUrl,
+    duoId: duoplusCurrentCloudPhoneDuoId || '',
     tiktokId: duoplusCurrentCloudPhoneTiktokId || '',
     profileId: item.duoplusProfileId || item.duoplus || '',
-    hotmail: item.duoplusHotmail || '',
+    hotmail: item.hotmail || item.duoplusHotmail || '',
     apiKey: item.duoplusApiKey || (document.getElementById('duoCpApiKeyInput')?.value || '').trim()
   };
 
@@ -8023,6 +8639,9 @@ async function saveTiktok() {
     duoplusApiKey: existing.duoplusApiKey || '',
     gpmProxy: existing.gpmProxy || '',
     duoplusProxy: existing.duoplusProxy || '',
+    linkedDuoplusId: existing.linkedDuoplusId || '',
+    duoplusLinkedAt: existing.duoplusLinkedAt || '',
+    duoplusOpenCount: existing.duoplusOpenCount || 0,
     bitcloud: existing.bitcloud || '',
     coMaTime: existing.coMaTime || '',
     subTabTime: existing.subTabTime || '',
@@ -8311,6 +8930,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (t4) t4.style.zoom = ccnTableZoom;
 
   loadPhones();
+  loadDuoplusData(); // Initial load for DuoPlus
   loadTiktokData(); // Initial load for Tiktok
   loadGmailData(); // Initial load for Gmail
   const t_gm = document.querySelector('#tab-gmail table');
@@ -8373,7 +8993,8 @@ function switchTab(tabId) {
   }
   if (tabId === 'phone') loadPhones();
   if (tabId === 'notes') loadNotes();
-  if (tabId === 'tiktok') { loadTiktokData(); loadPandaProxies(); }
+  if (tabId === 'tiktok') { loadTiktokData(); loadDuoplusData(); loadPandaProxies(); }
+  if (tabId === 'duoplus') { loadDuoplusData(); loadHotmailData(); loadPandaProxies(); }
   if (tabId === 'gmail') { loadGmailData(); }
   if (tabId === 'hotmail') { loadHotmailData(); }
   // Update nav items
@@ -8918,9 +9539,11 @@ async function autoSetPandaProxyAndQR() {
 async function loadPandaProxies() {
   const isCreate = (typeof activeTab !== 'undefined' ? activeTab === 'create' : (document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active')));
   const isTiktok = (typeof activeTab !== 'undefined' ? activeTab === 'tiktok' : (document.getElementById('tab-tiktok') && document.getElementById('tab-tiktok').classList.contains('active')));
+  const isDuoplus = (typeof activeTab !== 'undefined' ? activeTab === 'duoplus' : (document.getElementById('tab-duoplus') && document.getElementById('tab-duoplus').classList.contains('active')));
   let suf = '';
   if (isCreate) suf = '_create';
   else if (isTiktok) suf = '_tk';
+  else if (isDuoplus) suf = '_duo';
   
   const containerId = 'pandaProxyContainer' + suf;
   const container = document.getElementById(containerId) || $('pandaProxyContainer');
@@ -9048,9 +9671,11 @@ async function loadPandaProxies() {
 function copyPandaProxyRow(id) {
   const isCreate = (typeof activeTab !== 'undefined' ? activeTab === 'create' : (document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active')));
   const isTiktok = (typeof activeTab !== 'undefined' ? activeTab === 'tiktok' : (document.getElementById('tab-tiktok') && document.getElementById('tab-tiktok').classList.contains('active')));
+  const isDuoplus = (typeof activeTab !== 'undefined' ? activeTab === 'duoplus' : (document.getElementById('tab-duoplus') && document.getElementById('tab-duoplus').classList.contains('active')));
   let suf = '';
   if (isCreate) suf = '_create';
   else if (isTiktok) suf = '_tk';
+  else if (isDuoplus) suf = '_duo';
   const outInput = document.getElementById(`pandaOut_${id}${suf}`);
   if (outInput && outInput.value) {
     navigator.clipboard.writeText(outInput.value);
@@ -9061,9 +9686,11 @@ function copyPandaProxyRow(id) {
 async function rotatePandaProxyRow(id, intervalSec) {
   const isCreate = (typeof activeTab !== 'undefined' ? activeTab === 'create' : (document.getElementById('tab-create') && document.getElementById('tab-create').classList.contains('active')));
   const isTiktok = (typeof activeTab !== 'undefined' ? activeTab === 'tiktok' : (document.getElementById('tab-tiktok') && document.getElementById('tab-tiktok').classList.contains('active')));
+  const isDuoplus = (typeof activeTab !== 'undefined' ? activeTab === 'duoplus' : (document.getElementById('tab-duoplus') && document.getElementById('tab-duoplus').classList.contains('active')));
   let suf = '';
   if (isCreate) suf = '_create';
   else if (isTiktok) suf = '_tk';
+  else if (isDuoplus) suf = '_duo';
   const btnRot = document.getElementById(`btnRot_${id}${suf}`);
   const statusEl = document.getElementById(`pandaStatus_${id}${suf}`);
   const outInput = document.getElementById(`pandaOut_${id}${suf}`);

@@ -1915,7 +1915,7 @@ app.get('/api/tiktok/all', async (req, res) => {
 });
 
 app.post('/api/tiktok/save', async (req, res) => {
-  const { id, identifier, mail, username, password, session, status, result, notes, coMaTime, subTabTime, ngamTime, ngamSubTab, duoplus, duoplusProfileId, bitcloud, duoplusHotmail, duoplusApiKey, gpmProxy, duoplusProxy } = req.body;
+  const { id, identifier, mail, username, password, session, status, result, notes, coMaTime, subTabTime, ngamTime, ngamSubTab, duoplus, duoplusProfileId, bitcloud, duoplusHotmail, duoplusApiKey, gpmProxy, duoplusProxy, duoplus_initialized, linkedDuoplusId, duoplusLinkedAt, duoplusOpenCount } = req.body;
   try {
     const ref = db.ref('tiktok_accounts');
     if (id) {
@@ -1927,10 +1927,14 @@ app.post('/api/tiktok/save', async (req, res) => {
       if (duoplusApiKey !== undefined) updateData.duoplusApiKey = duoplusApiKey || '';
       if (gpmProxy !== undefined) updateData.gpmProxy = gpmProxy || '';
       if (duoplusProxy !== undefined) updateData.duoplusProxy = duoplusProxy || '';
+      if (duoplus_initialized !== undefined) updateData.duoplus_initialized = !!duoplus_initialized;
+      if (linkedDuoplusId !== undefined) updateData.linkedDuoplusId = linkedDuoplusId || '';
+      if (duoplusLinkedAt !== undefined) updateData.duoplusLinkedAt = duoplusLinkedAt || '';
+      if (duoplusOpenCount !== undefined) updateData.duoplusOpenCount = parseInt(duoplusOpenCount, 10) || 0;
       await ref.child(id).update(updateData);
     } else {
       const time = getFormattedTime();
-      await ref.push().set({ identifier, mail, username, password, session, status, result, notes: notes || '', time, coMaTime: coMaTime || '', subTabTime: subTabTime || new Date().toISOString(), ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '', duoplus: duoplus || '', duoplusProfileId: duoplusProfileId || '', bitcloud: bitcloud || '', duoplusHotmail: duoplusHotmail || '', duoplusApiKey: duoplusApiKey || '', gpmProxy: gpmProxy || '', duoplusProxy: duoplusProxy || '' });
+      await ref.push().set({ identifier, mail, username, password, session, status, result, notes: notes || '', time, coMaTime: coMaTime || '', subTabTime: subTabTime || new Date().toISOString(), ngamTime: ngamTime || '', ngamSubTab: ngamSubTab || '', duoplus: duoplus || '', duoplusProfileId: duoplusProfileId || '', bitcloud: bitcloud || '', duoplusHotmail: duoplusHotmail || '', duoplusApiKey: duoplusApiKey || '', gpmProxy: gpmProxy || '', duoplusProxy: duoplusProxy || '', linkedDuoplusId: linkedDuoplusId || '', duoplusLinkedAt: duoplusLinkedAt || '', duoplusOpenCount: parseInt(duoplusOpenCount, 10) || 0 });
     }
     res.json({ success: true });
   } catch(e) {
@@ -1945,8 +1949,11 @@ app.post('/api/tiktok/clear-all-duoplus', async (req, res) => {
     const data = snap.val() || {};
     let count = 0;
     for (const [id, item] of Object.entries(data)) {
-      if (item && (item.duoplusProfileId || item.duoplusHotmail || item.duoplusApiKey || item.gpmProxy || item.duoplusProxy || item.duoplus || item.duoplus_initialized)) {
+      if (item && (item.linkedDuoplusId || item.duoplusProfileId || item.duoplusHotmail || item.duoplusApiKey || item.gpmProxy || item.duoplusProxy || item.duoplus || item.duoplus_initialized)) {
         await ref.child(id).update({
+          linkedDuoplusId: '',
+          duoplusLinkedAt: '',
+          duoplusOpenCount: 0,
           duoplus: '',
           duoplusProfileId: '',
           duoplusHotmail: '',
@@ -1960,6 +1967,151 @@ app.post('/api/tiktok/clear-all-duoplus', async (req, res) => {
     }
     res.json({ success: true, count });
   } catch(e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ☁️ DUOPLUS INDEPENDENT TABLE API ☁️
+app.get('/api/duoplus-accounts/all', async (req, res) => {
+  try {
+    const duoRef = db.ref('duoplus_accounts');
+    const snap = await duoRef.once('value');
+    let duoData = snap.val() || {};
+
+    // Tự động chuyển đổi (migrate) dữ liệu DuoPlus cũ đang nằm trong tiktok_accounts sang bảng duoplus_accounts độc lập nếu chưa chuyển
+    const tkRef = db.ref('tiktok_accounts');
+    const tkSnap = await tkRef.once('value');
+    const tkData = tkSnap.val() || {};
+    let migrated = false;
+
+    for (const [tkId, tkItem] of Object.entries(tkData)) {
+      if (tkItem && !tkItem.linkedDuoplusId && (tkItem.duoplusHotmail || tkItem.duoplusProfileId || tkItem.duoplusApiKey)) {
+        // Kiểm tra xem đã có dòng nào trùng hotmail hoặc profileId trong duoData chưa
+        let matchedDuoId = null;
+        for (const [dId, dItem] of Object.entries(duoData)) {
+          if ((tkItem.duoplusProfileId && dItem.duoplusProfileId === tkItem.duoplusProfileId) ||
+              (tkItem.duoplusHotmail && dItem.hotmail === tkItem.duoplusHotmail)) {
+            matchedDuoId = dId;
+            break;
+          }
+        }
+
+        if (!matchedDuoId) {
+          const newRef = duoRef.push();
+          matchedDuoId = newRef.key;
+          const newDuoRecord = {
+            time: tkItem.time || getFormattedTime(),
+            createdAt: new Date().toISOString(),
+            hotmailId: '',
+            hotmail: tkItem.duoplusHotmail || '',
+            gpmProxy: tkItem.gpmProxy || '',
+            duoplusProfileId: tkItem.duoplusProfileId || tkItem.duoplus || '',
+            duoplusApiKey: tkItem.duoplusApiKey || '',
+            duoplusProxy: tkItem.duoplusProxy || '',
+            duoplus_initialized: !!tkItem.duoplus_initialized,
+            openCount: parseInt(tkItem.duoplusOpenCount, 10) || 0,
+            notes: tkItem.username ? `TikTok: ${tkItem.username}` : ''
+          };
+          await newRef.set(newDuoRecord);
+          duoData[matchedDuoId] = newDuoRecord;
+          migrated = true;
+        }
+
+        await tkRef.child(tkId).update({
+          linkedDuoplusId: matchedDuoId,
+          duoplusLinkedAt: tkItem.duoplusLinkedAt || new Date().toISOString(),
+          duoplusOpenCount: parseInt(tkItem.duoplusOpenCount, 10) || 0
+        });
+      }
+    }
+
+    res.json(duoData);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/duoplus-accounts/save', async (req, res) => {
+  const {
+    id,
+    time,
+    createdAt,
+    hotmailId,
+    hotmail,
+    gpmProxy,
+    duoplusProfileId,
+    duoplusApiKey,
+    duoplusProxy,
+    duoplus_initialized,
+    duoplus_initialized_time,
+    duoplus_brand,
+    duoplus_model,
+    duoplus_network_mode,
+    duoplus_sim,
+    openCount,
+    notes
+  } = req.body;
+
+  try {
+    const ref = db.ref('duoplus_accounts');
+    if (id) {
+      const updateObj = {};
+      if (hotmailId !== undefined) updateObj.hotmailId = hotmailId || '';
+      if (hotmail !== undefined) updateObj.hotmail = hotmail || '';
+      if (gpmProxy !== undefined) updateObj.gpmProxy = gpmProxy || '';
+      if (duoplusProfileId !== undefined) updateObj.duoplusProfileId = duoplusProfileId || '';
+      if (duoplusApiKey !== undefined) updateObj.duoplusApiKey = duoplusApiKey || '';
+      if (duoplusProxy !== undefined) updateObj.duoplusProxy = duoplusProxy || '';
+      if (duoplus_initialized !== undefined) updateObj.duoplus_initialized = !!duoplus_initialized;
+      if (duoplus_initialized_time !== undefined) updateObj.duoplus_initialized_time = duoplus_initialized_time || '';
+      if (duoplus_brand !== undefined) updateObj.duoplus_brand = duoplus_brand || '';
+      if (duoplus_model !== undefined) updateObj.duoplus_model = duoplus_model || '';
+      if (duoplus_network_mode !== undefined) updateObj.duoplus_network_mode = duoplus_network_mode || '';
+      if (duoplus_sim !== undefined) updateObj.duoplus_sim = duoplus_sim || '';
+      if (openCount !== undefined) updateObj.openCount = parseInt(openCount, 10) || 0;
+      if (notes !== undefined) updateObj.notes = notes || '';
+      await ref.child(id).update(updateObj);
+      return res.json({ success: true, id });
+    } else {
+      const newRef = ref.push();
+      const newItem = {
+        time: time || getFormattedTime(),
+        createdAt: createdAt || new Date().toISOString(),
+        hotmailId: hotmailId || '',
+        hotmail: hotmail || '',
+        gpmProxy: gpmProxy || '',
+        duoplusProfileId: duoplusProfileId || '',
+        duoplusApiKey: duoplusApiKey || '',
+        duoplusProxy: duoplusProxy || '',
+        duoplus_initialized: !!duoplus_initialized,
+        openCount: parseInt(openCount, 10) || 0,
+        notes: notes || ''
+      };
+      await newRef.set(newItem);
+      return res.json({ success: true, id: newRef.key, item: newItem });
+    }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/duoplus-accounts/delete', async (req, res) => {
+  const { id } = req.body;
+  try {
+    if (id) {
+      await db.ref('duoplus_accounts').child(id).remove();
+    }
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/duoplus-accounts/clear-all', async (req, res) => {
+  try {
+    await db.ref('duoplus_accounts').remove();
+    res.json({ success: true });
+  } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
