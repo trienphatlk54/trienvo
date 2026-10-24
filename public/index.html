@@ -5142,36 +5142,8 @@ async function unlinkDuoplusFromTiktokRow(tiktokId) {
 }
 
 async function openCloudPhoneFromTiktokRow(tiktokId, duoId) {
-  const item = tiktokData[tiktokId];
-  if (item) {
-    item.duoplusOpenCount = (parseInt(item.duoplusOpenCount, 10) || 0) + 1;
-    fetch('/api/tiktok/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...item,
-        id: tiktokId,
-        duoplusOpenCount: item.duoplusOpenCount
-      })
-    }).catch(() => {});
-  }
-
-  if (duoId && window.duoplusData && window.duoplusData[duoId]) {
-    const dItem = window.duoplusData[duoId];
-    dItem.openCount = (parseInt(dItem.openCount, 10) || 0) + 1;
-    fetch('/api/duoplus-accounts/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: duoId,
-        openCount: dItem.openCount
-      })
-    }).catch(() => {});
-  }
-
-  renderTiktokTable();
-  renderDuoplusTable();
-  openDuoplusApiModal(duoId, tiktokId, true);
+  // Chỉ mở bảng quản lý Cloud Phone, KHÔNG tăng số lần mở ở đây
+  openDuoplusApiModal(duoId, tiktokId);
 }
 
 // ─── RENDER & THAO TÁC TRÊN BẢNG DUOPLUS ĐỘC LẬP (TAB DUOPLUS) ───────────────
@@ -7062,7 +7034,7 @@ async function callDuoplusGenericApi(subPath, payload) {
   return resData;
 }
 
-function openDuoplusApiModal(duoOrTiktokId, linkedTiktokId = null, skipOpenCountIncrement = false) {
+function openDuoplusApiModal(duoOrTiktokId, linkedTiktokId = null) {
   let duoId = duoOrTiktokId;
   let tkId = linkedTiktokId;
 
@@ -7076,17 +7048,6 @@ function openDuoplusApiModal(duoOrTiktokId, linkedTiktokId = null, skipOpenCount
 
   const duoItem = (window.duoplusData && window.duoplusData[duoId]) ? window.duoplusData[duoId] : {};
   const tkItem = (tkId && tiktokData && tiktokData[tkId]) ? tiktokData[tkId] : null;
-
-  // Nếu bấm mở trực tiếp từ bảng DuoPlus (skipOpenCountIncrement === false), tự động +1 bộ đếm mở của dòng DuoPlus
-  if (!skipOpenCountIncrement && window.duoplusData && window.duoplusData[duoId]) {
-    duoItem.openCount = (parseInt(duoItem.openCount, 10) || 0) + 1;
-    fetch('/api/duoplus-accounts/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: duoId, openCount: duoItem.openCount })
-    }).catch(() => {});
-    renderDuoplusTable();
-  }
 
   const modal = document.getElementById('duoplusCloudPhoneModal');
   if (!modal) return;
@@ -8548,6 +8509,53 @@ function updateDuoCpTimerUI() {
   }
 }
 
+// 🔢 Hàm đếm số lần Cloud Phone THỰC SỰ được mở qua tab Chrome/Chromium
+function incrementCloudPhoneActualOpenCount(duoId, tiktokId) {
+  let changed = false;
+
+  // 1. Tăng bộ đếm cho dòng DuoPlus
+  if (duoId && window.duoplusData && window.duoplusData[duoId]) {
+    const dItem = window.duoplusData[duoId];
+    dItem.openCount = (parseInt(dItem.openCount, 10) || 0) + 1;
+    changed = true;
+    fetch('/api/duoplus-accounts/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: duoId, openCount: dItem.openCount })
+    }).catch(() => {});
+  }
+
+  // 2. Tăng bộ đếm cho dòng TikTok liên kết
+  if (tiktokId && tiktokData && tiktokData[tiktokId]) {
+    const tItem = tiktokData[tiktokId];
+    tItem.duoplusOpenCount = (parseInt(tItem.duoplusOpenCount, 10) || 0) + 1;
+    changed = true;
+    fetch('/api/tiktok/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...tItem, id: tiktokId, duoplusOpenCount: tItem.duoplusOpenCount })
+    }).catch(() => {});
+  } else if (duoId) {
+    // Nếu mở từ tab DuoPlus, tăng bộ đếm cho tất cả các dòng TikTok đang liên kết với duoId này
+    Object.entries(tiktokData || {}).forEach(([tId, tItem]) => {
+      if (tItem && tItem.linkedDuoplusId === duoId) {
+        tItem.duoplusOpenCount = (parseInt(tItem.duoplusOpenCount, 10) || 0) + 1;
+        changed = true;
+        fetch('/api/tiktok/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...tItem, id: tId, duoplusOpenCount: tItem.duoplusOpenCount })
+        }).catch(() => {});
+      }
+    });
+  }
+
+  if (changed) {
+    renderDuoplusTable();
+    renderTiktokTable();
+  }
+}
+
 async function openDuoplusWebConsole(imageId, imageName) {
   ensureDuoCpAudioUnlocked();
   const item = (duoplusCurrentCloudPhoneDuoId && window.duoplusData && window.duoplusData[duoplusCurrentCloudPhoneDuoId])
@@ -8588,6 +8596,8 @@ async function openDuoplusWebConsole(imageId, imageName) {
       const bData = await bRes.json();
       if (bData && bData.success) {
         toast(`✅ Đã mở cửa sổ Chromium điều khiển Cloud Phone${imageId ? ' [' + imageId + ']' : ''} & kích hoạt bộ đếm 10 phút (Báo động ở 08:00)!`, 'success', 4000);
+        // TÍNH BỘ ĐẾM SỐ LẦN MỞ: Chỉ tăng khi Cloud Phone thực sự được mở qua tab Chrome/Chromium
+        incrementCloudPhoneActualOpenCount(duoplusCurrentCloudPhoneDuoId, duoplusCurrentCloudPhoneTiktokId);
         startDuoCpUsageTimer(imageId || 'DuoPlus', devName);
         return;
       }
@@ -8605,12 +8615,16 @@ async function openDuoplusWebConsole(imageId, imageName) {
     const data = await res.json();
     if (data && data.success) {
       toast(`✅ Đã mở cửa sổ Chromium điều khiển Cloud Phone${imageId ? ' [' + imageId + ']' : ''} & kích hoạt bộ đếm 10 phút (Báo động ở 08:00)!`, 'success', 4000);
+      // TÍNH BỘ ĐẾM SỐ LẦN MỞ: Chỉ tăng khi Cloud Phone thực sự được mở qua tab Chrome/Chromium
+      incrementCloudPhoneActualOpenCount(duoplusCurrentCloudPhoneDuoId, duoplusCurrentCloudPhoneTiktokId);
       startDuoCpUsageTimer(imageId || 'DuoPlus', devName);
       return;
     }
   } catch(e) {}
 
   // Fallback: mở tab trình duyệt hiện tại & kích hoạt bộ đếm 10 phút
+  // TÍNH BỘ ĐẾM SỐ LẦN MỞ: Chỉ tăng khi Cloud Phone thực sự được mở qua tab Chrome/Chromium
+  incrementCloudPhoneActualOpenCount(duoplusCurrentCloudPhoneDuoId, duoplusCurrentCloudPhoneTiktokId);
   startDuoCpUsageTimer(imageId || 'DuoPlus', devName);
   window.open(targetUrl, '_blank');
 }
