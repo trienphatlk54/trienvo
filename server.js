@@ -2133,9 +2133,132 @@ try {
   require('./gpm-bridge');
 } catch (e) {}
 
+// ─── HTTP RPC BRIDGE FOR LOCAL WINDOWS GPM & CHROMIUM (Hỗ trợ khi truy cập từ VPS) ───
+const IS_WINDOWS_LOCAL = process.platform === 'win32';
+const VPS_BASE_URL = process.env.VPS_URL || 'http://103.56.161.214:3000';
+const gpmRpcPendingRequests = new Map(); // reqId -> { action, params, createdAt, resolve, reject, timer }
+const gpmRpcQueue = []; // reqId[]
+
+function callGpmRpcFromVps(action, params = {}, timeoutMs = 20000) {
+  const reqId = `rpc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      gpmRpcPendingRequests.delete(reqId);
+      const idx = gpmRpcQueue.indexOf(reqId);
+      if (idx !== -1) gpmRpcQueue.splice(idx, 1);
+      reject(new Error('Không nhận được phản hồi từ máy tính Windows (GPM Bridge chưa chạy trên PC)'));
+    }, timeoutMs);
+
+    gpmRpcPendingRequests.set(reqId, { action, params, createdAt: Date.now(), resolve, reject, timer });
+    gpmRpcQueue.push(reqId);
+  });
+}
+
+app.get('/api/gpm-rpc/poll', (req, res) => {
+  while (gpmRpcQueue.length > 0) {
+    const reqId = gpmRpcQueue.shift();
+    const item = gpmRpcPendingRequests.get(reqId);
+    if (item && Date.now() - item.createdAt < 25000) {
+      return res.json({ hasTask: true, reqId, action: item.action, params: item.params });
+    }
+    gpmRpcPendingRequests.delete(reqId);
+  }
+  res.json({ hasTask: false });
+});
+
+app.post('/api/gpm-rpc/respond', (req, res) => {
+  const { reqId, result, error } = req.body || {};
+  const item = gpmRpcPendingRequests.get(reqId);
+  if (item) {
+    clearTimeout(item.timer);
+    gpmRpcPendingRequests.delete(reqId);
+    if (error) item.reject(new Error(error));
+    else item.resolve(result);
+  }
+  res.json({ success: true });
+});
+
+async function executeLocalGpmRpcAction(action, p = {}) {
+  if (action === 'gpm_request') {
+    const gpmRes = await ensureGpmRunningAndRequest({
+      port: parseInt(p.port, 10) || 9495,
+      urlPath: p.urlPath,
+      method: p.method || 'GET',
+      bodyBuffer: p.bodyBuffer || null,
+      maxRetries: p.maxRetries || 8
+    });
+    return JSON.parse(gpmRes.text || '{}');
+  } else if (action === 'duoplus_start_registration') {
+    const taskId = startDuoplusRegistration({
+      profileId: p.profileId,
+      gpmPort: p.gpmPort || 9495,
+      hotmailAccount: p.hotmailAccount,
+      tiktokAccount: p.tiktokAccount,
+      startFromStep: p.startFromStep || 1
+    });
+    return { success: true, taskId };
+  } else if (action === 'duoplus_task_status') {
+    const task = getDuoplusTaskStatus(p.taskId);
+    return task ? { success: true, task } : { success: false, error: 'Không tìm thấy tác vụ' };
+  } else if (action === 'duoplus_captcha_passed') {
+    return { success: markCaptchaPassed(p.taskId) };
+  } else if (action === 'duoplus_retry_otp') {
+    return { success: retryDuoplusOtp(p.taskId) };
+  } else if (action === 'duoplus_submit_otp') {
+    return { success: submitManualOtp(p.taskId, p.otp) };
+  } else if (action === 'duoplus_cancel_task') {
+    return { success: cancelDuoplusTask(p.taskId) };
+  } else if (action === 'duoplus_open_chromium') {
+    return await launchDuoPlusDirectChromium(p);
+  } else if (action === 'duoplus_alarm_beep') {
+    triggerSystemAlarmBeep();
+    return { success: true };
+  }
+  return null;
+}
+
+if (IS_WINDOWS_LOCAL && !global.__gpmVpsRpcPollerStarted) {
+  global.__gpmVpsRpcPollerStarted = true;
+  setInterval(async () => {
+    try {
+      const r = await fetch(`${VPS_BASE_URL}/api/gpm-rpc/poll`, { signal: AbortSignal.timeout(4000) });
+      if (!r.ok) return;
+      const data = await r.json();
+      if (data && data.hasTask && data.reqId) {
+        try {
+          const result = await executeLocalGpmRpcAction(data.action, data.params || {});
+          await fetch(`${VPS_BASE_URL}/api/gpm-rpc/respond`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reqId: data.reqId, result }),
+            signal: AbortSignal.timeout(8000)
+          });
+        } catch (err) {
+          await fetch(`${VPS_BASE_URL}/api/gpm-rpc/respond`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reqId: data.reqId, error: err.message || String(err) }),
+            signal: AbortSignal.timeout(8000)
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {}
+  }, 1500);
+}
+
 app.post('/api/gpm/update-profile', async (req, res) => {
   const { port = '9495', profileId, payload } = req.body;
   try {
+    if (!IS_WINDOWS_LOCAL) {
+      const data = await callGpmRpcFromVps('gpm_request', {
+        port: parseInt(port, 10) || 9495,
+        urlPath: `/api/v1/profiles/update/${profileId}`,
+        method: 'POST',
+        bodyBuffer: JSON.stringify(payload || {}),
+        maxRetries: 6
+      });
+      return res.json(data);
+    }
     const gpmRes = await ensureGpmRunningAndRequest({
       port: parseInt(port, 10) || 9495,
       urlPath: `/api/v1/profiles/update/${profileId}`,
@@ -2156,6 +2279,16 @@ app.post('/api/gpm/update-profile', async (req, res) => {
 app.post('/api/gpm/create-profile', async (req, res) => {
   const { port = '9495', payload } = req.body;
   try {
+    if (!IS_WINDOWS_LOCAL) {
+      const data = await callGpmRpcFromVps('gpm_request', {
+        port: parseInt(port, 10) || 9495,
+        urlPath: '/api/v1/profiles/create',
+        method: 'POST',
+        bodyBuffer: JSON.stringify(payload || {}),
+        maxRetries: 8
+      });
+      return res.json(data);
+    }
     const gpmRes = await ensureGpmRunningAndRequest({
       port: parseInt(port, 10) || 9495,
       urlPath: '/api/v1/profiles/create',
@@ -2176,6 +2309,15 @@ app.post('/api/gpm/create-profile', async (req, res) => {
 app.post('/api/gpm/start-profile', async (req, res) => {
   const { port = '9495', profileId } = req.body;
   try {
+    if (!IS_WINDOWS_LOCAL) {
+      const data = await callGpmRpcFromVps('gpm_request', {
+        port: parseInt(port, 10) || 9495,
+        urlPath: `/api/v1/profiles/start/${profileId}`,
+        method: 'GET',
+        maxRetries: 8
+      });
+      return res.json(data);
+    }
     const gpmRes = await ensureGpmRunningAndRequest({
       port: parseInt(port, 10) || 9495,
       urlPath: `/api/v1/profiles/start/${profileId}`,
@@ -2434,6 +2576,16 @@ app.post(['/api/hm/get-otp', '/api/hotmail/get-otp', '/api/mail-accounts/get-otp
 app.post('/api/duoplus/start-registration', async (req, res) => {
   const { profileId, gpmPort, hotmailAccount, tiktokAccount, startFromStep } = req.body;
   try {
+    if (!IS_WINDOWS_LOCAL) {
+      const rpcRes = await callGpmRpcFromVps('duoplus_start_registration', {
+        profileId,
+        gpmPort: gpmPort || 9495,
+        hotmailAccount,
+        tiktokAccount,
+        startFromStep: startFromStep || 1
+      });
+      return res.json(rpcRes);
+    }
     const taskId = startDuoplusRegistration({
       profileId,
       gpmPort: gpmPort || 9495,
@@ -2443,40 +2595,64 @@ app.post('/api/duoplus/start-registration', async (req, res) => {
     });
     res.json({ success: true, taskId });
   } catch(err) {
-    res.status(400).json({ success: false, error: err.message });
+    res.status(200).json({ success: false, error: err.message });
   }
 });
 
-app.get('/api/duoplus/task-status/:taskId', (req, res) => {
+app.get('/api/duoplus/task-status/:taskId', async (req, res) => {
   const { taskId } = req.params;
-  const task = getDuoplusTaskStatus(taskId);
-  if (!task) {
-    return res.status(404).json({ success: false, error: 'Không tìm thấy tác vụ' });
+  try {
+    if (!IS_WINDOWS_LOCAL) {
+      const rpcRes = await callGpmRpcFromVps('duoplus_task_status', { taskId });
+      return res.json(rpcRes);
+    }
+    const task = getDuoplusTaskStatus(taskId);
+    if (!task) {
+      return res.status(404).json({ success: false, error: 'Không tìm thấy tác vụ' });
+    }
+    res.json({ success: true, task });
+  } catch (err) {
+    res.status(200).json({ success: false, error: err.message });
   }
-  res.json({ success: true, task });
 });
 
-app.post('/api/duoplus/captcha-passed/:taskId', (req, res) => {
+app.post('/api/duoplus/captcha-passed/:taskId', async (req, res) => {
   const { taskId } = req.params;
+  if (!IS_WINDOWS_LOCAL) {
+    const rpcRes = await callGpmRpcFromVps('duoplus_captcha_passed', { taskId }).catch(() => ({ success: false }));
+    return res.json(rpcRes);
+  }
   const ok = markCaptchaPassed(taskId);
   res.json({ success: ok });
 });
 
-app.post('/api/duoplus/retry-otp/:taskId', (req, res) => {
+app.post('/api/duoplus/retry-otp/:taskId', async (req, res) => {
   const { taskId } = req.params;
+  if (!IS_WINDOWS_LOCAL) {
+    const rpcRes = await callGpmRpcFromVps('duoplus_retry_otp', { taskId }).catch(() => ({ success: false }));
+    return res.json(rpcRes);
+  }
   const ok = retryDuoplusOtp(taskId);
   res.json({ success: ok });
 });
 
-app.post('/api/duoplus/submit-otp/:taskId', (req, res) => {
+app.post('/api/duoplus/submit-otp/:taskId', async (req, res) => {
   const { taskId } = req.params;
   const { otp } = req.body;
+  if (!IS_WINDOWS_LOCAL) {
+    const rpcRes = await callGpmRpcFromVps('duoplus_submit_otp', { taskId, otp }).catch(() => ({ success: false }));
+    return res.json(rpcRes);
+  }
   const ok = submitManualOtp(taskId, otp);
   res.json({ success: ok });
 });
 
-app.post('/api/duoplus/cancel-task/:taskId', (req, res) => {
+app.post('/api/duoplus/cancel-task/:taskId', async (req, res) => {
   const { taskId } = req.params;
+  if (!IS_WINDOWS_LOCAL) {
+    const rpcRes = await callGpmRpcFromVps('duoplus_cancel_task', { taskId }).catch(() => ({ success: false }));
+    return res.json(rpcRes);
+  }
   const ok = cancelDuoplusTask(taskId);
   res.json({ success: ok });
 });
@@ -2646,6 +2822,10 @@ app.post('/api/duoplus/mobile/modelList', async (req, res) => {
 const { launchDuoPlusDirectChromium, ensureGpmRunningAndRequest, triggerSystemAlarmBeep } = require('./duoplus-chromium-helper');
 app.post('/api/duoplus/open-chromium', async (req, res) => {
   try {
+    if (!IS_WINDOWS_LOCAL) {
+      const rpcRes = await callGpmRpcFromVps('duoplus_open_chromium', req.body || {});
+      return res.json(rpcRes);
+    }
     const result = await launchDuoPlusDirectChromium(req.body || {});
     res.json(result);
   } catch (err) {
@@ -2654,7 +2834,11 @@ app.post('/api/duoplus/open-chromium', async (req, res) => {
   }
 });
 
-app.post('/api/duoplus/alarm-beep', (req, res) => {
+app.post('/api/duoplus/alarm-beep', async (req, res) => {
+  if (!IS_WINDOWS_LOCAL) {
+    callGpmRpcFromVps('duoplus_alarm_beep', {}).catch(() => {});
+    return res.json({ success: true });
+  }
   triggerSystemAlarmBeep();
   res.json({ success: true });
 });

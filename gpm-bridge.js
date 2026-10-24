@@ -286,3 +286,70 @@ server.listen(BRIDGE_PORT, '0.0.0.0', () => {
 
 // Xuất server nếu require từ server.js
 module.exports = server;
+
+// Hỗ trợ nhận lệnh từ VPS (http://103.56.161.214:3000) khi Chrome chặn Private Network Access tới localhost:9497
+const VPS_BASE_URL = process.env.VPS_URL || 'http://103.56.161.214:3000';
+if (!global.__gpmVpsRpcPollerStarted) {
+  global.__gpmVpsRpcPollerStarted = true;
+  setInterval(async () => {
+    try {
+      const r = await fetch(`${VPS_BASE_URL}/api/gpm-rpc/poll`, { signal: AbortSignal.timeout(4000) });
+      if (!r.ok) return;
+      const data = await r.json();
+      if (data && data.hasTask && data.reqId) {
+        const p = data.params || {};
+        try {
+          let result = null;
+          if (data.action === 'gpm_request') {
+            const gpmRes = await ensureGpmRunningAndRequest({
+              port: parseInt(p.port, 10) || GPM_PORT,
+              urlPath: p.urlPath,
+              method: p.method || 'GET',
+              bodyBuffer: p.bodyBuffer || null,
+              maxRetries: p.maxRetries || 8
+            });
+            result = JSON.parse(gpmRes.text || '{}');
+          } else if (data.action === 'duoplus_start_registration') {
+            const taskId = startDuoplusRegistration({
+              profileId: p.profileId,
+              gpmPort: p.gpmPort || GPM_PORT,
+              hotmailAccount: p.hotmailAccount,
+              tiktokAccount: p.tiktokAccount,
+              startFromStep: p.startFromStep || 1
+            });
+            result = { success: true, taskId };
+          } else if (data.action === 'duoplus_task_status') {
+            const task = getDuoplusTaskStatus(p.taskId);
+            result = task ? { success: true, task } : { success: false, error: 'Không tìm thấy tác vụ' };
+          } else if (data.action === 'duoplus_captcha_passed') {
+            result = { success: markCaptchaPassed(p.taskId) };
+          } else if (data.action === 'duoplus_retry_otp') {
+            result = { success: retryDuoplusOtp(p.taskId) };
+          } else if (data.action === 'duoplus_submit_otp') {
+            result = { success: submitManualOtp(p.taskId, p.otp) };
+          } else if (data.action === 'duoplus_cancel_task') {
+            result = { success: cancelDuoplusTask(p.taskId) };
+          } else if (data.action === 'duoplus_open_chromium') {
+            result = await launchDuoPlusDirectChromium(p);
+          } else if (data.action === 'duoplus_alarm_beep') {
+            triggerSystemAlarmBeep();
+            result = { success: true };
+          }
+          await fetch(`${VPS_BASE_URL}/api/gpm-rpc/respond`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reqId: data.reqId, result }),
+            signal: AbortSignal.timeout(8000)
+          });
+        } catch (err) {
+          await fetch(`${VPS_BASE_URL}/api/gpm-rpc/respond`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reqId: data.reqId, error: err.message || String(err) }),
+            signal: AbortSignal.timeout(8000)
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {}
+  }, 1500);
+}

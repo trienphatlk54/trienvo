@@ -241,6 +241,7 @@ function rawHttpRequestToGpm({ host = '127.0.0.1', port = 9495, urlPath = '/api/
       method,
       headers,
       agent: false,
+      family: 4,
       timeout: timeoutMs
     }, (res) => {
       const chunks = [];
@@ -259,6 +260,9 @@ function rawHttpRequestToGpm({ host = '127.0.0.1', port = 9495, urlPath = '/api/
       req.destroy(new Error('Request timeout'));
     });
     req.on('error', (err) => {
+      if (!err.message) {
+        err.message = err.code || (err.errors && err.errors[0] && (err.errors[0].message || err.errors[0].code)) || 'ECONNREFUSED';
+      }
       reject(err);
     });
 
