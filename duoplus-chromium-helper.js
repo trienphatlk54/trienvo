@@ -5,7 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const puppeteer = require('puppeteer');
 
 const PROFILE_BASE_DIR = path.join(__dirname, '.duoplus_chromium_profile');
@@ -220,6 +220,7 @@ async function isDebugPortAlive(port) {
 
 /**
  * Mở trực tiếp cửa sổ Chrome/Chromium điều khiển Cloud Phone (Không qua Proxy GPM)
+ * Hỗ trợ thoát khỏi sandbox desktop (WinSta0\exebox) để hiển thị trực tiếp lên màn hình chính (WinSta0\Default)
  */
 async function launchDuoPlusDirectChromium(options = {}) {
   const {
@@ -276,16 +277,36 @@ async function launchDuoPlusDirectChromium(options = {}) {
       'about:blank'
     ];
 
-    const child = spawn(browserPath, args, {
-      detached: true,
-      stdio: 'ignore'
-    });
-    child.unref();
-    childPid = child.pid;
+    let launchedOnDefaultDesktop = false;
+    if (process.platform === 'win32') {
+      try {
+        // Tạo file VBS để Task Scheduler khởi chạy Chrome trực tiếp trên WinSta0\Default (hiển thị nổi trên màn hình người dùng)
+        const vbsPath = path.join(PROFILE_BASE_DIR, 'launch_chrome.vbs');
+        const vbsCmd = `""${browserPath}"" --user-data-dir=""${userDataDir}"" --remote-debugging-port=${debugPort} --no-first-run --no-default-browser-check --no-proxy-server --window-size=${winSize} ""about:blank""`;
+        const vbsContent = `Set WshShell = CreateObject("WScript.Shell")\r\nWshShell.Run "${vbsCmd}", 1, False\r\n`;
+        fs.writeFileSync(vbsPath, vbsContent, 'utf8');
 
-    // Chờ cổng DevTools sẵn sàng (tối đa 5 giây)
+        execSync(`schtasks /Create /TN "DuoPlusChromeLaunch" /TR "wscript.exe ${vbsPath}" /SC ONCE /ST 00:00 /F`, { stdio: 'ignore' });
+        execSync(`schtasks /Run /TN "DuoPlusChromeLaunch"`, { stdio: 'ignore' });
+        launchedOnDefaultDesktop = true;
+      } catch (e) {
+        console.warn('[DuoPlus Chromium] schtasks fallback to spawn:', e.message);
+      }
+    }
+
+    if (!launchedOnDefaultDesktop) {
+      const child = spawn(browserPath, args, {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: false
+      });
+      child.unref();
+      childPid = child.pid;
+    }
+
+    // Chờ cổng DevTools sẵn sàng (tối đa 6 giây)
     const waitStart = Date.now();
-    while (Date.now() - waitStart < 5000) {
+    while (Date.now() - waitStart < 6000) {
       if (await isDebugPortAlive(debugPort)) {
         portAlive = true;
         break;
