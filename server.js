@@ -2135,7 +2135,11 @@ try {
 
 // ─── HTTP RPC BRIDGE FOR LOCAL WINDOWS GPM & CHROMIUM (Hỗ trợ khi truy cập từ VPS) ───
 const IS_WINDOWS_LOCAL = process.platform === 'win32';
-const VPS_BASE_URL = process.env.VPS_URL || 'http://103.56.161.214:3000';
+const VPS_BASE_URLS = [
+  process.env.VPS_URL,
+  'http://157.66.218.153:3000',
+  'http://103.56.161.214:3000'
+].filter(Boolean);
 const gpmRpcPendingRequests = new Map(); // reqId -> { action, params, createdAt, resolve, reject, timer }
 const gpmRpcQueue = []; // reqId[]
 
@@ -2220,29 +2224,31 @@ async function executeLocalGpmRpcAction(action, p = {}) {
 if (IS_WINDOWS_LOCAL && !global.__gpmVpsRpcPollerStarted) {
   global.__gpmVpsRpcPollerStarted = true;
   setInterval(async () => {
-    try {
-      const r = await fetch(`${VPS_BASE_URL}/api/gpm-rpc/poll`, { signal: AbortSignal.timeout(4000) });
-      if (!r.ok) return;
-      const data = await r.json();
-      if (data && data.hasTask && data.reqId) {
-        try {
-          const result = await executeLocalGpmRpcAction(data.action, data.params || {});
-          await fetch(`${VPS_BASE_URL}/api/gpm-rpc/respond`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reqId: data.reqId, result }),
-            signal: AbortSignal.timeout(8000)
-          });
-        } catch (err) {
-          await fetch(`${VPS_BASE_URL}/api/gpm-rpc/respond`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reqId: data.reqId, error: err.message || String(err) }),
-            signal: AbortSignal.timeout(8000)
-          }).catch(() => {});
+    for (const vpsUrl of VPS_BASE_URLS) {
+      try {
+        const r = await fetch(`${vpsUrl}/api/gpm-rpc/poll`, { signal: AbortSignal.timeout(3000) });
+        if (!r.ok) continue;
+        const data = await r.json();
+        if (data && data.hasTask && data.reqId) {
+          try {
+            const result = await executeLocalGpmRpcAction(data.action, data.params || {});
+            await fetch(`${vpsUrl}/api/gpm-rpc/respond`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reqId: data.reqId, result }),
+              signal: AbortSignal.timeout(8000)
+            });
+          } catch (err) {
+            await fetch(`${vpsUrl}/api/gpm-rpc/respond`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reqId: data.reqId, error: err.message || String(err) }),
+              signal: AbortSignal.timeout(8000)
+            }).catch(() => {});
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
   }, 1500);
 }
 

@@ -178,32 +178,53 @@ function getDuoPlusAuth({ profileId, hotmail, apiKey } = {}) {
 }
 
 /**
- * Tìm đường dẫn trình duyệt Chrome / Chromium trên máy tính
+ * Tìm đường dẫn trình duyệt Chromium / Chrome trên máy tính
+ * Ưu tiên Chromium riêng biệt (GPMLogin ChromiumCore / Puppeteer Chromium) trước để luôn hiển thị cửa sổ Chromium độc lập,
+ * không bị gộp chung hoặc xung đột với Google Chrome cá nhân đang mở.
  */
 async function resolveBrowserExecutablePath() {
   const isWin = process.platform === 'win32';
+  if (isWin) {
+    // 1. Ưu tiên ChromiumCore của GPMLogin (v154, v153, v144...) - đây là Chromium thuần, chạy cửa sổ riêng biệt cực nhạy
+    const appData = process.env.APPDATA || 'C:\\Users\\Admin\\AppData\\Roaming';
+    const gpmBrowsersDir = path.join(appData, 'GPMLoginGlobal', 'Browsers');
+    if (fs.existsSync(gpmBrowsersDir)) {
+      try {
+        const subDirs = fs.readdirSync(gpmBrowsersDir)
+          .filter(d => d.toLowerCase().startsWith('chromium'))
+          .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+        for (const sub of subDirs) {
+          const candidate = path.join(gpmBrowsersDir, sub, 'chrome.exe');
+          if (fs.existsSync(candidate)) return candidate;
+        }
+      } catch (e) {}
+    }
+  }
+
+  // 2. Thử Chromium đi kèm Puppeteer
+  try {
+    const pPath = typeof puppeteer.executablePath === 'function' ? await puppeteer.executablePath() : null;
+    if (pPath && fs.existsSync(pPath)) return pPath;
+  } catch (e) {}
+
+  // 3. Fallback sang Google Chrome / Brave / Edge trên máy
   const commonPaths = isWin ? [
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
     process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Google\\Chrome\\Application\\chrome.exe') : '',
+    'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe'
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'
   ].filter(Boolean) : [
-    '/usr/bin/google-chrome',
     '/usr/bin/chromium-browser',
     '/usr/bin/chromium',
+    '/usr/bin/google-chrome',
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
   ];
 
   for (const p of commonPaths) {
     if (fs.existsSync(p)) return p;
   }
-
-  try {
-    const pPath = await puppeteer.executablePath();
-    if (pPath && fs.existsSync(pPath)) return pPath;
-  } catch (e) {}
 
   return null;
 }
@@ -404,7 +425,7 @@ async function launchDuoPlusDirectChromium(options = {}) {
 
   let childPid = null;
 
-  // Nếu chưa có cửa sổ Chrome nào đang mở cho tài khoản này, khởi chạy mới
+  // Nếu chưa có cửa sổ Chrome/Chromium nào đang mở cho tài khoản này, khởi chạy mới
   if (!portAlive) {
     debugPort = 59100 + Math.floor(Math.random() * 800);
     activeDebugPorts.set(safeKey, debugPort);
@@ -416,27 +437,45 @@ async function launchDuoPlusDirectChromium(options = {}) {
       '--no-first-run',
       '--no-default-browser-check',
       '--no-proxy-server',
+      '--new-window',
       `--window-size=${winSize}`,
       'about:blank'
     ];
 
-    let launchedOnDefaultDesktop = false;
     if (process.platform === 'win32') {
       try {
         const vbsPath = path.join(PROFILE_BASE_DIR, 'launch_chrome.vbs');
-        const vbsCmd = `""${browserPath}"" --user-data-dir=""${userDataDir}"" --remote-debugging-port=${debugPort} --no-first-run --no-default-browser-check --no-proxy-server --window-size=${winSize} ""about:blank""`;
-        const vbsContent = `Set WshShell = CreateObject("WScript.Shell")\r\nWshShell.Run "${vbsCmd}", 1, False\r\n`;
+        const vbsCmd = `""${browserPath}"" --user-data-dir=""${userDataDir}"" --remote-debugging-port=${debugPort} --no-first-run --no-default-browser-check --no-proxy-server --new-window --window-size=${winSize} ""about:blank""`;
+        const vbsContent = [
+          `Set WshShell = CreateObject("WScript.Shell")`,
+          `WshShell.Run "${vbsCmd}", 1, False`,
+          `WScript.Sleep 600`,
+          `On Error Resume Next`,
+          `WshShell.AppActivate "DuoPlus"`,
+          `WshShell.AppActivate "Chromium"`,
+          `WshShell.AppActivate "Chrome"`
+        ].join('\r\n') + '\r\n';
         fs.writeFileSync(vbsPath, vbsContent, 'utf8');
 
-        execSync(`schtasks /Create /TN "DuoPlusChromeLaunch" /TR "wscript.exe ${vbsPath}" /SC ONCE /ST 00:00 /F`, { stdio: 'ignore' });
+        execSync(`schtasks /Create /TN "DuoPlusChromeLaunch" /TR "wscript.exe \\"${vbsPath}\\"" /SC ONCE /ST 00:00 /F`, { stdio: 'ignore' });
         execSync(`schtasks /Run /TN "DuoPlusChromeLaunch"`, { stdio: 'ignore' });
-        launchedOnDefaultDesktop = true;
       } catch (e) {
-        console.warn('[DuoPlus Chromium] schtasks fallback to spawn:', e.message);
+        console.warn('[DuoPlus Chromium] schtasks warning:', e.message);
       }
     }
 
-    if (!launchedOnDefaultDesktop) {
+    // Chờ cổng DevTools từ schtasks sẵn sàng (tối đa 3.5 giây)
+    const waitStart = Date.now();
+    while (Date.now() - waitStart < 3500) {
+      if (await isDebugPortAlive(debugPort)) {
+        portAlive = true;
+        break;
+      }
+      await new Promise(r => setTimeout(r, 250));
+    }
+
+    // Nếu schtasks chưa mở được (ví dụ đang dùng laptop bằng Pin nên Task Scheduler mặc định chặn), spawn trực tiếp!
+    if (!portAlive) {
       const child = spawn(browserPath, args, {
         detached: true,
         stdio: 'ignore',
@@ -444,16 +483,15 @@ async function launchDuoPlusDirectChromium(options = {}) {
       });
       child.unref();
       childPid = child.pid;
-    }
 
-    // Chờ cổng DevTools sẵn sàng (tối đa 6 giây)
-    const waitStart = Date.now();
-    while (Date.now() - waitStart < 6000) {
-      if (await isDebugPortAlive(debugPort)) {
-        portAlive = true;
-        break;
+      const waitSpawn = Date.now();
+      while (Date.now() - waitSpawn < 5000) {
+        if (await isDebugPortAlive(debugPort)) {
+          portAlive = true;
+          break;
+        }
+        await new Promise(r => setTimeout(r, 250));
       }
-      await new Promise(r => setTimeout(r, 250));
     }
   }
 
@@ -513,12 +551,24 @@ async function launchDuoPlusDirectChromium(options = {}) {
 
       try { await page.bringToFront(); } catch (e) {}
       await browser.disconnect();
+
+      // Đưa cửa sổ Chromium lên trên cùng (Foreground) trên màn hình Windows
+      if (process.platform === 'win32') {
+        try {
+          const focusVbs = path.join(PROFILE_BASE_DIR, 'focus_chrome.vbs');
+          fs.writeFileSync(focusVbs, `Set WshShell = CreateObject("WScript.Shell")\r\nOn Error Resume Next\r\nWshShell.AppActivate "DuoPlus"\r\nWshShell.AppActivate "Chromium"\r\n`, 'utf8');
+          const fChild = spawn('wscript.exe', [focusVbs], { detached: true, stdio: 'ignore' });
+          fChild.unref();
+        } catch (e) {}
+      }
     } catch (connErr) {
       console.error('[DuoPlus Chromium Connect Error]:', connErr.message);
       if (browser) {
         try { await browser.disconnect(); } catch (e) {}
       }
     }
+  } else {
+    throw new Error('Không thể khởi chạy cửa sổ Chromium trên máy tính (DevTools port không phản hồi)');
   }
 
   return {
