@@ -1,10 +1,6 @@
 @echo off
-cd /d "%~dp0"
-:loop
-REM Kiểm tra xem cổng 9497 đã có tiến trình lắng nghe chưa
-netstat -ano | findstr ":9497 " | findstr "LISTENING" >nul 2>&1
+cd /d "c:\Users\Admin\Documents\Test-Websites\shopee-qr"
+C:\Windows\System32\netstat.exe -ano | C:\Windows\System32\findstr.exe ":9497 " | C:\Windows\System32\findstr.exe "LISTENING" >nul 2>&1
 if %errorlevel% neq 0 (
-  node server.js
+  "C:\Program Files\nodejs\node.exe" "c:\Users\Admin\Documents\Test-Websites\shopee-qr\server.js" >> "c:\Users\Admin\Documents\Test-Websites\shopee-qr\bridge-startup.log" 2>&1
 )
-timeout /t 3 /nobreak >nul
-goto loop

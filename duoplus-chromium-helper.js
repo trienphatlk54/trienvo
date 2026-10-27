@@ -178,14 +178,35 @@ function getDuoPlusAuth({ profileId, hotmail, apiKey } = {}) {
 }
 
 /**
- * Tìm đường dẫn trình duyệt Chromium / Chrome trên máy tính
- * Ưu tiên Chromium riêng biệt (GPMLogin ChromiumCore / Puppeteer Chromium) trước để luôn hiển thị cửa sổ Chromium độc lập,
- * không bị gộp chung hoặc xung đột với Google Chrome cá nhân đang mở.
+ * Tìm đường dẫn trình duyệt Chrome / Chromium trên máy tính.
+ * Ưu tiên Google Chrome chuẩn với --user-data-dir riêng biệt (tạo cửa sổ hoàn toàn độc lập, không bị extension GPM Login tự đóng tab gây lỗi "Navigating frame was detached").
  */
 async function resolveBrowserExecutablePath() {
   const isWin = process.platform === 'win32';
+  const commonPaths = isWin ? [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Google\\Chrome\\Application\\chrome.exe') : '',
+    'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'
+  ].filter(Boolean) : [
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+  ];
+
+  for (const p of commonPaths) {
+    if (fs.existsSync(p)) return p;
+  }
+
+  try {
+    const pPath = typeof puppeteer.executablePath === 'function' ? await puppeteer.executablePath() : null;
+    if (pPath && fs.existsSync(pPath)) return pPath;
+  } catch (e) {}
+
   if (isWin) {
-    // 1. Ưu tiên ChromiumCore của GPMLogin (v154, v153, v144...) - đây là Chromium thuần, chạy cửa sổ riêng biệt cực nhạy
     const appData = process.env.APPDATA || 'C:\\Users\\Admin\\AppData\\Roaming';
     const gpmBrowsersDir = path.join(appData, 'GPMLoginGlobal', 'Browsers');
     if (fs.existsSync(gpmBrowsersDir)) {
@@ -199,31 +220,6 @@ async function resolveBrowserExecutablePath() {
         }
       } catch (e) {}
     }
-  }
-
-  // 2. Thử Chromium đi kèm Puppeteer
-  try {
-    const pPath = typeof puppeteer.executablePath === 'function' ? await puppeteer.executablePath() : null;
-    if (pPath && fs.existsSync(pPath)) return pPath;
-  } catch (e) {}
-
-  // 3. Fallback sang Google Chrome / Brave / Edge trên máy
-  const commonPaths = isWin ? [
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Google\\Chrome\\Application\\chrome.exe') : '',
-    'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'
-  ].filter(Boolean) : [
-    '/usr/bin/chromium-browser',
-    '/usr/bin/chromium',
-    '/usr/bin/google-chrome',
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-  ];
-
-  for (const p of commonPaths) {
-    if (fs.existsSync(p)) return p;
   }
 
   return null;
@@ -420,15 +416,53 @@ async function launchDuoPlusDirectChromium(options = {}) {
   const userDataDir = path.join(PROFILE_BASE_DIR, `acct_${safeKey}`);
   ensureDir(userDataDir);
 
+  const portFilePath = path.join(userDataDir, '.debug_port');
+  const devToolsActiveFile = path.join(userDataDir, 'DevToolsActivePort');
+
   let debugPort = activeDebugPorts.get(safeKey);
   let portAlive = await isDebugPortAlive(debugPort);
+
+  if (!portAlive && fs.existsSync(portFilePath)) {
+    try {
+      const savedPort = parseInt(fs.readFileSync(portFilePath, 'utf8').trim(), 10);
+      if (savedPort && await isDebugPortAlive(savedPort)) {
+        debugPort = savedPort;
+        portAlive = true;
+        activeDebugPorts.set(safeKey, debugPort);
+      }
+    } catch (e) {}
+  }
+
+  if (!portAlive && fs.existsSync(devToolsActiveFile)) {
+    try {
+      const firstLine = fs.readFileSync(devToolsActiveFile, 'utf8').split(/\r?\n/)[0].trim();
+      const dtPort = parseInt(firstLine, 10);
+      if (dtPort && await isDebugPortAlive(dtPort)) {
+        debugPort = dtPort;
+        portAlive = true;
+        activeDebugPorts.set(safeKey, debugPort);
+      }
+    } catch (e) {}
+  }
 
   let childPid = null;
 
   // Nếu chưa có cửa sổ Chrome/Chromium nào đang mở cho tài khoản này, khởi chạy mới
   if (!portAlive) {
+    // Xóa trạng thái Crashed sau khi reset máy để không hiện popup "Restore pages"
+    try {
+      const prefPath = path.join(userDataDir, 'Default', 'Preferences');
+      if (fs.existsSync(prefPath)) {
+        const prefRaw = fs.readFileSync(prefPath, 'utf8');
+        if (prefRaw.includes('"Crashed"')) {
+          fs.writeFileSync(prefPath, prefRaw.replace(/"exit_type"\s*:\s*"Crashed"/g, '"exit_type":"Normal"'), 'utf8');
+        }
+      }
+    } catch (e) {}
+
     debugPort = 59100 + Math.floor(Math.random() * 800);
     activeDebugPorts.set(safeKey, debugPort);
+    try { fs.writeFileSync(portFilePath, String(debugPort), 'utf8'); } catch (e) {}
 
     const winSize = isControlUrl ? '480,860' : '1280,840';
     const args = [
@@ -437,6 +471,8 @@ async function launchDuoPlusDirectChromium(options = {}) {
       '--no-first-run',
       '--no-default-browser-check',
       '--no-proxy-server',
+      '--disable-session-crashed-bubble',
+      '--hide-crash-restore-bubble',
       '--new-window',
       `--window-size=${winSize}`,
       'about:blank'
@@ -445,15 +481,15 @@ async function launchDuoPlusDirectChromium(options = {}) {
     if (process.platform === 'win32') {
       try {
         const vbsPath = path.join(PROFILE_BASE_DIR, 'launch_chrome.vbs');
-        const vbsCmd = `""${browserPath}"" --user-data-dir=""${userDataDir}"" --remote-debugging-port=${debugPort} --no-first-run --no-default-browser-check --no-proxy-server --new-window --window-size=${winSize} ""about:blank""`;
+        const vbsCmd = `""${browserPath}"" --user-data-dir=""${userDataDir}"" --remote-debugging-port=${debugPort} --no-first-run --no-default-browser-check --no-proxy-server --disable-session-crashed-bubble --hide-crash-restore-bubble --new-window --window-size=${winSize} ""about:blank""`;
         const vbsContent = [
           `Set WshShell = CreateObject("WScript.Shell")`,
           `WshShell.Run "${vbsCmd}", 1, False`,
           `WScript.Sleep 600`,
           `On Error Resume Next`,
           `WshShell.AppActivate "DuoPlus"`,
-          `WshShell.AppActivate "Chromium"`,
-          `WshShell.AppActivate "Chrome"`
+          `WshShell.AppActivate "Chrome"`,
+          `WshShell.AppActivate "Chromium"`
         ].join('\r\n') + '\r\n';
         fs.writeFileSync(vbsPath, vbsContent, 'utf8');
 
@@ -503,33 +539,33 @@ async function launchDuoPlusDirectChromium(options = {}) {
         defaultViewport: null
       });
 
-      const pages = await browser.pages();
+      // Luôn tạo tab mới để tránh trường hợp tab about:blank ban đầu bị extension đóng gây lỗi "Navigating frame was detached"
+      const navigateOnTab = async () => {
+        const p = await browser.newPage();
+        if (auth && auth.accessToken) {
+          await p.evaluateOnNewDocument((authObj) => {
+            try {
+              localStorage.setItem('duoplus.access_token', authObj.accessToken);
+              localStorage.setItem('duoplus.expired_in', authObj.expiredIn);
+              if (authObj.deviceId) localStorage.setItem('duoplus.deviceId', authObj.deviceId);
+              localStorage.setItem('duoplus.locale', '"en"');
+            } catch (e) {}
+          }, auth);
+        }
+        await p.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+        return p;
+      };
+
       let page = null;
-
-      // Tìm tab trống hoặc tạo tab mới
-      const blankPage = pages.find(p => p.url() === 'about:blank' || p.url().startsWith('chrome://newtab'));
-      if (blankPage) {
-        page = blankPage;
-      } else {
-        page = await browser.newPage();
+      try {
+        page = await navigateOnTab();
+      } catch (firstNavErr) {
+        await new Promise(r => setTimeout(r, 500));
+        page = await navigateOnTab();
       }
-
-      // Bơm token đăng nhập DuoPlus vào localStorage trước khi trang chạy script
-      if (auth && auth.accessToken) {
-        await page.evaluateOnNewDocument((authObj) => {
-          try {
-            localStorage.setItem('duoplus.access_token', authObj.accessToken);
-            localStorage.setItem('duoplus.expired_in', authObj.expiredIn);
-            if (authObj.deviceId) localStorage.setItem('duoplus.deviceId', authObj.deviceId);
-            localStorage.setItem('duoplus.locale', '"en"');
-          } catch (e) {}
-        }, auth);
-      }
-
-      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
 
       // Đảm bảo localStorage đã có token (nếu trang vừa khởi tạo origin lần đầu)
-      if (auth && auth.accessToken) {
+      if (page && auth && auth.accessToken) {
         const needsReload = await page.evaluate((authObj) => {
           try {
             const current = localStorage.getItem('duoplus.access_token');
@@ -549,14 +585,24 @@ async function launchDuoPlusDirectChromium(options = {}) {
         }
       }
 
-      try { await page.bringToFront(); } catch (e) {}
+      // Đóng các tab about:blank dư thừa
+      try {
+        const allPages = await browser.pages();
+        for (const oldP of allPages) {
+          if (oldP !== page && (oldP.url() === 'about:blank' || oldP.url().startsWith('chrome://newtab'))) {
+            await oldP.close().catch(() => {});
+          }
+        }
+      } catch (e) {}
+
+      try { if (page) await page.bringToFront(); } catch (e) {}
       await browser.disconnect();
 
-      // Đưa cửa sổ Chromium lên trên cùng (Foreground) trên màn hình Windows
+      // Đưa cửa sổ trình duyệt lên trên cùng (Foreground) trên màn hình Windows
       if (process.platform === 'win32') {
         try {
           const focusVbs = path.join(PROFILE_BASE_DIR, 'focus_chrome.vbs');
-          fs.writeFileSync(focusVbs, `Set WshShell = CreateObject("WScript.Shell")\r\nOn Error Resume Next\r\nWshShell.AppActivate "DuoPlus"\r\nWshShell.AppActivate "Chromium"\r\n`, 'utf8');
+          fs.writeFileSync(focusVbs, `Set WshShell = CreateObject("WScript.Shell")\r\nOn Error Resume Next\r\nWshShell.AppActivate "DuoPlus"\r\nWshShell.AppActivate "Chrome"\r\nWshShell.AppActivate "Chromium"\r\n`, 'utf8');
           const fChild = spawn('wscript.exe', [focusVbs], { detached: true, stdio: 'ignore' });
           fChild.unref();
         } catch (e) {}
@@ -566,6 +612,7 @@ async function launchDuoPlusDirectChromium(options = {}) {
       if (browser) {
         try { await browser.disconnect(); } catch (e) {}
       }
+      throw connErr;
     }
   } else {
     throw new Error('Không thể khởi chạy cửa sổ Chromium trên máy tính (DevTools port không phản hồi)');

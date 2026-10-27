@@ -2137,8 +2137,7 @@ try {
 const IS_WINDOWS_LOCAL = process.platform === 'win32';
 const VPS_BASE_URLS = [
   process.env.VPS_URL,
-  'http://157.66.218.153:3000',
-  'http://103.56.161.214:3000'
+  'http://157.66.218.153:3000'
 ].filter(Boolean);
 const gpmRpcPendingRequests = new Map(); // reqId -> { action, params, createdAt, resolve, reject, timer }
 const gpmRpcQueue = []; // reqId[]
