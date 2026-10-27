@@ -419,7 +419,14 @@ async function launchDuoPlusDirectChromium(options = {}) {
   const portFilePath = path.join(userDataDir, '.debug_port');
   const devToolsActiveFile = path.join(userDataDir, 'DevToolsActivePort');
 
-  let debugPort = activeDebugPorts.get(safeKey);
+  // Tính cổng debugPort cố định theo safeKey để dù server.js khởi động lại vẫn luôn khớp với cửa sổ đang mở
+  let keyHash = 0;
+  for (let i = 0; i < safeKey.length; i++) {
+    keyHash = ((keyHash << 5) - keyHash + safeKey.charCodeAt(i)) | 0;
+  }
+  const deterministicPort = 59100 + (Math.abs(keyHash) % 800);
+
+  let debugPort = activeDebugPorts.get(safeKey) || deterministicPort;
   let portAlive = await isDebugPortAlive(debugPort);
 
   if (!portAlive && fs.existsSync(portFilePath)) {
@@ -445,6 +452,41 @@ async function launchDuoPlusDirectChromium(options = {}) {
     } catch (e) {}
   }
 
+  // Nếu vẫn chưa thấy portAlive, kiểm tra xem có tiến trình chrome.exe nào đang giữ thư mục acct_${safeKey} ở cổng khác không
+  if (!portAlive && process.platform === 'win32') {
+    try {
+      const psCmd = `Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'chrome.exe' -and $_.CommandLine -like '*acct_${safeKey}*' } | ForEach-Object { $_.ProcessId.ToString() + '|' + $_.CommandLine }`;
+      const out = execSync(`powershell.exe -NoProfile -Command "${psCmd}"`, { encoding: 'utf8', timeout: 4000, stdio: ['ignore', 'pipe', 'ignore'] });
+      const lines = (out || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const stalePids = [];
+      for (const line of lines) {
+        const sepIdx = line.indexOf('|');
+        const pid = parseInt(line.slice(0, sepIdx), 10);
+        const cmd = line.slice(sepIdx + 1);
+        const isWrongEngine = !browserPath.includes('ChromiumCore') && cmd.includes('ChromiumCore');
+        const m = cmd.match(/--remote-debugging-port=(\d+)/);
+        if (!isWrongEngine && m && m[1]) {
+          const existingPort = parseInt(m[1], 10);
+          if (existingPort && await isDebugPortAlive(existingPort)) {
+            debugPort = existingPort;
+            portAlive = true;
+            activeDebugPorts.set(safeKey, debugPort);
+            try { fs.writeFileSync(portFilePath, String(debugPort), 'utf8'); } catch (e) {}
+            break;
+          }
+        }
+        if (pid) stalePids.push(pid);
+      }
+      // Nếu có tiến trình cũ đang giữ khóa thư mục userDataDir nhưng không phản hồi port (hoặc sai engine), đóng nó để mở mới sạch sẽ
+      if (!portAlive && stalePids.length > 0) {
+        for (const pid of stalePids) {
+          try { process.kill(pid, 'SIGKILL'); } catch (e) {}
+        }
+        await new Promise(r => setTimeout(r, 500));
+      }
+    } catch (e) {}
+  }
+
   let childPid = null;
 
   // Nếu chưa có cửa sổ Chrome/Chromium nào đang mở cho tài khoản này, khởi chạy mới
@@ -460,7 +502,7 @@ async function launchDuoPlusDirectChromium(options = {}) {
       }
     } catch (e) {}
 
-    debugPort = 59100 + Math.floor(Math.random() * 800);
+    debugPort = deterministicPort;
     activeDebugPorts.set(safeKey, debugPort);
     try { fs.writeFileSync(portFilePath, String(debugPort), 'utf8'); } catch (e) {}
 
@@ -493,7 +535,7 @@ async function launchDuoPlusDirectChromium(options = {}) {
         ].join('\r\n') + '\r\n';
         fs.writeFileSync(vbsPath, vbsContent, 'utf8');
 
-        execSync(`schtasks /Create /TN "DuoPlusChromeLaunch" /TR "wscript.exe \\"${vbsPath}\\"" /SC ONCE /ST 00:00 /F`, { stdio: 'ignore' });
+        execSync(`schtasks /Create /TN "DuoPlusChromeLaunch" /TR "wscript.exe ${vbsPath}" /SC ONCE /ST 00:00 /F`, { stdio: 'ignore' });
         execSync(`schtasks /Run /TN "DuoPlusChromeLaunch"`, { stdio: 'ignore' });
       } catch (e) {
         console.warn('[DuoPlus Chromium] schtasks warning:', e.message);
