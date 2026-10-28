@@ -6549,10 +6549,21 @@ function renderDuoplusTaskProgress(task, hotmailId) {
     }
   }
 
-  // Bảng nhắc giải Captcha
+  // Bảng nhắc giải Captcha (tự động phát hiện qua DOM; chỉ hiện nút xác nhận thủ công
+  // nếu auto-detect chưa nhận diện xong sau một khoảng chờ dài - captchaAutoDetectSlow)
   const captchaAlert = document.getElementById('duoCaptchaAlert');
+  const captchaManualBtn = document.getElementById('duoCaptchaManualBtn');
+  const captchaAlertDesc = document.getElementById('duoCaptchaAlertDesc');
   if (captchaAlert) {
     captchaAlert.style.display = (task.status === 'waiting_captcha') ? 'block' : 'none';
+  }
+  if (captchaManualBtn) {
+    captchaManualBtn.style.display = (task.status === 'waiting_captcha' && task.captchaAutoDetectSlow) ? 'inline-block' : 'none';
+  }
+  if (captchaAlertDesc) {
+    captchaAlertDesc.innerText = task.captchaAutoDetectSlow
+      ? 'Hệ thống chưa tự nhận diện được Captcha đã giải xong. Nếu bạn đã giải xong, bấm nút bên cạnh để tiếp tục ngay.'
+      : 'Vui lòng xem cửa sổ Chrome GPM vừa mở trên màn hình và kéo thanh trượt giải Captcha. Hệ thống sẽ tự động quét OTP ngay khi phát hiện giải xong.';
   }
 
   // Khung Try Again & Nhập mã OTP thủ công
@@ -6673,6 +6684,8 @@ function resetDuoplusModalUI(fromStep = 1) {
 
   const captchaAlert = document.getElementById('duoCaptchaAlert');
   if (captchaAlert) captchaAlert.style.display = 'none';
+  const captchaManualBtn = document.getElementById('duoCaptchaManualBtn');
+  if (captchaManualBtn) captchaManualBtn.style.display = 'none';
   const retryBox = document.getElementById('duoOtpRetryBox');
   if (retryBox) retryBox.style.display = 'none';
   const manualInput = document.getElementById('duoManualOtpInput');
@@ -12001,14 +12014,14 @@ async function clearAllNotes() {
       <div id="duoCaptchaAlert" style="display:none; margin: 0 16px; background:linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(245, 158, 11, 0.15)); border:1px solid #f59e0b; border-radius:10px; padding:12px 14px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
           <div>
-            <div style="font-size:13px; font-weight:700; color:#fbbf24; display:flex; align-items:center; gap:6px;">
+            <div id="duoCaptchaAlertTitle" style="font-size:13px; font-weight:700; color:#fbbf24; display:flex; align-items:center; gap:6px;">
               🧩 <span style="animation: duoPulse 1.5s infinite;">Cần giải Captcha trên màn hình!</span>
             </div>
-            <div style="font-size:12px; color:var(--text); margin-top:3px;">
-              Vui lòng xem cửa sổ Chrome GPM vừa mở trên màn hình và kéo thanh trượt giải Captcha.
+            <div id="duoCaptchaAlertDesc" style="font-size:12px; color:var(--text); margin-top:3px;">
+              Vui lòng xem cửa sổ Chrome GPM vừa mở trên màn hình và kéo thanh trượt giải Captcha. Hệ thống sẽ tự động quét OTP ngay khi phát hiện giải xong.
             </div>
           </div>
-          <button class="btn btn-sm btn-primary" onclick="markDuoplusCaptchaResolved()" style="background:#f59e0b; color:#000; font-weight:700; border:none; padding:5px 12px; font-size:12px; cursor:pointer; border-radius:4px;">
+          <button id="duoCaptchaManualBtn" onclick="markDuoplusCaptchaResolved()" style="display:none; background:#f59e0b; color:#000; font-weight:700; border:none; padding:5px 12px; font-size:12px; cursor:pointer; border-radius:4px;">
             ⚡ Đã giải xong (Tiếp tục ngay)
           </button>
         </div>

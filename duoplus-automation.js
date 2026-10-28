@@ -37,6 +37,7 @@ function startDuoplusRegistration({ profileId, gpmPort = 9495, hotmailAccount, t
     apiKey: null,
     error: null,
     captchaManuallyPassed: false,
+    captchaAutoDetectSlow: false, // true khi auto-detect chưa nhận diện xong Captcha sau một khoảng chờ dài, dùng để hiện nút xác nhận thủ công dự phòng
     retryRequested: false,
     manualOtp: null,
     otpPollStart: null,
@@ -358,10 +359,11 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
 
     if (!clickedSend) throw new Error('Không tìm thấy nút Send Code trên trang DuoPlus');
 
-    // BƯỚC 5: Chờ người dùng giải Captcha
+    // BƯỚC 5: Chờ giải Captcha (tự động phát hiện qua DOM, không cần bấm xác nhận thủ công)
     task.status = 'waiting_captcha';
     task.step = 4;
-    task.message = '⚠️ Vui lòng giải Captcha trên cửa sổ trình duyệt GPM vừa mở!';
+    task.message = '⚠️ Vui lòng giải Captcha trên cửa sổ trình duyệt GPM vừa mở! Hệ thống sẽ tự động quét OTP ngay khi phát hiện giải xong.';
+    task.captchaAutoDetectSlow = false;
     task.updatedAt = Date.now();
 
     // Chờ 2.5 giây để bảng Captcha hiển thị trên màn hình
@@ -369,6 +371,7 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
 
     let captchaPassed = false;
     const captchaWaitStart = Date.now();
+    const CAPTCHA_AUTO_DETECT_SLOW_MS = 20000; // Nếu sau 20s auto-detect vẫn chưa nhận diện xong, hiện nút xác nhận thủ công dự phòng
 
     // Vòng lặp kiểm tra giải Captcha (tối đa 3 phút)
     while (Date.now() - captchaWaitStart < 180000) {
@@ -377,6 +380,12 @@ async function runRegistrationFlow(task, { profileId, gpmPort, hotmailAccount, t
       if (task.captchaManuallyPassed) {
         captchaPassed = true;
         break;
+      }
+
+      // Auto-detect chậm quá 20s => báo cho UI hiện nút xác nhận thủ công dự phòng
+      if (!task.captchaAutoDetectSlow && (Date.now() - captchaWaitStart > CAPTCHA_AUTO_DETECT_SLOW_MS)) {
+        task.captchaAutoDetectSlow = true;
+        task.updatedAt = Date.now();
       }
 
       const captchaState = await page.evaluate(() => {
